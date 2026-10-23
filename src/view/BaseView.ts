@@ -17,21 +17,22 @@ export class BaseView {
     this.root = scene.add.container(0, 0);
     const add = <T extends Phaser.GameObjects.GameObject>(object: T): T => { this.root.add(object); return object; };
     const data = Array.from({ length: BASE_HEIGHT / GRID }, (_, y) => Array.from({ length: BASE_WIDTH / GRID }, (_, x) =>
-      x >= 10 && x < 38 && y >= 8 && y < 24 ? ((x * 13 + y * 7) % 17 === 0 ? 777 : 704) : 889));
+      x * GRID >= BUILD_AREA.x && x * GRID < BUILD_AREA.x + BUILD_AREA.width && y * GRID >= BUILD_AREA.y && y * GRID < BUILD_AREA.y + BUILD_AREA.height ? ((x * 13 + y * 7) % 17 === 0 ? 777 : 704) : 889));
     const map = scene.make.tilemap({ data, tileWidth: 16, tileHeight: 16 });
     const tiles = map.addTilesetImage('city', 'city', 16, 16, 0, 0)!;
     add(map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(0x849086).setDepth(-100));
     const ground = add(scene.add.graphics().setDepth(-80));
-    ground.fillStyle(0x192f32, 0.35).fillRect(320, 480, 896, 96).fillRect(720, 256, 96, 512);
+    for (const route of RESERVED_ROUTES) ground.fillStyle(0x192f32, 0.35).fillRect(route.x, route.y, route.width, route.height);
     ground.lineStyle(2, 0xb7ad77, 0.6);
-    for (let x = BUILD_AREA.x; x < BUILD_AREA.x + BUILD_AREA.width; x += 28) ground.lineBetween(x, BUILD_AREA.y, x + 13, BUILD_AREA.y).lineBetween(x, 768, x + 13, 768);
-    for (let y = BUILD_AREA.y; y < 768; y += 28) ground.lineBetween(320, y, 320, y + 13).lineBetween(1216, y, 1216, y + 13);
+    const right = BUILD_AREA.x + BUILD_AREA.width, bottom = BUILD_AREA.y + BUILD_AREA.height;
+    for (let x = BUILD_AREA.x; x < right; x += 28) ground.lineBetween(x, BUILD_AREA.y, x + 13, BUILD_AREA.y).lineBetween(x, bottom, x + 13, bottom);
+    for (let y = BUILD_AREA.y; y < bottom; y += 28) ground.lineBetween(BUILD_AREA.x, y, BUILD_AREA.x, y + 13).lineBetween(right, y, right, y + 13);
     const tile = (x: number, y: number, frame: number, depth: number) => add(scene.add.image(x, y, 'city', frame).setOrigin(0).setScale(2).setTint(0x8e998a).setDepth(depth));
     for (const hut of BASE_OBSTACLES.slice(1)) {
       for (let y = 0; y < 4; y++) for (let x = 0; x < 6; x++) tile(hut.x + x * GRID, hut.y + y * GRID, y === 3 ? (x === 3 ? 641 : 190) : 8 + (y === 0 ? 0 : 37) + (x === 0 ? 0 : x === 5 ? 2 : 1), hut.y + hut.height);
       add(scene.add.text(hut.x + hut.width / 2, hut.y + hut.height + 14, '北境守备 / 后勤站', { fontSize: '12px', fontFamily: 'Microsoft YaHei', color: '#a9b7a0' }).setOrigin(0.5).setDepth(hut.y + hut.height + 1));
     }
-    for (const x of [64, 1440]) for (let y = 64; y < 970; y += 96) { tile(x, y, 403, y + 64); tile(x, y + 32, 440, y + 64); }
+    for (const x of [64, BASE_WIDTH - 64]) for (let y = 64; y < BASE_HEIGHT - 64; y += 96) { tile(x, y, 403, y + 64); tile(x, y + 32, 440, y + 64); }
     for (const x of [416, 1056]) for (const y of [192, 816]) add(scene.add.image(x, y, 'supply').setScale(1.5).setDepth(y));
     add(scene.add.ellipse(LIGHTHOUSE.x, LIGHTHOUSE.y + 24, 132, 46, 0x0b2026, 0.5).setDepth(LIGHTHOUSE.y - 2));
     add(scene.add.image(LIGHTHOUSE.x, LIGHTHOUSE.y + 30, 'lighthouse').setName('lighthouse').setOrigin(0.5, 0.94).setDepth(LIGHTHOUSE.y));
@@ -93,8 +94,8 @@ export class BaseView {
     if (placement && !paused) {
       const { kind, point, rotation } = placement, r = buildingRect({ kind, ...point, rotation }), validity = world.preview(kind, point, rotation);
       g.lineStyle(1, 0x9db59a, 0.16);
-      for (let x = BUILD_AREA.x; x <= 1216; x += GRID) g.lineBetween(x, 256, x, 768);
-      for (let y = BUILD_AREA.y; y <= 768; y += GRID) g.lineBetween(320, y, 1216, y);
+      for (let x = BUILD_AREA.x; x <= BUILD_AREA.x + BUILD_AREA.width; x += GRID) g.lineBetween(x, BUILD_AREA.y, x, BUILD_AREA.y + BUILD_AREA.height);
+      for (let y = BUILD_AREA.y; y <= BUILD_AREA.y + BUILD_AREA.height; y += GRID) g.lineBetween(BUILD_AREA.x, y, BUILD_AREA.x + BUILD_AREA.width, y);
       for (const route of RESERVED_ROUTES) g.fillStyle(0xe1b66a, 0.09).fillRect(route.x, route.y, route.width, route.height);
       g.fillStyle(validity.ok ? 0xa4c69b : 0xd47865, 0.25).fillRect(r.x, r.y, r.width, r.height);
       g.lineStyle(2, validity.ok ? 0xb9d9ab : 0xe18c75).strokeRect(r.x, r.y, r.width, r.height);

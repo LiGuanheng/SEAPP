@@ -28,3 +28,8 @@ v0.6：战术地图、指南与目标指引为 Phaser 场内图形/文字，白�
 v0.7：新增 axe.svg、bow.svg、arrow.svg、cannon.svg、cannon-barrel.svg、arrowtower.svg、wall.svg、desk.svg、bed.svg 九份原创像素网格 SVG，纳入 project-art.txt 的 CC0 说明与静态 SHA-256 清单。室内地面/外墙继续复用 Kenney 图集，人物继续复用 Curt 四方向动画，武器装备/配色区分角色。没有使用参考游戏的素材。
 
 MusicTrack.ts 的日/夜旋律、和弦、低音节奏为本项目原创 Web Audio 编配，不含外部录音、歌曲或第三方音乐包。音频由代码合成，没有新的音频下载来源或隐藏 CDN 依赖。音量/听感仍需人工验收。
+
+
+v0.8（2026-10-24）：新增 public/assets/enemies 下 queen.svg、axeman.svg、knight.svg、bird.svg、crow.svg、undead.svg、spiderling.svg 七份原创三帧图集，由 scripts/enemy-art.mjs 生成。Boss 每帧 96×96，随从每帧 64×64；使用像素轮廓和既有末日配色，不采用参考游戏的图像。原创图像纳入 project-art.txt 的 CC0 声明和 SHA-256 清单；第三方城市/人物/丧尸 PNG 未修改，保留原署名和许可。可运行 node scripts/enemy-art.mjs 与 node scripts/asset-manifest.mjs 复现文件并更新校验。
+
+素材字节保留：.gitattributes 对 public/assets/** 设置 -text，避免 Git 在 Windows/Linux 检出时转换 SVG/许可文本换行并使 SHA-256 不一致。两份原许可证在暂存区恢复为工作区原件字节，内容与署名未改；提交前按暂存区逐项核对清单通过。

@@ -1,13 +1,15 @@
 import Phaser from 'phaser';
 import { BUILDINGS, CARS, COLS, DECORATIONS, ROWS, TILE, groundTile, roomAt, roomDoor, roomFurniture, roomWalls } from '../config/map.ts';
 import type { Vec } from '../core/types.ts';
+import type { ExplorationLayout } from '../core/exploration-layout.ts';
 
 export class MapView {
   private roofs: Phaser.GameObjects.Container[] = [];
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, layout?: ExplorationLayout) {
     const map = scene.make.tilemap({ data: Array.from({ length: ROWS }, (_, y) => Array.from({ length: COLS }, (_, x) => groundTile(x, y))), tileWidth: 16, tileHeight: 16 });
     const tiles = map.addTilesetImage('city', 'city', 16, 16, 0, 0)!;
-    map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(0x87938e).setDepth(-100);
+    map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(layout?.tint ?? 0x87938e).setDepth(-100);
+    for (const d of layout?.debris ?? []) scene.add.image(d.x, d.y, 'city', d.frame).setOrigin(0).setScale(2).setTint(0x8c947e).setDepth(d.y + 32);
     const shadows = scene.add.graphics().setDepth(-1).fillStyle(0x101719, 0.4);
     let roof: Phaser.GameObjects.Container | null = null;
     const tile = (x: number, y: number, frame: number, depth: number, tint = 0x9ca49a) => { const image = scene.add.image(x * TILE, y * TILE, 'city', frame).setOrigin(0).setScale(2).setDepth(depth).setTint(tint); roof?.add(image); return image; };

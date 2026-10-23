@@ -22,11 +22,12 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
   test.setTimeout(180000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.clock.install(); await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
-  for (const p of [{ x: 1056, y: 736 }, { x: 1200, y: 780 }, { x: 1104, y: 852 }, { x: 920, y: 760 }]) { await walk(page, p.x, p.y); await page.clock.runFor(200); await key(page, 'KeyE'); }
+  for (const p of [{ x: 1056, y: 736 }, { x: 1200, y: 780 }, { x: 1264, y: 704 }, { x: 1104, y: 852 }, { x: 920, y: 760 }]) { await walk(page, p.x, p.y); await page.clock.runFor(200); await key(page, 'KeyE'); }
   await key(page, 'Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
   await key(page, 'Digit2'); await clickWorld(page, 836, 356, true);
   await key(page, 'Digit1'); await key(page, 'KeyR'); await page.clock.runFor(50); await clickWorld(page, 964, 644, true); await key(page, 'Escape');
-  expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.buildings).toHaveLength(2);
+  await key(page, 'Digit4'); await clickWorld(page, 612, 644, true); await clickWorld(page, 868, 644, true); await key(page, 'Escape');
+  expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.buildings).toHaveLength(4);
   expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.buildings[1].rotation).toBe(1);
   await page.clock.runFor(30000); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await page.clock.runFor(100);
   expect(await page.evaluate(() => '__baseLight' in window)).toBe(false);
@@ -54,7 +55,7 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
   await page.screenshot({ path: 'artifacts/phase4-victory.png' });
   await page.clock.runFor(3000); expect(await state(page)).toEqual(won);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!)); expect(saved.nightsWon).toBe(1); expect(saved.lastNight.outcome).toBe('victory');
-  expect(saved.base.buildings).toHaveLength(2);
+  expect(saved.base.buildings).toHaveLength(4);
   await key(page, 'Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('playing'); expect((await state(page)).lampHealth).toBe(380); expect((await state(page)).charges).toBe(2);
   expect((await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!))).nightsWon).toBe(1);
   expect(errors).toEqual([]);

@@ -135,7 +135,8 @@ export class BaseWorld {
       const nav = this.navigation.get(s.id)!;
       const direction = nav.direction(s, s.destination); s.aim = Math.atan2(direction.y, direction.x);
       const before = { x: s.x, y: s.y };
-      moveWithCollision(s, direction.x * 140 * dt, direction.y * 140 * dt, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
+      const speed = this.soldierSpeed(s);
+      moveWithCollision(s, direction.x * speed * dt, direction.y * speed * dt, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
       s.moving = distance(before, s) > 0.01;
     }
     for (let i = 0; i < soldiers.length; i++) for (let j = i + 1; j < soldiers.length; j++) {
@@ -146,5 +147,6 @@ export class BaseWorld {
       moveWithCollision(b, -v.x * (23 - d) / 2, -v.y * (23 - d) / 2, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
     }
   }
+  protected soldierSpeed(_s: Soldier): number { return 140; }
   snapshot() { return { phase: 'base' as const, remaining: this.remaining, plan: structuredClone(this.plan), campaign: cloneCampaign(this.campaign) }; }
 }

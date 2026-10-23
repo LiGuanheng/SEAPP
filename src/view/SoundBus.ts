@@ -63,6 +63,8 @@ export class SoundBus {
   }
   handle(events: readonly NightEvent[]): void {
     for (const e of events) if (e.type === 'fire' || e.type === 'explosion' || e.type === 'wave') this.sound(e.type === 'fire' && e.projectile === 'arrow' ? 'reload' : e.type);
+    else if (e.type === 'boss' || e.type === 'cast') this.sound('wave');
+    else if (e.type === 'boss-defeated') this.sound('pickup');
     else if (e.type === 'swing') this.sound('reload');
     else if (e.type === 'lamp-hit' || e.type === 'unit-death') this.sound('hit');
   }

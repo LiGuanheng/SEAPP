@@ -55,10 +55,11 @@ export class NightView {
   }
   private syncEnemy(v: EnemyView, e: NightEnemy, paused: boolean): void {
     const config = INFECTED[e.kind];
-    v.sprite.setPosition(e.x, e.y).setDepth(e.y).setVisible(true); v.shadow.setPosition(e.x, e.y + 2).setDepth(e.y - 2);
+    v.sprite.setPosition(e.x, e.y).setDepth(e.y + (config.flying ? 3000 : 0)).setVisible(true); v.shadow.setPosition(e.x, e.y + 2).setDepth(e.y - 2);
+    v.sprite.setAlpha(e.windup ? 0.65 + Math.sin(this.age * 18) * 0.25 : 1);
     if (e.hurt > 0) v.sprite.setTintFill(0xf4dbc1); else v.sprite.setTint(config.tint);
     if (paused) v.sprite.anims.pause();
-    else { v.sprite.anims.resume(); if (e.moving) v.sprite.play(`${config.texture}-walk-${facing(e.aim)}`, true); else { v.sprite.anims.stop(); v.sprite.setFrame(facing(e.aim) * 3 + 1); } }
+    else { v.sprite.anims.resume(); if (e.moving || config.flying) v.sprite.play(`${config.texture}-walk-${facing(e.aim)}`, true); else { v.sprite.anims.stop(); v.sprite.setFrame(config.texture === 'zombie' || config.texture === 'zombie-alt' ? facing(e.aim) * 3 + 1 : 1); } }
   }
   update(world: NightWorld, dt: number, paused: boolean, support: Vec | null): void {
     (this.root.getByName('lighthouse') as Phaser.GameObjects.Image).setTint(world.status === 'defeat' ? 0x334550 : 0xffffff);
@@ -89,12 +90,24 @@ export class NightView {
     for (const e of world.enemies) {
       let v = this.enemies.get(e.id);
       if (!v) {
-        const config = INFECTED[e.kind]; v = { sprite: this.scene.add.sprite(e.x, e.y, config.texture, 1).setOrigin(0.5, 0.95).setScale(config.scale), shadow: this.scene.add.ellipse(e.x, e.y, 28, 11, 0x020c13, 0.5) };
+        const config = INFECTED[e.kind]; v = { sprite: this.scene.add.sprite(e.x, e.y, config.texture, 1).setOrigin(0.5, config.texture === 'zombie' || config.texture === 'zombie-alt' ? 0.95 : 0.82).setScale(config.scale), shadow: this.scene.add.ellipse(e.x, e.y, config.boss ? 62 : 28, config.boss ? 22 : 11, 0x020c13, 0.5) };
         this.root.add([v.sprite, v.shadow]); this.enemies.set(e.id, v);
       }
       this.syncEnemy(v, e, paused || !world.commanding);
       const visible = world.canSee(e); v.sprite.setVisible(visible); v.shadow.setVisible(visible);
-      if (visible && (e.health < INFECTED[e.kind].health || e.kind === 'brute')) { g.fillStyle(0x2c3833).fillRect(e.x - 16, e.y - 60, 32, 3).fillStyle(e.kind === 'brute' ? 0xd9b57a : 0xb7957d).fillRect(e.x - 16, e.y - 60, 32 * e.health / INFECTED[e.kind].health, 3); }
+      const max = e.maxHealth ?? INFECTED[e.kind].health, boss = INFECTED[e.kind].boss, width = boss ? 70 : 32, y = e.y - (boss ? 108 : 60);
+      if (visible && (e.health < max || e.kind === 'brute' || boss)) g.fillStyle(0x2c3833).fillRect(e.x - width / 2, y, width, 4).fillStyle(boss ? 0xd28188 : 0xb7957d).fillRect(e.x - width / 2, y, width * e.health / max, 4);
+      if (e.windup && world.canSee(e.windup.point)) {
+        const w = e.windup, p = w.point, t = Math.max(0, w.remaining / w.duration), color = w.kind === 'slam' ? 0xf1a16f : w.kind === 'web' ? 0xd5b6d4 : 0xb18feb;
+        g.fillStyle(color, 0.09).fillCircle(p.x, p.y, w.radius).lineStyle(2, color, 0.9).strokeCircle(p.x, p.y, w.radius);
+        g.lineStyle(4, color).beginPath().arc(p.x, p.y, w.radius - 5, -Math.PI / 2, -Math.PI / 2 + (1 - t) * Math.PI * 2).strokePath();
+      }
+    }
+    for (const h of world.hazards) if (world.canSee(h)) {
+      const color = h.kind === 'web' ? 0xbeb8c7 : 0xa68bd6;
+      g.fillStyle(color, 0.10).fillCircle(h.x, h.y, h.radius).lineStyle(1, color, Math.min(0.65, h.remaining / 3));
+      for (let r = 22; r < h.radius; r += 22) g.strokeCircle(h.x, h.y, r);
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + (h.kind === 'storm' ? this.age * 2 : 0); g.lineBetween(h.x, h.y, h.x + Math.cos(a) * h.radius, h.y + Math.sin(a) * h.radius); }
     }
     for (const s of world.livingSoldiers) { const f = world.fighters.get(s.id)!; if (f.health < 90) g.fillStyle(0x34473c).fillRect(s.x - 16, s.y - 63, 32, 3).fillStyle(f.hurt > 0 ? 0xe5a38b : 0xb4d29f).fillRect(s.x - 16, s.y - 63, 32 * f.health / 90, 3); }
     for (const b of world.plan.buildings) if (b.health < BUILDINGS[b.kind].health) { const r = buildingRect(b); g.fillStyle(0x31423e).fillRect(b.x, b.y - 20, r.width, 4).fillStyle(0xd8b478).fillRect(b.x, b.y - 20, r.width * b.health / BUILDINGS[b.kind].health, 4); }

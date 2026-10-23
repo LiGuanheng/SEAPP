@@ -1,0 +1,4 @@
+# Asset checksums must survive Windows/Linux checkouts without line-ending conversion.
+public/assets/** -text
+# Keep upstream license formatting, including CRLF and blank lines containing tabs.
+public/assets/licenses/*.txt whitespace=-blank-at-eol,cr-at-eol

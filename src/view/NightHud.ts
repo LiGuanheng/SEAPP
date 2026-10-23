@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { BUILDINGS, type BuildingKind } from '../config/base.ts';
-import { LAMP_HEALTH, NIGHT_SECONDS, WAVES } from '../config/night.ts';
+import { INFECTED, LAMP_HEALTH, NIGHT_SECONDS, WAVES } from '../config/night.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { NightWorld } from '../core/night-world.ts';
 
@@ -25,6 +25,8 @@ export class NightHud {
   private ready = false;
   private support = false;
   private muted = false;
+  private bosses: Phaser.GameObjects.Text[] = [];
+  private bossRows = 0;
   constructor(scene: Phaser.Scene, hold: () => void, strike: () => void, mute: () => void, pause: () => void, resume: () => void, explore: () => void) {
     this.root = scene.add.container(0, 0).setDepth(100000);
     const text = (x: number, y: number, value: string, size = 13, color = '#c5cfbc') => { const t = scene.add.text(x, y, value, { fontFamily: font, fontSize: `${size}px`, color }); this.root.add(t); return t; };
@@ -45,6 +47,7 @@ export class NightHud {
     text(660, 652, '左键 / 拖框选兵 · Shift 加选 · Space 全选', 12, '#b8c8aa');
     text(660, 680, '右键移动 · WASD 镜头 · 滚轮缩放 · Esc 取消支援 / 暂停', 11, '#9fb09f');
     this.toast = text(640, 565, '', 13, '#f1d497').setOrigin(0.5).setBackgroundColor('#10252c').setPadding(9, 6).setVisible(false);
+    for (let i = 0; i < 4; i++) this.bosses.push(text(640, 113 + i * 29, '', 12, '#f0c1b1').setOrigin(0.5).setVisible(false));
     this.overlay = scene.add.container(0, 0).setVisible(false); this.root.add(this.overlay);
     const shade = scene.add.rectangle(640, 360, 1280, 720, 0x07141f, 0.94).setInteractive();
     shade.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => e.stopPropagation()); this.overlay.add(shade);
@@ -58,7 +61,7 @@ export class NightHud {
     this.overlay.add([this.title, this.body, primary, this.primary, this.exit]);
   }
   setModes(support: boolean, muted: boolean): void { this.support = support; this.muted = muted; }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || y < 94 || y >= 596 || x >= 1080 && y < 244; }
+  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || y < 94 || y >= 596 || x >= 1080 && y < 244 || this.bossRows > 0 && x >= 320 && x <= 960 && y < 105 + this.bossRows * 29; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(base: BaseWorld, ids: Set<number>, buildingId: number | null, _buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const w = base as NightWorld, g = this.graphics.clear();
@@ -70,7 +73,15 @@ export class NightHud {
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
     this.status.setText(`距离天亮 ${Math.ceil(w.remaining)}s　/　第 ${w.wave}/${WAVES.length} 波　/　击杀 ${w.kills}`);
     const next = WAVES[w.wave];
-    this.forecast.setText(next ? `下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s 后 · ${next.brute ? '重装 / 疾行 / 普通' : next.runner ? '疾行 / 普通' : '普通'}感染者` : '最后一波已出动 · 守住灯塔直至天亮');
+    this.forecast.setText(next ? `下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s · ${next.boss ? INFECTED[next.boss].name : '游荡者'} · 威胁 ${w.wave + 1}/5` : '最终尸潮已出动 · 守到天亮，无需全歼');
+    const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 4); this.bossRows = bosses.length;
+    this.bosses.forEach((label, i) => {
+      const e = bosses[i]; label.setVisible(!!e && !paused && w.commanding); if (!e) return;
+      const y = 100 + i * 29, max = e.maxHealth ?? INFECTED[e.kind].health;
+      g.fillStyle(0x10202a, 0.94).fillRoundedRect(350, y, 580, 27, 3).fillStyle(0x573947).fillRect(358, y + 23, 564, 3).fillStyle(0xce8793).fillRect(358, y + 23, 564 * e.health / max, 3);
+      const skill = e.windup ? ` · 蓄力 ${e.windup.remaining.toFixed(1)}s，离开地面预警圈` : e.kind === 'queen' ? ' · 织网 / 蜘蛛随从' : e.kind === 'knight' ? ' · 护甲 / 亡灵召唤' : e.kind === 'bird' ? ' · 飞行 / 腐羽风暴' : ' · 蓄力重斧';
+      label.setText(`${INFECTED[e.kind].name}　${Math.ceil(e.health)}/${max}${skill}`);
+    });
     const b = w.plan.buildings.find(b => b.id === buildingId);
     this.selection.setText(this.support ? '火力支援：左键选择视野内落点，0.65 秒后爆炸；右键 / Esc 取消，不伤己方' : b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · 夜战中不能施工或拆除` : `守备 ${w.livingSoldiers.length}/${w.plan.soldiers.length} 人　/　已选 ${ids.size} 人　/　在场感染者 ${w.enemies.length}　/　自动射击，移动调整交叉火力`);
     this.charges.setText(`炮火支援 [F]　${w.charges} 次${w.supportCooldown > 0 ? ` / ${Math.ceil(w.supportCooldown)}s` : ''}`);
@@ -79,7 +90,7 @@ export class NightHud {
     this.ready = !w.commanding; this.overlay.setVisible(paused || this.ready); this.exit.setVisible(this.ready);
     if (paused || this.ready) {
       this.title.setText(!this.ready ? '指挥暂停' : w.status === 'victory' ? '天亮了，最后一盏灯仍在。' : '灯塔熄灭，防线失守。');
-      this.body.setText(this.ready ? `守夜 ${Math.floor(w.elapsed)} 秒 · 击杀 ${w.kills} · 支援 ${w.strikesUsed} 次\n灯塔剩余耐久 ${w.lampHealth} / ${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? '探索、布防、守夜已完成一轮。' : '可用入夜前的阵地再次挑战。'}\n按 Enter 使用原阵地再次守夜` : '部队、尸潮和计时均已暂停。\n按 P / Esc 或点击继续。');
+      this.body.setText(this.ready ? `守夜 ${Math.floor(w.elapsed)} 秒 · 击杀 ${w.kills} · Boss 击败 ${w.bossKills}/4\n灯塔剩余耐久 ${w.lampHealth} / ${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? '探索、布防、守夜已完成一轮。' : '分散驻守躲技能，机枪/箭塔对空，再试一次。'}\n按 Enter 使用原阵地再次守夜` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
       if (this.saveWarning) this.body.setText(this.body.text + '\n' + this.saveWarning);
       this.primary.setText(this.ready ? '再次守夜 [Enter]' : '继续指挥 [P]');
     }

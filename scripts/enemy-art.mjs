@@ -1,0 +1,22 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+const root = 'public/assets/enemies'; await mkdir(root, { recursive: true });
+const rect = (x,y,w,h,c) => `<path fill="${c}" d="M${x} ${y}h${w}v${h}h-${w}z"/>`;
+const path = (d,c) => `<path fill="${c}" d="${d}"/>`;
+const line = (d,c,w=4) => `<path fill="none" stroke="${c}" stroke-width="${w}" d="${d}"/>`;
+const outline = '#14272c', bone = '#c3c4a2', steel = '#718983';
+function legs(size, phase) {
+  let s=''; const c=size/2;
+  for (const side of [-1,1]) for(let i=0;i<4;i++) { const y=size*.47+i*6, dx=side*(size*.34), dy=(i-1.5)*8+phase*(i%2?3:-3); const d=`M${c+side*10} ${y}l${dx*.65} ${dy}l${dx*.35} ${12+phase*2}`; s+=line(d,outline,7)+line(d,'#687970',3); }
+  return s;
+}
+function queen(p) { return legs(96,p)+path('M28 49h40v9h7v18H62v7H34v-7H21V58h7z',outline)+rect(30,51,36,25,'#4d5354')+rect(38,54,20,24,'#7b4d66')+rect(45,55,6,20,'#d1a07e')+rect(34,31,28,27,outline)+rect(38,33,20,22,'#526758')+path('M32 11h32v30H32z',outline)+rect(36,13,24,23,'#9da487')+path('M32 11V5h8v5h5V1h6v9h5V5h8v6z','#c6ab75')+rect(37,20,7,5,'#e18d8b')+rect(52,20,7,5,'#e18d8b')+rect(44,31,9,3,'#4c343e')+rect(29,34,7,18,'#646f62')+rect(60,34,7,18,'#646f62'); }
+function axeman(p) { return rect(27,65+p*2,17,25,outline)+rect(51,65-p*2,17,25,outline)+rect(31,68+p*2,9,17,'#56655e')+rect(55,68-p*2,9,17,'#56655e')+rect(19,28,58,45,outline)+rect(25,32,46,35,'#64755f')+rect(32,37,32,29,'#756d59')+rect(45,37,6,29,'#c1ad7c')+rect(12,33+p*2,15,29,outline)+rect(15,35+p*2,10,23,'#a3a083')+rect(70,31-p*2,14,31,outline)+rect(73,34-p*2,8,25,'#8d9579')+rect(31,5,35,28,outline)+rect(35,9,27,21,'#929d7f')+rect(35,6,27,6,steel)+rect(38,16,7,5,'#e7b37f')+rect(54,16,7,5,'#dd8d75')+rect(40,26,17,4,bone)+rect(80,14-p*3,5,58,'#987651')+path(`M77 ${10-p*3}h14v6h5v18H77z`,outline)+path(`M82 ${13-p*3}h8v6h4v12H82z`,'#b8c5b5')+rect(22,32,8,7,'#9ba993')+rect(66,32,8,7,'#9ba993'); }
+function knight(p) { return path('M27 20h35l10 43-19 11-29-14z','#3b344b')+rect(19,52,55,24,outline)+rect(24,55,45,17,'#8d9a8c')+rect(22,72+p*2,9,17,outline)+rect(61,72-p*2,9,17,outline)+rect(25,74+p*2,4,12,bone)+rect(64,74-p*2,4,12,bone)+path('M62 51V34h15l11 18-8 12H66z',outline)+path('M66 38h9l9 13-5 8H68z',bone)+rect(75,44,6,5,'#67d1b1')+line('M33 58v12m10-12v12m10-12v12',outline,3)+rect(33,24,30,30,outline)+rect(37,27,22,23,steel)+rect(43,28,8,21,'#a3afa1')+path('M33 8h30v19H33z',outline)+rect(37,10,22,15,'#9faf9a')+rect(38,15,20,4,'#4dd8b3')+rect(46,4,5,10,'#bdcab1')+rect(57,33,14,8,steel)+path('M78 5h5v44h-5z','#d4d8ba')+rect(72,39,16,5,'#a39d75')+line('M17 58l-9 12',outline,5); }
+function bird(p, small=false) { const n=small?64:96, s=n/96; return `<g transform="scale(${s})">`+path(`M40 43 10 ${20-p*12} 1 ${39-p*8} 16 ${65-p*9} 40 59z`,outline)+path(`M39 46 11 ${28-p*12} 8 ${40-p*8} 22 ${59-p*9} 39 55z`,'#5d6176')+path(`M56 43 86 ${20-p*12} 95 ${39-p*8} 80 ${65-p*9} 56 59z`,outline)+path(`M57 46 85 ${28-p*12} 88 ${40-p*8} 74 ${59-p*9} 57 55z`,'#5d6176')+path('M36 39h24v34l-12 15-12-15z',outline)+rect(40,43,16,27,small?'#405c69':'#796681')+rect(43,12,17,28,outline)+rect(45,16,13,20,small?'#879a96':'#af9c8e')+path('M58 25h12v7H58z','#c0a576')+rect(49,20,6,5,'#e69d7c')+path('M34 68h9v12h-9zm19 0h9v12h-9z','#a99774')+line('M17 39l15 14m47-14L64 53','#87918b',3)+'</g>'; }
+function undead(p) { return path('M13 23h37l6 33-10-5-7 9-9-5-10 5-7-7z',outline)+path('M18 25h28l5 26-9-4-7 8-6-4-10 5z','#455b58')+rect(21,4,23,23,outline)+rect(24,7,17,18,bone)+rect(25,12,6,6,'#65d9ae')+rect(35,12,6,6,'#65d9ae')+rect(29,22,8,3,'#5d655b')+rect(27,31,13,15,'#a6b8a1')+line('M24 35h19m-17 6h14',outline,3)+rect(18,51+p,8,11,'#799481')+rect(39,51-p,8,11,'#799481')+rect(48,16,4,35,'#b9c7b3')+rect(43,44,14,4,'#8c9678'); }
+function spiderling(p) { return legs(64,p)+path('M22 28h20v7h6v17H36v5H24v-5H16V35h6z',outline)+rect(22,33,20,18,'#6e586b')+rect(25,21,17,14,'#8f9e7d')+rect(26,24,5,4,'#e8b778')+rect(36,24,5,4,'#e8b778')+rect(30,37,5,10,'#c59d76'); }
+const painters={ queen:[96,queen], axeman:[96,axeman], knight:[96,knight], bird:[96,p=>bird(p)], crow:[64,p=>bird(p,true)], undead:[64,undead], spiderling:[64,spiderling] };
+for (const [name,[size,paint]] of Object.entries(painters)) {
+  const frames=[0,1,-1].map((phase,i)=>`<g transform="translate(${i*size},0)">${paint(phase)}</g>`).join('');
+  await writeFile(`${root}/${name}.svg`,`<svg xmlns="http://www.w3.org/2000/svg" width="${size*3}" height="${size}" viewBox="0 0 ${size*3} ${size}" shape-rendering="crispEdges">${frames}</svg>\n`);
+}

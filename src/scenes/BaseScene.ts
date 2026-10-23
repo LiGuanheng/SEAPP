@@ -13,6 +13,7 @@ import { NightHud } from '../view/NightHud.ts';
 import { SoundBus } from '../view/SoundBus.ts';
 import { FieldGuide } from '../view/FieldGuide.ts';
 import { TacticalRadar } from '../view/TacticalRadar.ts';
+import { INFECTED } from '../config/night.ts';
 
 const contains = (r: Rect, p: Vec): boolean => p.x >= r.x && p.y >= r.y && p.x <= r.x + r.width && p.y <= r.y + r.height;
 
@@ -126,7 +127,7 @@ export class BaseScene extends Phaser.Scene {
     const wheel = (p: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
       if (this.paused || !this.world.commanding || this.hud.blocks(p.x, p.y)) return;
       const center = { x: camera.midPoint.x, y: camera.midPoint.y };
-      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.65, 1.3)).centerOn(center.x, center.y);
+      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.55, 1.3)).centerOn(center.x, center.y);
       this.drag = null;
     };
     const move = () => { this.pointerActive = true; };
@@ -187,7 +188,13 @@ export class BaseScene extends Phaser.Scene {
       this.accumulator = Math.min(this.accumulator + dt * this.speed, 0.35);
       while (this.accumulator >= 1 / 60 && this.world.commanding) {
         this.world.step(); this.accumulator -= 1 / 60; simulated += 1 / 60;
-        if (this.world instanceof NightWorld) { this.nightView!.handle(this.world.events); this.audio?.handle(this.world.events); if (this.world.events.some(e => e.type === 'explosion')) this.cameras.main.shake(150, 0.0025); if (this.world.events.some(e => e.type === 'wave')) this.hud.notify(`第 ${this.world.wave} 波尸潮来袭 · 留意四方入口与战术地图`); }
+        if (this.world instanceof NightWorld) {
+          this.nightView!.handle(this.world.events); this.audio?.handle(this.world.events);
+          if (this.world.events.some(e => e.type === 'explosion')) this.cameras.main.shake(150, 0.0025);
+          if (this.world.events.some(e => e.type === 'wave')) this.hud.notify(`第 ${this.world.wave} 波尸潮来袭 · 强度逐级提升`);
+          const boss = this.world.events.find(e => e.type === 'boss' || e.type === 'boss-defeated');
+          if (boss?.kind) this.hud.notify(`${boss.type === 'boss' ? '警报' : '击败'} · ${INFECTED[boss.kind].name}${boss.type === 'boss' ? '，留意地面预警与随从' : ''}`);
+        }
       }
       const camera = this.cameras.main;
       const x = Number(this.held.has('KeyD') || this.held.has('ArrowRight')) - Number(this.held.has('KeyA') || this.held.has('ArrowLeft'));

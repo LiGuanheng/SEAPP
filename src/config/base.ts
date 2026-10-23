@@ -1,15 +1,15 @@
 import type { Rect, Vec } from '../core/types.ts';
 import { canOccupy } from '../core/geometry.ts';
 
-export const BASE_WIDTH = 1536, BASE_HEIGHT = 1024, GRID = 32, PREPARATION_SECONDS = 30;
+export const BASE_WIDTH = 1792, BASE_HEIGHT = 1152, GRID = 32, PREPARATION_SECONDS = 30;
 export const MAX_BUILDINGS = 40;
-export const BUILD_AREA: Rect = { x: 320, y: 256, width: 896, height: 512 };
+export const BUILD_AREA: Rect = { x: 192, y: 160, width: 1280, height: 768 };
 export const LIGHTHOUSE = { x: 768, y: 512 };
 export const LIGHTHOUSE_FOOT: Rect = { x: 736, y: 480, width: 64, height: 64 };
 export const BASE_OBSTACLES: readonly Rect[] = [LIGHTHOUSE_FOOT,
   { x: 128, y: 128, width: 192, height: 128 }, { x: 1216, y: 800, width: 192, height: 128 }];
 export const RESERVED_ROUTES: readonly Rect[] = [
-  { x: 320, y: 480, width: 896, height: 96 }, { x: 720, y: 256, width: 96, height: 512 },
+  { x: 192, y: 480, width: 1280, height: 96 }, { x: 720, y: 160, width: 96, height: 768 },
 ];
 export const BUILDINGS = {
   barricade: { name: '沙袋路障', width: 64, height: 32, materials: 3, energy: 0, health: 160, range: 0 },

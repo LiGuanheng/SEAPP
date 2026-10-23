@@ -2,10 +2,11 @@ import { BaseWorld } from '../src/core/base-world.ts';
 import { NightWorld } from '../src/core/night-world.ts';
 import { newCampaign } from '../src/core/campaign.ts';
 
-for (const setup of ['unprepared', 'guide', 'crossfire']) {
-  const campaign = newCampaign(); campaign.depot = { materials: 12, energy: 2, medkits: 0 }; campaign.survivors = ['engineer']; campaign.weapons.push('rifle');
+for (const setup of ['unprepared', 'single-tower', 'mixed-defense', 'crossfire']) {
+  const campaign = newCampaign(); campaign.depot = { materials: 16, energy: 2, medkits: 1 }; campaign.survivors = ['engineer']; campaign.weapons.push('rifle');
   const base = new BaseWorld(campaign);
   if (setup !== 'unprepared') { base.build('turret', { x: 832, y: 352 }); base.build('barricade', { x: 960, y: 640 }, 1); }
+  if (setup === 'mixed-defense' || setup === 'crossfire') { base.build('arrowtower', { x: 608, y: 640 }); base.build('arrowtower', { x: 864, y: 640 }); }
   if (setup === 'crossfire') { base.move([1], { x: 656, y: 432 }); base.move([3], { x: 880, y: 560 }); for (let i = 0; i < 180; i++) base.step(); }
   base.finish();
   const night = new NightWorld(base.campaign);

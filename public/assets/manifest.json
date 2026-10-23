@@ -1,5 +1,5 @@
 {
-  "verifiedOn": "2026-10-23",
+  "verifiedOn": "2026-10-24",
   "assets": [
     {
       "file": "characters/survivor.png",
@@ -20,6 +20,41 @@
       "file": "city/tilemap.png",
       "bytes": 23387,
       "sha256": "e8b653bd3f32a537a2634eaa55d6abb97f20e09fd974bc1278a2ea55c1cda59f"
+    },
+    {
+      "file": "enemies/axeman.svg",
+      "bytes": 3195,
+      "sha256": "199555ba128f74dc067ecea2f7dea31a2c9535e3f80b6c4380c14fd1a5ffac4b"
+    },
+    {
+      "file": "enemies/bird.svg",
+      "bytes": 2216,
+      "sha256": "2c187c6ddd7c8539b3219ca5ce5d8f1cf41497fa510c65af71e305b01e4e6712"
+    },
+    {
+      "file": "enemies/crow.svg",
+      "bytes": 2267,
+      "sha256": "7910b3103eb6dfcde450d29bd8c6917250ec4f06df22b201ea424b5b0d7e58bf"
+    },
+    {
+      "file": "enemies/knight.svg",
+      "bytes": 3334,
+      "sha256": "b447734872c2b4c111a0c33fd058141e804cc4b50f92a823e7de5193e7bf3f1e"
+    },
+    {
+      "file": "enemies/queen.svg",
+      "bytes": 6335,
+      "sha256": "858194b14184e48c17f5fb4e3cbe593a01bd40040ff312d22d5649aa69773e70"
+    },
+    {
+      "file": "enemies/spiderling.svg",
+      "bytes": 5795,
+      "sha256": "617409adcde198a3188142cdae78ec0a9b2673a5f20a1ca9627e7683f8b9ff14"
+    },
+    {
+      "file": "enemies/undead.svg",
+      "bytes": 2089,
+      "sha256": "6b8892c5cd99aa0f9d58bc6656facab7634491c941a028806c96b10c2e5ea72c"
     },
     {
       "file": "licenses/curt-characters.txt",
@@ -43,8 +78,8 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 563,
-      "sha256": "ed5e56fb1087e0c3b54c135cec75e0f5d3f8556304639cb7b59f5545267f170e"
+      "bytes": 688,
+      "sha256": "2c94e1ea73d98013b617ee5842c585b0cbaa97709d19a27c9655d82244d789cf"
     },
     {
       "file": "weapons/arrow.svg",

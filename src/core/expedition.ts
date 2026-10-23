@@ -5,6 +5,7 @@ import { cloneCampaign, emptyCargo, newCampaign, type Campaign, type Cargo, type
 import { canOccupy, distance, firstWall, moveWithCollision } from './geometry.ts';
 import type { InputState, Vec } from './types.ts';
 import { CombatWorld } from './world.ts';
+import { explorationLayout, type ExplorationLayout } from './exploration-layout.ts';
 
 export const EXPEDITION_SECONDS = 90;
 export const CAPACITY = 24;
@@ -43,14 +44,19 @@ export class ExpeditionWorld extends CombatWorld {
   private enemiesEnabled: boolean;
   readonly exploredRooms = new Set<number>();
   private allyCooldowns = new Map<string, number>();
+  readonly layout: ExplorationLayout;
   get currentRoom(): number { return roomAt(this.player); }
-  constructor(campaign = newCampaign(), enemies = true) {
-    super(20261023, OBSTACLES, WORLD_WIDTH, WORLD_HEIGHT, PLAYER_SPAWN, false);
+  constructor(campaign = newCampaign(), enemies = true, seed = 20261023 + campaign.expeditions * 7919) {
+    const layout = explorationLayout(seed);
+    super(seed, [...OBSTACLES, ...layout.debris], WORLD_WIDTH, WORLD_HEIGHT, PLAYER_SPAWN, false);
+    this.layout = layout;
     this.campaign = cloneCampaign(campaign); this.enemiesEnabled = enemies;
+    this.survivors[1].x += layout.medicOffset; this.survivors[2].x += layout.captainOffset;
     for (let i = 0; i < BUILDINGS.length; i++) {
       const d = roomDoor(BUILDINGS[i]);
-      this.caches.push({ id: `room-${i}`, name: `${BUILDINGS[i].label} 储藏箱`, x: d.x - 48, y: d.y - 80, cargo: { materials: 4, energy: i % 2 ? 2 : 0, medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, opened: false });
+      this.caches.push({ id: `room-${i}`, name: `${BUILDINGS[i].label} 储藏箱`, x: d.x + layout.roomSides[i] * 48, y: d.y - 80, cargo: { materials: 4, energy: i % 2 ? 2 : 0, medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, opened: false });
     }
+    layout.stashes.forEach((p, i) => this.caches.push({ ...p, id: `scout-${i}`, name: '游荡商队遗留补给', cargo: { materials: 3 + i % 2, energy: i % 2, medkits: 0 }, opened: false }));
     if (enemies) for (const point of [{ x: 1450, y: 680 }, { x: 720, y: 520 }, { x: 1440, y: 970 }]) {
       if (canOccupy(point, B.zombie.radius, this.obstacles, this.width, this.height)) this.addZombie(point);
     }
@@ -158,6 +164,6 @@ export class ExpeditionWorld extends CombatWorld {
   override snapshot() {
     return { ...super.snapshot(), expedition: { remaining: this.remaining, capacity: CAPACITY, weight: this.weight, inventory: { ...this.inventory },
       caches: structuredClone(this.caches), survivors: structuredClone(this.survivors), camp: { ...CAMP }, objective: structuredClone(this.objective()),
-      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms] } };
+      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms], layout: structuredClone(this.layout) } };
   }
 }

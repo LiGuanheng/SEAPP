@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BASE_WIDTH, BASE_HEIGHT, BASE_OBSTACLES, LIGHTHOUSE, buildingRect } from '../config/base.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { NightWorld } from '../core/night-world.ts';
+import { INFECTED } from '../config/night.ts';
 
 /** 固定 HUD 小地图，只显示己方与当前可见敌人；点击只移动镜头。 */
 export class TacticalRadar {
@@ -21,7 +22,7 @@ export class TacticalRadar {
     g.fillStyle(0x10232c, 0.95).fillRect(0, 0, 170, 114);
     for (const b of BASE_OBSTACLES) g.fillStyle(0x41534b).fillRect(b.x * sx, b.y * sy, b.width * sx, b.height * sy);
     for (const b of w.plan.buildings) { const r = buildingRect(b); g.fillStyle(0xe2be7e).fillRect(r.x * sx, r.y * sy, r.width * sx, r.height * sy); }
-    if (w instanceof NightWorld) for (const e of w.enemies) if (w.canSee(e)) g.fillStyle(e.kind === 'brute' ? 0xea9276 : 0xc86460).fillCircle(e.x * sx, e.y * sy, e.kind === 'brute' ? 2.5 : 1.5);
+    if (w instanceof NightWorld) for (const e of w.enemies) if (w.canSee(e)) g.fillStyle(INFECTED[e.kind].boss ? 0xf1b58a : INFECTED[e.kind].flying ? 0xb49ce1 : 0xc86460).fillCircle(e.x * sx, e.y * sy, INFECTED[e.kind].boss ? 3.5 : 1.5);
     for (const s of w.livingSoldiers) g.fillStyle(0xaacfa1).fillCircle(s.x * sx, s.y * sy, 2);
     g.lineStyle(1, 0xf0d696).strokeCircle(LIGHTHOUSE.x * sx, LIGHTHOUSE.y * sy, 4);
     const v = camera.worldView, left = Math.max(0, v.x), top = Math.max(0, v.y), right = Math.min(BASE_WIDTH, v.right), bottom = Math.min(BASE_HEIGHT, v.bottom);

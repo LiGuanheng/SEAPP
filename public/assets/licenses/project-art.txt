@@ -1,9 +1,10 @@
 The Last Light: original pistol.svg, rifle.svg, bullet.svg, muzzle.svg, supply.svg,
 beacon.svg, barricade.svg, turret.svg, lighthouse.svg, helmet.svg,
 axe.svg, bow.svg, arrow.svg, cannon.svg, cannon-barrel.svg, arrowtower.svg, wall.svg,
-desk.svg, bed.svg
+desk.svg, bed.svg; enemies/queen.svg, axeman.svg, knight.svg, bird.svg,
+crow.svg, undead.svg, spiderling.svg (three-frame enemy sprite sheets)
 and programmatic combat / expedition / base effect artwork.
-Created for this project, 2026-10-22 through 2026-10-23.
+Created for this project, 2026-10-22 through 2026-10-24.
 Original visual asset contributions are dedicated to CC0 1.0 Universal.
 https://creativecommons.org/publicdomain/zero/1.0/
 This does not relicense third-party assets or the game source code.

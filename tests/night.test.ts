@@ -68,7 +68,11 @@ test('医护员定时治疗仍存活的守卫，不复活阵亡单位', () => {
   assert.equal(w.fighters.get(1)!.health, 28); assert.equal(w.fighters.get(2)!.health, 0);
 });
 test('完整 120 秒普通布防可守到天亮，状态有界、结算幂等且保存入夜前检查点', () => {
-  const w = prepared();
+  // 工具箱 + 急救补给箱 + 工程师：16 建材 / 2 电力，成本不超过真实短路线收益。
+  const c = newCampaign(); c.depot = { materials: 16, energy: 2, medkits: 1 }; c.survivors = ['engineer']; c.weapons.push('rifle');
+  const b = new BaseWorld(c);
+  for (const [kind, x, y] of [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640], ['barricade', 960, 640]] as const) assert.ok(b.build(kind, { x, y }, kind === 'barricade' ? 1 : 0).ok);
+  b.finish(); const w = new NightWorld(b.campaign);
   for (let i = 0; i < 7201 && w.commanding; i++) {
     if (w.charges && w.supportCooldown === 0 && w.elapsed > 55) { const heavy = w.enemies.find(e => e.kind === 'brute' && w.canSee(e)); if (heavy) w.callStrike(heavy); }
     w.step(); assert.ok(w.enemies.length <= NIGHT_LIMITS.enemies); assert.ok(w.bullets.length <= NIGHT_LIMITS.bullets); assert.ok(w.lampHealth >= 0);

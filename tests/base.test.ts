@@ -22,7 +22,7 @@ test('基地接收真实库存与职业，独立克隆，不凭空生成建设�
 test('有效建造原子扣费；重叠/越界/通道/脚下/目的地/非网格与超预算均拒绝', () => {
   const w = world(); assert.equal(w.build('turret', { x: 960, y: 352 }).ok, true);
   assert.equal(w.campaign.depot.materials, 94); assert.equal(w.campaign.depot.energy, 28);
-  for (const p of [{ x: 960, y: 352 }, { x: 256, y: 256 }, { x: 768, y: 352 }, { x: 960, y: 512 }, { x: 688, y: 624 }, { x: NaN, y: 352 }, { x: 961, y: 352 }]) {
+  for (const p of [{ x: 960, y: 352 }, { x: 160, y: 160 }, { x: 768, y: 352 }, { x: 960, y: 512 }, { x: 688, y: 624 }, { x: NaN, y: 352 }, { x: 961, y: 352 }]) {
     const before = w.snapshot(); assert.equal(w.build('turret', p).ok, false, JSON.stringify(p)); assert.deepEqual(w.snapshot(), before);
   }
   assert.equal(w.move([1], { x: 1008, y: 688 }).ok, true);

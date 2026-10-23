@@ -14,4 +14,4 @@ async function scan(directory) {
   }
   return result.sort((a, b) => a.file.localeCompare(b.file));
 }
-await writeFile(join(root, 'manifest.json'), JSON.stringify({ verifiedOn: '2026-10-23', assets: await scan(root) }, null, 2) + '\n');
+await writeFile(join(root, 'manifest.json'), JSON.stringify({ verifiedOn: '2026-10-24', assets: await scan(root) }, null, 2) + '\n');
