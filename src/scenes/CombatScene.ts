@@ -7,7 +7,7 @@ import { ActorView } from '../view/ActorView.ts';
 import { Hud } from '../view/Hud.ts';
 import { MapView } from '../view/MapView.ts';
 import { ExpeditionWorld } from '../core/expedition.ts';
-import { loadCampaign, newCampaign, saveCampaign } from '../core/campaign.ts';
+import { cloneCampaign, loadCampaign, newCampaign, saveCampaign, type Campaign } from '../core/campaign.ts';
 import { ExpeditionView } from '../view/ExpeditionView.ts';
 
 export class CombatScene extends Phaser.Scene {
@@ -24,11 +24,11 @@ export class CombatScene extends Phaser.Scene {
   private bag = false;
   private persisted = false;
   constructor() { super('Combat'); }
-  create(): void {
+  create(data: { campaign?: Campaign } = {}): void {
     const training = new URLSearchParams(location.search).get('mode') === 'combat';
     let warning = '';
-    let campaign = newCampaign();
-    if (!training) {
+    let campaign = data.campaign ? cloneCampaign(data.campaign) : newCampaign();
+    if (!training && !data.campaign) {
       try { const loaded = loadCampaign(window.localStorage); campaign = loaded.campaign; warning = loaded.warning; }
       catch { warning = '浏览器不允许存档，本次探索仍可正常进行。'; }
     }
@@ -37,7 +37,7 @@ export class CombatScene extends Phaser.Scene {
     new MapView(this);
     this.expeditionView = this.world instanceof ExpeditionWorld ? new ExpeditionView(this, this.world) : null;
     this.actors = new ActorView(this);
-    this.hud = new Hud(this, () => this.togglePause(), () => { if (this.world.status !== 'playing') this.scene.restart(); else this.togglePause(); });
+    this.hud = new Hud(this, () => this.togglePause(), () => this.advance());
     if (warning) this.hud.notify(warning);
     this.crosshair = this.add.graphics().setDepth(99999);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT).centerOn(this.world.player.x, this.world.player.y - 60).setRoundPixels(true);
@@ -46,7 +46,7 @@ export class CombatScene extends Phaser.Scene {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(event.code)) event.preventDefault();
       if (event.repeat) return;
       if (event.code === 'Escape' || event.code === 'KeyP') { this.togglePause(); return; }
-      if (event.code === 'Enter' && this.world.status !== 'playing') { this.scene.restart(); return; }
+      if (event.code === 'Enter' && this.world.status !== 'playing') { this.advance(); return; }
       if (['Tab', 'KeyB'].includes(event.code) && this.world instanceof ExpeditionWorld && this.world.status === 'playing') {
         this.bag = !this.bag; this.setPaused(this.bag); return;
       }
@@ -92,6 +92,11 @@ export class CombatScene extends Phaser.Scene {
     document.getElementById('loading')?.remove();
   }
   private setPaused(paused: boolean): void { this.paused = paused; this.held.clear(); this.firing = false; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); }
+  private advance(): void {
+    if (this.world instanceof ExpeditionWorld && this.world.status === 'complete') this.scene.start('Base', { campaign: this.world.campaign, fresh: true });
+    else if (this.world.status === 'defeat') this.scene.restart();
+    else this.togglePause();
+  }
   private togglePause(): void { if (this.world.status === 'playing') { this.bag = false; this.setPaused(!this.paused); } }
   private persistResult(): void {
     if (!(this.world instanceof ExpeditionWorld) || this.world.status !== 'complete' || this.persisted) return;

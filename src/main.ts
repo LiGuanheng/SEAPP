@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import './style.css';
 import { BootScene } from './scenes/BootScene.ts';
 import { CombatScene } from './scenes/CombatScene.ts';
+import { BaseScene } from './scenes/BaseScene.ts';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -11,5 +12,5 @@ new Phaser.Game({
   pixelArt: true, roundPixels: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: false, pixelArt: true, roundPixels: true },
-  scene: [BootScene, CombatScene],
+  scene: [BootScene, CombatScene, BaseScene],
 });

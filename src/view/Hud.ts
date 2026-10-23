@@ -116,9 +116,9 @@ export class Hud {
       if (expedition?.summary) {
         const s = expedition.summary, names = s.rescued.map(id => SURVIVOR_PROFILES[id as keyof typeof SURVIVOR_PROFILES].name).join('、') || '暂无';
         this.overlayTitle.setText(s.reason === 'sunset' ? '黄昏收队，带着希望回营。' : '顺利回营，灯火有了补给。');
-        this.overlayBody.setText(`探索 ${Math.floor(s.duration)} 秒 · 击杀 ${s.kills} · 搜刮 ${s.caches} 处\n带回：建材 ${s.cargo.materials} / 电力 ${s.cargo.energy} / 急救包 ${s.cargo.medkits}\n营救：${names}${s.engineerBonus ? ` · 工程师额外回收 +${s.engineerBonus} 建材` : ''}\n营地库存：建材 ${expedition.campaign.depot.materials} / 电力 ${expedition.campaign.depot.energy} / 急救包 ${expedition.campaign.depot.medkits}\n战利品已送入营地仓库，可再次探索积累物资。\n按 Enter 再次探索`);
+        this.overlayBody.setText(`探索 ${Math.floor(s.duration)} 秒 · 击杀 ${s.kills} · 搜刮 ${s.caches} 处\n带回：建材 ${s.cargo.materials} / 电力 ${s.cargo.energy} / 急救包 ${s.cargo.medkits}\n营救：${names}${s.engineerBonus ? ` · 工程师额外回收 +${s.engineerBonus} 建材` : ''}\n营地库存：建材 ${expedition.campaign.depot.materials} / 电力 ${expedition.campaign.depot.energy} / 急救包 ${expedition.campaign.depot.medkits}\n战利品已送入仓库，准备部署防线。\n按 Enter 进入基地布防`);
         if (this.saveWarning) this.overlayBody.setText(this.overlayBody.text + '\n' + this.saveWarning);
-        this.overlayButton.setText('再次探索  →');
+        this.overlayButton.setText('进入基地布防  →');
       }
     }
   }

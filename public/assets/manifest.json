@@ -43,8 +43,13 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 396,
-      "sha256": "99c9c158f5cb2db1b54871876df9444e98151ed405e9d9f8e1567ca6c88cf0c7"
+      "bytes": 458,
+      "sha256": "eb5be3d3fdbd4900053eb42825210b5c7f32803c6d92f7be7fd74bd3d310a6ff"
+    },
+    {
+      "file": "weapons/barricade.svg",
+      "bytes": 554,
+      "sha256": "8d33c04955212ff850e375f142fc549bbdee4e304cd24f1154dcd1d2e872ae85"
     },
     {
       "file": "weapons/beacon.svg",
@@ -55,6 +60,16 @@
       "file": "weapons/bullet.svg",
       "bytes": 206,
       "sha256": "6d44d16c17821df145592c3c3d0ebebcb5fded15482338b0676cf0b49d3a03bc"
+    },
+    {
+      "file": "weapons/helmet.svg",
+      "bytes": 367,
+      "sha256": "40ac0ced58d23e2cdcbb64ada3c89c9c4ce1c60b50c6281d6249a69ba04c28bb"
+    },
+    {
+      "file": "weapons/lighthouse.svg",
+      "bytes": 818,
+      "sha256": "9e3d32a273257e56589c844078304ebfa81fcadf8faf46f0248fcbd723fe54ce"
     },
     {
       "file": "weapons/muzzle.svg",
@@ -75,6 +90,11 @@
       "file": "weapons/supply.svg",
       "bytes": 463,
       "sha256": "9bbaf128f24f6a2a2409f2fd80dfba95ba8cf99d38abf300a9eb2968d87df005"
+    },
+    {
+      "file": "weapons/turret.svg",
+      "bytes": 597,
+      "sha256": "182d872198d1fa56eed2ac98bdf8f48658cab5159dd92696376611aeb1aaa76c"
     }
   ]
 }

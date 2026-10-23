@@ -2,7 +2,7 @@
 
 ## 仓库审计
 
-初次检查时为无首笔提交的 main，项目全部未跟踪；远端为 `https://github.com/LiGuanheng/SEAPP.git`。阶段 1 使用 `refactor/phaser-stage-1`，本轮使用 `codex/expedition-stage-2`，仍无首笔提交，未代用户 commit/push。因无基线，暂时不能比较跨分支历史，旧实现以完整目录归档保护。
+初次检查时为无首笔提交的 main，项目全部未跟踪；远端为 `https://github.com/LiGuanheng/SEAPP.git`。阶段 2 已按用户授权以 `baa1804` 作真实首笔提交并推送，未回填此前历史。阶段 3 从该基线建立 `codex/base-command-stage-3`。旧实现仍完整归档。
 
 | 旧实现 | 处置 |
 | --- | --- |
@@ -64,8 +64,26 @@ Player：位置、生命、体力、瞄准、弹匣、换弹/射击/无敌计时
 
 `ExpeditionWorld.interact()` 返回 `{ok,message}`，根据距离与无遮挡检查选最近未开箱/未营救 NPC，或在信标返营。一次交互原子修改状态；失败不扣物资或开箱。`useMedkit()` 同样先校验。`step()` 先执行战斗，再更新随从；存活到 90 秒进入 complete，defeat/complete 均拒绝后续操作。结算私有且检查 playing，保证只入库一次。
 
-Campaign v2 = version、expeditions、depot（三种非负整数资源）、survivors（去重职业 ID）、weapons（去重已知武器 ID）、lastSummary。摘要记录原因、耗时、击杀、箱数、实际带回队员、背包和工程师额外回收。构造时克隆营地数据，失败不修改外部存档。营地库存与人物未来提供给建设阶段；本轮没有 RTS 空实现。
+Campaign v2 = version、expeditions、depot、survivors、weapons、lastSummary，以及兼容增加的 base。摘要记录原因、耗时、击杀、箱数、带回队员、背包和工程师奖励。构造时克隆数据，探索失败不改营地；BaseWorld 直接消费库存并读取职业名单。
 
 场景只在 complete 时尝试保存一次到 `last-light.campaign.v2`。读取/解析/结构错误使用新营地并提示，读取失败不会立即覆盖原数据；下一次成功结算才尝试写入。存储被禁用或容量不足时保留结算画面并明确未保存。旧 `last-light.save.v1` 完全不读写。未实现中途存档。
 
 输入新增 E/H/1/2/Tab/B。背包共用暂停机制清除移动/开火，关闭后不自动复用按住输入。默认探索，`?mode=combat` 训练；`?test=1` 仅只读快照附加 expedition 信息，浏览器自动化仍通过真实键鼠操作，不用瞬移或改血接口。
+
+## 阶段 3 模块与数据
+
+| 模块 | 职责 |
+| --- | --- |
+| config/base.ts | 地图、占地/通道、设施参数、BasePlan/Soldier 与严格校验 |
+| core/base-world.ts | 原子建造/拆除、队形分配、逐士兵导航、身体碰撞/分离、驻守、30 秒布防 |
+| scenes/BaseScene.ts | 点击/框选/指令、镜头坐标换算、固定步长、暂停、存档与场景衔接 |
+| view/BaseView.ts | Tilemap、灯塔/设施、军盔/枪械/动画、选择圈/路径、建造预览 |
+| view/BaseHud.ts | 固定 HUD、资源成本、提示与布防摘要 |
+
+探索摘要 Enter 将 Campaign 交给 BaseScene；`?mode=base` 可读已有阵地。BaseWorld 克隆数据，BasePlan v1 持有 preparing/ready、elapsed、设施数组与士兵数组。设施含 id/kind/网格坐标/rotation/health/paid；士兵含 id/脚底位置/aim/destination/stance/moving。
+
+建设先验证网格、边界、资源、占地、通道、部队/目的地，再用候选设施导航场确认士兵仍可通往灯塔通道，最后一次扣费。拆除按 paid 回收；设施变化重建在途导航。右键先为全组选出独立可达落点，再整体下令，失败保留原指令。每个士兵最多一个导航场，重复指令不累积缓存。
+
+世界对象归入 BaseView.root，HUD 归入 BaseHud.root。主相机只渲染世界并平移/缩放，独立 UI 相机只渲染 HUD，避免缩放使按钮漂移。指针显式转换到主相机世界坐标。
+
+旧 v2 缺 base 时补 null，不另设资源存档键。库存与阵地同一 JSON、一次 setItem，避免扣费和设施部分落盘。建设、拆除、下令、完成、回城市时保存；不逐帧写行军位置，刷新从最近保存的位置/指令继续。读取失败不在入场时覆盖原数据；写失败保留当前阵地并明确提示。仅 `?test=1` 开放只读 `__baseLight.snapshot()`，退出场景删除，普通入口无接口。
