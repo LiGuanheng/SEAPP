@@ -1,7 +1,7 @@
 {
   "name": "the-last-light",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -12,7 +12,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:legacy": "node --experimental-strip-types --test legacy/v0.1/tests/*.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "simulate:night": "node --experimental-strip-types scripts/simulate-night.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

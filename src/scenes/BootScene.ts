@@ -33,6 +33,7 @@ export class BootScene extends Phaser.Scene {
     }
     const graphics = this.make.graphics({ x: 0, y: 0 });
     graphics.fillStyle(0xffffff).fillRect(0, 0, 3, 3).generateTexture('pixel', 3, 3); graphics.destroy();
-    this.scene.start(new URLSearchParams(location.search).get('mode') === 'base' ? 'Base' : 'Combat');
+    const mode = new URLSearchParams(location.search).get('mode');
+    this.scene.start(mode === 'base' || mode === 'night' ? 'Base' : 'Combat', { battle: mode === 'night' });
   }
 }

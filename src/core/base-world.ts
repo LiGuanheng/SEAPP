@@ -23,6 +23,9 @@ export class BaseWorld {
     this.rebuildNavigation();
   }
   get remaining(): number { return Math.max(0, PREPARATION_SECONDS - this.plan.elapsed); }
+  get commanding(): boolean { return this.plan.status === 'preparing'; }
+  get livingSoldiers(): Soldier[] { return this.plan.soldiers; }
+  turretAim(_id: number): number { return -Math.PI / 2; }
   get obstacles(): Rect[] { return [...BASE_OBSTACLES, ...this.plan.buildings.map(buildingRect)]; }
   cost(kind: BuildingKind) {
     const config = BUILDINGS[kind];
@@ -61,15 +64,15 @@ export class BaseWorld {
     this.campaign.depot.materials += refund; this.plan.buildings.splice(index, 1); this.rebuildNavigation();
     return { ok: true, message: `已拆除，返还 ${refund} 建材；电力不返还` };
   }
-  private rebuildNavigation(): void {
+  protected rebuildNavigation(): void {
     this.navigation.clear();
     for (const soldier of this.plan.soldiers) if (soldier.destination) {
       const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, this.obstacles, 11); nav.rebuild(soldier.destination); this.navigation.set(soldier.id, nav);
     }
   }
   move(ids: readonly number[], target: Vec): ActionResult {
-    if (this.plan.status !== 'preparing') return { ok: false, message: '请先继续调整阵地' };
-    const selected = this.plan.soldiers.filter(s => ids.includes(s.id));
+    if (!this.commanding) return { ok: false, message: '当前不能向部队下令' };
+    const selected = this.livingSoldiers.filter(s => ids.includes(s.id));
     if (!selected.length) return { ok: false, message: '先左键选中或框选士兵，再右键移动' };
     const obstacles = this.obstacles;
     if (!validPoint(target) || !canOccupy(target, 11, obstacles, BASE_WIDTH, BASE_HEIGHT)) return { ok: false, message: '目标位置不可通行' };
@@ -96,8 +99,8 @@ export class BaseWorld {
     return { ok: true, message: `${selected.length} 名士兵向指定位置移动` };
   }
   hold(ids: readonly number[]): ActionResult {
-    if (this.plan.status !== 'preparing') return { ok: false, message: '请先继续调整阵地' };
-    const selected = this.plan.soldiers.filter(s => ids.includes(s.id));
+    if (!this.commanding) return { ok: false, message: '当前不能向部队下令' };
+    const selected = this.livingSoldiers.filter(s => ids.includes(s.id));
     if (!selected.length) return { ok: false, message: '请先选中士兵' };
     for (const s of selected) { s.destination = null; s.stance = 'hold'; s.moving = false; this.navigation.delete(s.id); }
     return { ok: true, message: `${selected.length} 名士兵就地驻守` };
@@ -111,8 +114,13 @@ export class BaseWorld {
   step(dt = 1 / 60): void {
     if (this.plan.status !== 'preparing' || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(dt, 0.05); this.plan.elapsed += dt;
+    this.stepSoldiers(dt);
+    if (this.remaining < 1e-6) this.finish();
+  }
+  protected stepSoldiers(dt: number): void {
     const obstacles = this.obstacles;
-    for (const s of this.plan.soldiers) {
+    const soldiers = this.livingSoldiers;
+    for (const s of soldiers) {
       if (!s.destination) { s.moving = false; continue; }
       if (distance(s, s.destination) < 5) { s.destination = null; s.stance = 'hold'; s.moving = false; this.navigation.delete(s.id); continue; }
       const nav = this.navigation.get(s.id)!;
@@ -121,14 +129,13 @@ export class BaseWorld {
       moveWithCollision(s, direction.x * 140 * dt, direction.y * 140 * dt, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
       s.moving = distance(before, s) > 0.01;
     }
-    for (let i = 0; i < this.plan.soldiers.length; i++) for (let j = i + 1; j < this.plan.soldiers.length; j++) {
-      const a = this.plan.soldiers[i], b = this.plan.soldiers[j], d = distance(a, b);
+    for (let i = 0; i < soldiers.length; i++) for (let j = i + 1; j < soldiers.length; j++) {
+      const a = soldiers[i], b = soldiers[j], d = distance(a, b);
       if (d >= 23) continue;
       const v = d > 0.001 ? normalized(a.x - b.x, a.y - b.y) : { x: 1, y: 0 };
       moveWithCollision(a, v.x * (23 - d) / 2, v.y * (23 - d) / 2, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
       moveWithCollision(b, -v.x * (23 - d) / 2, -v.y * (23 - d) / 2, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
     }
-    if (this.remaining < 1e-6) this.finish();
   }
   snapshot() { return { phase: 'base' as const, remaining: this.remaining, plan: structuredClone(this.plan), campaign: cloneCampaign(this.campaign) }; }
 }

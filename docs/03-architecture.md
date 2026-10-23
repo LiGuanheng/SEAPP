@@ -87,3 +87,36 @@ Campaign v2 = version、expeditions、depot、survivors、weapons、lastSummary�
 世界对象归入 BaseView.root，HUD 归入 BaseHud.root。主相机只渲染世界并平移/缩放，独立 UI 相机只渲染 HUD，避免缩放使按钮漂移。指针显式转换到主相机世界坐标。
 
 旧 v2 缺 base 时补 null，不另设资源存档键。库存与阵地同一 JSON、一次 setItem，避免扣费和设施部分落盘。建设、拆除、下令、完成、回城市时保存；不逐帧写行军位置，刷新从最近保存的位置/指令继续。读取失败不在入场时覆盖原数据；写失败保留当前阵地并明确提示。仅 `?test=1` 开放只读 `__baseLight.snapshot()`，退出场景删除，普通入口无接口。
+
+## 阶段 4 夜战架构
+
+阶段 3 已提交 `b673609`；本轮基于该提交建立 `codex/night-defense-stage-4`。不运行旧版固定路径塔防引擎，复用当前实时碰撞、导航、阵地与键鼠指挥。
+
+```mermaid
+flowchart LR
+  Day[CombatScene 探索] --> Summary[回营入库]
+  Summary --> Prep[BaseScene / BaseWorld 布防]
+  Prep --> Night[BaseScene / NightWorld 守夜]
+  Night --> Result[黎明或灯塔失守]
+  Result --> Checkpoint[入夜前阵地重试]
+  Checkpoint --> Night
+  Result --> Day
+```
+
+| 模块 | 职责 |
+| --- | --- |
+| config/night.ts | 120 秒、五波三类敌人、入口、实体上限 |
+| core/night-world.ts | 继承 BaseWorld 指挥与单位运动；尸潮、自动射击、连续弹道、伤害、摧毁、支援、胜负与幂等结果 |
+| view/NightView.ts | 敌人动画、健康条、尸体/粒子、枪焰/弹体、灯束与低分辨率软遮罩 |
+| view/NightHud.ts | 灯塔耐久、波次/倒计时、选择与支援、音效开关、暂停和胜负 |
+| view/SoundBus.ts | 用户操作解锁 Web Audio，原创噪声音色与低频环境，限 8 声部、节流枪声、静音/暂停/销毁 |
+
+BaseWorld 抽出 commanding、livingSoldiers、stepSoldiers、rebuildNavigation；BaseScene 使用同一选择/镜头输入驱动布防或守夜，默认布防结束重启同场景并带 battle 标志。`?mode=base` 明确保留训练摘要，N 才守夜；不借助测试参数改变战斗速度或血量。
+
+NightWorld 持有独立战斗状态：敌人数组、子弹、fighters 健康/冷却、炮塔瞄准/冷却、灯塔耐久、队列与支援。入夜时深拷贝合法布防检查点；战斗损失只改本局，终局 resultCampaign() 缓存同一结果，在检查点副本中增加 lastNight 与 nightsWon，重复调用不重复加胜场。夜战下令不把损坏阵地存成基地计划。
+
+敌人共享通往灯塔附近的导航场，邻近守卫/设施时改为局部接敌。设施摧毁后重建双方导航。己方子弹对最近敌人和静态建筑连续求交，矮掩体不挡己方火力。支援独立倒计时和范围伤害。固定步长钳到 120 秒剩余时间，末步先判灯塔是否归零，再判黎明。
+
+夜视遮罩为 768×512 CanvasTexture，每 0.1 秒或终局变化刷新，放大到世界，避免每帧上传全分辨率；可见性按灯塔/守卫/炮塔半径决定。尸体、粒子、敌人与子弹都受上限或寿命约束。世界与 HUD 仍由独立相机渲染。
+
+v2 兼容新增可选 nightsWon/lastNight，严格校验时长、结果与耐久一致性；无字段的旧档可继续读取。终局只保存一次，失败保留重试阵地，存储拒绝不阻断游戏。夜战中途不存战场，刷新重新开始检查点。仅 `?test=1` 暴露只读 __nightLight，场景退出清除，不提供改血/跳时/刷怪接口。

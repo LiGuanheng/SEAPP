@@ -76,7 +76,7 @@ export class BaseHud {
     const ready = world.plan.status === 'ready'; this.overlay.setVisible(paused || ready);
     if (paused || ready) {
       this.title.setText(ready ? '布防完成，阵地已经就绪。' : '指挥暂停');
-      this.body.setText(ready ? `沙袋路障 ${world.plan.buildings.filter(b => b.kind === 'barricade').length} 座 · 机枪塔 ${world.plan.buildings.filter(b => b.kind === 'turret').length} 座\n守备士兵 ${world.plan.soldiers.length} 人 · 驻守 ${world.plan.soldiers.filter(s => s.stance === 'hold').length} 人\n剩余建材 ${c.depot.materials} / 电力 ${c.depot.energy}\n部署方案与库存会一同保存。` : '镜头、部队和布防计时已暂停。\n按 P / Esc 或点击下方按钮继续。');
+      this.body.setText(ready ? `沙袋路障 ${world.plan.buildings.filter(b => b.kind === 'barricade').length} 座 · 机枪塔 ${world.plan.buildings.filter(b => b.kind === 'turret').length} 座\n守备士兵 ${world.plan.soldiers.length} 人 · 驻守 ${world.plan.soldiers.filter(s => s.stance === 'hold').length} 人\n剩余建材 ${c.depot.materials} / 电力 ${c.depot.energy}\n训练模式 · 按 N 开始守夜，Enter 继续调整。` : '镜头、部队和布防计时已暂停。\n按 P / Esc 或点击下方按钮继续。');
       if (this.saveWarning) this.body.setText(this.body.text + '\n' + this.saveWarning);
       this.buttonLabel.setText(ready ? '继续调整阵地 [Enter]' : '继续指挥 [P]');
     }

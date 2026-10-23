@@ -34,7 +34,7 @@ export class BaseView {
     for (const x of [64, 1440]) for (let y = 64; y < 970; y += 96) { tile(x, y, 403, y + 64); tile(x, y + 32, 440, y + 64); }
     for (const x of [416, 1056]) for (const y of [192, 816]) add(scene.add.image(x, y, 'supply').setScale(1.5).setDepth(y));
     add(scene.add.ellipse(LIGHTHOUSE.x, LIGHTHOUSE.y + 24, 132, 46, 0x0b2026, 0.5).setDepth(LIGHTHOUSE.y - 2));
-    add(scene.add.image(LIGHTHOUSE.x, LIGHTHOUSE.y + 30, 'lighthouse').setOrigin(0.5, 0.94).setDepth(LIGHTHOUSE.y));
+    add(scene.add.image(LIGHTHOUSE.x, LIGHTHOUSE.y + 30, 'lighthouse').setName('lighthouse').setOrigin(0.5, 0.94).setDepth(LIGHTHOUSE.y));
     add(scene.add.text(LIGHTHOUSE.x, LIGHTHOUSE.y - 145, '最后一盏灯', { fontFamily: 'Microsoft YaHei', fontSize: '14px', color: '#ead49b', letterSpacing: 3 }).setOrigin(0.5).setDepth(LIGHTHOUSE.y + 2));
     this.graphics = add(scene.add.graphics().setDepth(9000));
     this.previewImage = add(scene.add.image(0, 0, 'barricade').setAlpha(0.68).setDepth(9001).setVisible(false));
@@ -42,7 +42,9 @@ export class BaseView {
   }
   update(world: BaseWorld, selected: Set<number>, buildingId: number | null, placement: Placement | null, marquee: Rect | null, paused: boolean): void {
     const g = this.graphics.clear();
-    for (const s of world.plan.soldiers) {
+    const living = new Set(world.livingSoldiers.map(s => s.id));
+    for (const [id, v] of this.soldiers) if (!living.has(id)) { v.sprite.destroy(); v.shadow.destroy(); v.helmet.destroy(); v.gun.destroy(); this.soldiers.delete(id); }
+    for (const s of world.livingSoldiers) {
       let v = this.soldiers.get(s.id);
       if (!v) {
         v = { sprite: this.scene.add.sprite(s.x, s.y, 'player', 1).setOrigin(0.5, 0.95).setScale(1.2).setTint(0x9eaf91),
@@ -53,7 +55,7 @@ export class BaseView {
       v.shadow.setPosition(s.x, s.y + 2).setDepth(s.y - 2);
       v.helmet.setPosition(s.x, s.y - 37).setDepth(s.y + 1);
       v.gun.setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
-      if (paused || world.plan.status !== 'preparing') v.sprite.anims.pause();
+      if (paused || !world.commanding) v.sprite.anims.pause();
       else {
         v.sprite.anims.resume();
         if (s.moving) v.sprite.play(`player-walk-${facing(s.aim)}`, true);
@@ -73,9 +75,11 @@ export class BaseView {
         const view = this.scene.add.container(r.x + r.width / 2, r.y + r.height / 2).setDepth(r.y + r.height);
         view.add(this.scene.add.ellipse(4, 11, r.width + 8, r.height, 0x0b2025, 0.35));
         view.add(this.scene.add.image(0, b.kind === 'turret' ? -7 : -4, b.kind).setAngle(b.rotation * 90));
-        if (b.kind === 'turret') view.add(this.scene.add.image(0, -19, 'rifle').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2).setScale(1.1));
+        if (b.kind === 'turret') view.add(this.scene.add.image(0, -19, 'rifle').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2).setScale(1.1));
         this.root.add(view); this.buildings.set(b.id, view);
       }
+      const barrel = this.buildings.get(b.id)!.getByName('barrel') as Phaser.GameObjects.Image | null;
+      barrel?.setRotation(world.turretAim(b.id));
       if (buildingId === b.id) {
         g.lineStyle(2, 0xe4c98f).strokeRect(r.x - 2, r.y - 2, r.width + 4, r.height + 4);
         const range = BUILDINGS[b.kind].range;
