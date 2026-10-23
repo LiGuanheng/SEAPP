@@ -41,6 +41,6 @@ export function groundTile(x: number, y: number): number {
     if ((x === 16 || x === 42) && y >= 19 && y <= 24) return 824;
     return 714;
   }
-  if (x < 2 || x > 61 || y < 2 || y > 41) return (x + y) % 7 === 0 ? 966 : 964;
+  if (x < 2 || x > 61 || y < 2 || y > 41) return 889;
   return (x * 13 + y * 7) % 29 === 0 ? 777 : 704;
 }

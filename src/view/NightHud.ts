@@ -11,6 +11,7 @@ export class NightHud {
   private graphics: Phaser.GameObjects.Graphics;
   private info: Phaser.GameObjects.Text;
   private status: Phaser.GameObjects.Text;
+  private forecast: Phaser.GameObjects.Text;
   private selection: Phaser.GameObjects.Text;
   private charges: Phaser.GameObjects.Text;
   private sound: Phaser.GameObjects.Text;
@@ -31,7 +32,7 @@ export class NightHud {
     text(26, 16, 'THE LAST LIGHT / 北境守夜', 14, '#e4c58c').setLetterSpacing(2);
     this.info = text(26, 45, '', 13, '#e7d3a2');
     this.status = text(425, 24, '', 14, '#ead19b');
-    text(425, 56, '守住灯塔直至天亮 · 白线弹道为己方火力', 11, '#a8bba6');
+    this.forecast = text(425, 56, '', 11, '#a8bba6');
     const button = (x: number, y: number, width: number, label: string, action: () => void) => {
       const bg = scene.add.rectangle(x, y, width, 36, 0x2b4542).setStrokeStyle(1, 0x7c8e72).setInteractive({ useHandCursor: true });
       bg.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); action(); }); this.root.add(bg);
@@ -57,7 +58,7 @@ export class NightHud {
     this.overlay.add([this.title, this.body, primary, this.primary, this.exit]);
   }
   setModes(support: boolean, muted: boolean): void { this.support = support; this.muted = muted; }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || y < 94 || y >= 596; }
+  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || y < 94 || y >= 596 || x >= 1080 && y < 244; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(base: BaseWorld, ids: Set<number>, buildingId: number | null, _buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const w = base as NightWorld, g = this.graphics.clear();
@@ -68,6 +69,8 @@ export class NightHud {
     if (w.lampHurt > 0) g.lineStyle(16, 0xd07761, w.lampHurt).strokeRect(0, 0, 1280, 720);
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
     this.status.setText(`距离天亮 ${Math.ceil(w.remaining)}s　/　第 ${w.wave}/${WAVES.length} 波　/　击杀 ${w.kills}`);
+    const next = WAVES[w.wave];
+    this.forecast.setText(next ? `下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s 后 · ${next.brute ? '重装 / 疾行 / 普通' : next.runner ? '疾行 / 普通' : '普通'}感染者` : '最后一波已出动 · 守住灯塔直至天亮');
     const b = w.plan.buildings.find(b => b.id === buildingId);
     this.selection.setText(this.support ? '火力支援：左键选择视野内落点，0.65 秒后爆炸；右键 / Esc 取消，不伤己方' : b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · 夜战中不能施工或拆除` : `守备 ${w.livingSoldiers.length}/${w.plan.soldiers.length} 人　/　已选 ${ids.size} 人　/　在场感染者 ${w.enemies.length}　/　自动射击，移动调整交叉火力`);
     this.charges.setText(`炮火支援 [F]　${w.charges} 次${w.supportCooldown > 0 ? ` / ${Math.ceil(w.supportCooldown)}s` : ''}`);

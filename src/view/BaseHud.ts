@@ -62,7 +62,7 @@ export class BaseHud {
     back.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); explore(); });
     this.overlay.add([this.title, this.body, bg, this.buttonLabel, back]);
   }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || y < 94 || y >= 596; }
+  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || y < 94 || y >= 596 || x >= 1080 && y < 244; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);

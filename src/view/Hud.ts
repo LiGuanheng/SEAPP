@@ -7,7 +7,11 @@ import { CAMP, CAPACITY, ExpeditionWorld, SURVIVOR_PROFILES } from '../core/expe
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class Hud {
   saveWarning = '';
-  private root: Phaser.GameObjects.Container;
+  readonly root: Phaser.GameObjects.Container;
+  private navigation: Phaser.GameObjects.Graphics;
+  private bearing: Phaser.GameObjects.Text;
+  private sound: Phaser.GameObjects.Text;
+  private scene: Phaser.Scene;
   private graphics: Phaser.GameObjects.Graphics;
   private ammo: Phaser.GameObjects.Text;
   private health: Phaser.GameObjects.Text;
@@ -27,12 +31,17 @@ export class Hud {
   private toastTime = 0;
   private hurt = 0;
   private isOverlay = false;
-  constructor(scene: Phaser.Scene, pause: () => void, resumeOrRetry: () => void) {
+  constructor(scene: Phaser.Scene, pause: () => void, resumeOrRetry: () => void, mute: () => void) {
+    this.scene = scene;
     this.root = scene.add.container(0, 0).setScrollFactor(0).setDepth(100000);
     this.graphics = scene.add.graphics(); this.root.add(this.graphics);
     const text = (x: number, y: number, value: string, size: number, color = '#c8d1c1') => {
       const label = scene.add.text(x, y, value, { fontFamily: font, fontSize: `${size}px`, color }); this.root.add(label); return label;
     };
+    this.navigation = scene.add.graphics(); this.root.add(this.navigation);
+    this.bearing = text(640, 104, '', 11, '#ecd49a').setOrigin(0.5).setBackgroundColor('#142a2b').setPadding(7, 5);
+    this.sound = text(1040, 59, '', 12, '#bdc9b2').setOrigin(0.5).setPadding(10, 7).setInteractive({ useHandCursor: true });
+    this.sound.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); mute(); });
     text(28, 18, 'THE LAST LIGHT', 15, '#e1c184').setLetterSpacing(3);
     text(28, 41, '最后一盏灯 / 北境旧城区', 11, '#aab6a4');
     this.health = text(28, 70, '', 12);
@@ -53,7 +62,9 @@ export class Hud {
     this.caption = text(1250, 656, '', 10, '#a9b9a2').setOrigin(1, 0);
     this.reload = text(640, 513, '', 13, '#e3c58a').setOrigin(0.5);
     this.overlay = scene.add.container(0, 0).setVisible(false); this.root.add(this.overlay);
-    this.overlay.add(scene.add.rectangle(640, 360, 1280, 720, 0x091217, 0.94));
+    const shade = scene.add.rectangle(640, 360, 1280, 720, 0x091217, 0.94).setInteractive();
+    shade.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => e.stopPropagation());
+    this.overlay.add(shade);
     this.overlay.add(scene.add.text(640, 180, 'NORTH DISTRICT / 07', { fontFamily: font, fontSize: '11px', color: '#b5b69b', letterSpacing: 3 }).setOrigin(0.5));
     this.overlayTitle = scene.add.text(640, 230, '', { fontFamily: font, fontSize: '32px', color: '#e8d2a2' }).setOrigin(0.5);
     this.overlayBody = scene.add.text(640, 370, '', { fontFamily: font, fontSize: '14px', color: '#b2c0ac', align: 'center', lineSpacing: 10 }).setOrigin(0.5);
@@ -63,11 +74,24 @@ export class Hud {
     this.overlay.add([this.overlayTitle, this.overlayBody, background, this.overlayButton]);
   }
   flashHurt(): void { this.hurt = 0.24; }
+  setMuted(value: boolean): void { this.sound.setText(value ? '静音 [M]' : '声音 [M]'); }
   notify(message: string): void { this.toast.setText(message).setVisible(true); this.toastTime = 4.5; }
   blocksInput(x: number, y: number): boolean { return this.isOverlay || y < 93 || x > 1090 && y < 235; }
   update(world: CombatWorld, paused: boolean, dt: number, bag = false): void {
     const p = world.player, g = this.graphics;
     const expedition = world instanceof ExpeditionWorld ? world : null;
+    this.navigation.clear(); this.bearing.setVisible(!!expedition && !paused && world.status === 'playing');
+    if (expedition && !paused && world.status === 'playing') {
+      const target = expedition.objective().point, camera = this.scene.cameras.main;
+      const x = target.x - camera.scrollX, y = target.y - camera.scrollY;
+      // 沿目标方向投射到安全显示区域，避免被顶栏、背包提示和小地图遮挡。
+      const dx = x - 640, dy = y - 350;
+      const scale = Math.min(1, 400 / Math.max(1, Math.abs(dx)), 214 / Math.max(1, Math.abs(dy)));
+      const px = 640 + dx * scale, py = 350 + dy * scale;
+      const angle = Math.atan2(dy, dx), size = 10;
+      if (scale < 1) this.navigation.fillStyle(0xebce8e).fillTriangle(px + Math.cos(angle) * size, py + Math.sin(angle) * size, px + Math.cos(angle + 2.5) * size, py + Math.sin(angle + 2.5) * size, px + Math.cos(angle - 2.5) * size, py + Math.sin(angle - 2.5) * size);
+      this.bearing.setPosition(scale < 1 ? px : 640, scale < 1 ? py + (dy > 0 ? -23 : 23) : 104).setText(`${scale < 1 ? '目标方向 · ' : '当前目标 · '}${Math.round(Math.hypot(target.x - p.x, target.y - p.y) / 32)} 格`);
+    }
     this.toastTime = Math.max(0, this.toastTime - dt); this.toast.setVisible(this.toastTime > 0);
     this.hurt = Math.max(0, this.hurt - dt);
     g.clear();
@@ -96,6 +120,8 @@ export class Hud {
       for (const c of expedition.caches) if (!c.opened) g.fillStyle(0xa5c6a0).fillRect(mx + c.x / WORLD_WIDTH * mw - 1.5, my + c.y / WORLD_HEIGHT * mh - 1.5, 3, 3);
       for (const s of expedition.survivors) g.fillStyle(0x8bc9d1).fillCircle(mx + s.x / WORLD_WIDTH * mw, my + s.y / WORLD_HEIGHT * mh, 2);
       g.lineStyle(1, 0xe7d5a0).strokeCircle(mx + CAMP.x / WORLD_WIDTH * mw, my + CAMP.y / WORLD_HEIGHT * mh, 4);
+      const target = expedition.objective().point;
+      g.lineStyle(1.5, 0xf2d48c).strokeCircle(mx + target.x / WORLD_WIDTH * mw, my + target.y / WORLD_HEIGHT * mh, 4 + Math.sin(world.elapsed * 4));
     }
     g.fillStyle(0xe5c384).fillCircle(mx + p.x / WORLD_WIDTH * mw, my + p.y / WORLD_HEIGHT * mh, 3);
     if (this.hurt > 0) {

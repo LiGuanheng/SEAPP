@@ -11,6 +11,8 @@ import { NightWorld } from '../core/night-world.ts';
 import { NightView } from '../view/NightView.ts';
 import { NightHud } from '../view/NightHud.ts';
 import { SoundBus } from '../view/SoundBus.ts';
+import { FieldGuide } from '../view/FieldGuide.ts';
+import { TacticalRadar } from '../view/TacticalRadar.ts';
 
 const contains = (r: Rect, p: Vec): boolean => p.x >= r.x && p.y >= r.y && p.x <= r.x + r.width && p.y <= r.y + r.height;
 
@@ -32,6 +34,9 @@ export class BaseScene extends Phaser.Scene {
   private accumulator = 0;
   private savedReady = false;
   private pointerActive = false;
+  private guide!: FieldGuide;
+  private radar!: TacticalRadar;
+  private guideWasPaused = false;
   constructor() { super('Base'); }
   create(data: { campaign?: Campaign; fresh?: boolean; battle?: boolean } = {}): void {
     let campaign = data.campaign ?? newCampaign(), warning = '';
@@ -47,14 +52,20 @@ export class BaseScene extends Phaser.Scene {
     this.nightView = this.world instanceof NightWorld ? new NightView(this, this.view.root) : null;
     this.hud = data.battle ? new NightHud(this, () => this.action(this.world.hold([...this.selected])), () => this.toggleSupport(), () => this.audio?.toggle(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore()) :
       new BaseHud(this, k => this.setKind(k), () => this.action(this.world.hold([...this.selected])), () => this.finish(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore());
+    this.radar = new TacticalRadar(this, this.hud.root, (x, y) => { if (!this.paused && this.world.commanding) { camera.centerOn(x, y); this.drag = null; } });
+    const home = this.add.text(1040, 70, '回灯塔 [C]', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e4ca91', backgroundColor: '#263d3b', padding: { x: 10, y: 8 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    home.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.home(); }); this.hud.root.add(home);
+    this.guide = new FieldGuide(this, this.hud.root, data.battle ? 'night' : 'base', () => this.toggleGuide());
     camera.ignore(this.hud.root);
     const ui = this.cameras.add(0, 0, 1280, 720).setName('BaseUI'); ui.ignore(this.view.root);
     if (warning) this.hud.notify(warning);
     this.input.mouse?.disableContextMenu();
     const keyDown = (e: KeyboardEvent) => {
       this.audio?.unlock();
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Tab'].includes(e.code)) e.preventDefault();
+      if (['F1', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Tab'].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
+      if (e.code === 'F1') { this.toggleGuide(); return; }
+      if (this.guide.visible) { if (['Escape', 'KeyP'].includes(e.code)) this.toggleGuide(); return; }
       if (e.code === 'KeyP') { this.setPaused(!this.paused); return; }
       if (e.code === 'KeyM') { this.audio?.toggle(); return; }
       if (e.code === 'Escape') { if (this.kind || this.drag || this.support) { this.kind = null; this.drag = null; this.support = false; } else this.setPaused(!this.paused); return; }
@@ -62,6 +73,7 @@ export class BaseScene extends Phaser.Scene {
       if (this.world instanceof NightWorld && e.code === 'Enter') { if (!this.world.commanding) this.resume(); return; }
       if (e.code === 'Enter') { this.world.plan.status === 'ready' ? this.resume() : this.finish(); return; }
       if (this.paused || !this.world.commanding) return;
+      if (e.code === 'KeyC') { this.home(); return; }
       if (e.code === 'Digit1') this.setKind('barricade');
       if (e.code === 'Digit2') this.setKind('turret');
       if (e.code === 'KeyR' && this.kind === 'barricade') this.rotation = this.rotation === 0 ? 1 : 0;
@@ -108,7 +120,7 @@ export class BaseScene extends Phaser.Scene {
       this.drag = null;
     };
     const move = () => { this.pointerActive = true; };
-    const blur = () => this.setPaused(true);
+    const blur = () => { if (this.guide.visible) this.guideWasPaused = true; this.setPaused(true); };
     const hidden = () => { if (document.hidden) blur(); };
     const leave = () => { this.pointerActive = false; this.drag = null; };
     this.input.keyboard!.on('keydown', keyDown); this.input.keyboard!.on('keyup', keyUp);
@@ -120,8 +132,8 @@ export class BaseScene extends Phaser.Scene {
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', hidden); this.game.canvas.removeEventListener('pointerleave', leave); delete window.__baseLight; delete window.__nightLight; this.audio?.destroy();
     });
     if (params.get('test') === '1') {
-      if (this.world instanceof NightWorld) window.__nightLight = Object.freeze({ snapshot: () => ({ ...(this.world as NightWorld).nightSnapshot(), selected: [...this.selected], paused: this.paused, ready: true, support: this.support, muted: this.audio?.muted ?? true, view: { ...this.view.counts(), ...this.nightView!.counts() }, camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
-      else window.__baseLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), selected: [...this.selected], selectedBuilding: this.selectedBuilding, placement: this.kind, rotation: this.rotation, paused: this.paused, ready: true, view: this.view.counts(), camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
+      if (this.world instanceof NightWorld) window.__nightLight = Object.freeze({ snapshot: () => ({ ...(this.world as NightWorld).nightSnapshot(), selected: [...this.selected], paused: this.paused, guide: this.guide.visible, ready: true, support: this.support, muted: this.audio?.muted ?? true, view: { ...this.view.counts(), ...this.nightView!.counts() }, camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
+      else window.__baseLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), selected: [...this.selected], selectedBuilding: this.selectedBuilding, placement: this.kind, rotation: this.rotation, paused: this.paused, guide: this.guide.visible, ready: true, view: this.view.counts(), camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
     }
     document.getElementById('loading')?.remove();
   }
@@ -143,6 +155,12 @@ export class BaseScene extends Phaser.Scene {
     this.kind = this.kind === kind ? null : kind; this.rotation = 0; this.drag = null; this.selectedBuilding = null;
   }
   private setPaused(paused: boolean): void { this.paused = paused; this.held.clear(); this.drag = null; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio?.pause(paused); }
+  private home(): void { if (!this.paused && this.world.commanding) { this.cameras.main.centerOn(LIGHTHOUSE.x, LIGHTHOUSE.y); this.drag = null; } }
+  private toggleGuide(): void {
+    if (!this.world.commanding) return;
+    if (this.guide.visible) { this.guide.show(false); this.setPaused(this.guideWasPaused); }
+    else { this.guideWasPaused = this.paused; this.guide.show(true); this.setPaused(true); }
+  }
   private toggleSupport(): void { if (this.paused || !(this.world instanceof NightWorld) || !this.world.commanding) return; this.audio?.unlock(); this.support = !this.support; this.drag = null; }
   private startNight(): void { this.persist(); this.scene.restart({ campaign: this.world.campaign, battle: true }); }
   private finish(): void { if (this.paused || this.world.plan.status !== 'preparing' || this.world instanceof NightWorld) return; this.world.finish(); this.kind = null; this.drag = null; this.held.clear(); this.persist(); this.savedReady = true; if (!this.practice) this.startNight(); }
@@ -157,7 +175,7 @@ export class BaseScene extends Phaser.Scene {
       this.accumulator = Math.min(this.accumulator + dt, 0.15);
       while (this.accumulator >= 1 / 60 && this.world.commanding) {
         this.world.step(); this.accumulator -= 1 / 60;
-        if (this.world instanceof NightWorld) { this.nightView!.handle(this.world.events); this.audio?.handle(this.world.events); if (this.world.events.some(e => e.type === 'explosion')) this.cameras.main.shake(150, 0.0025); }
+        if (this.world instanceof NightWorld) { this.nightView!.handle(this.world.events); this.audio?.handle(this.world.events); if (this.world.events.some(e => e.type === 'explosion')) this.cameras.main.shake(150, 0.0025); if (this.world.events.some(e => e.type === 'wave')) this.hud.notify(`第 ${this.world.wave} 波尸潮来袭 · 留意四方入口与战术地图`); }
       }
       const camera = this.cameras.main;
       const x = Number(this.held.has('KeyD') || this.held.has('ArrowRight')) - Number(this.held.has('KeyA') || this.held.has('ArrowLeft'));
@@ -174,10 +192,12 @@ export class BaseScene extends Phaser.Scene {
     if (this.world instanceof NightWorld) this.nightView!.update(this.world, active ? dt : 0, this.paused, this.support && this.pointerActive ? this.point() : null);
     if (this.hud instanceof NightHud) this.hud.setModes(this.support, this.audio?.muted ?? true);
     this.hud.update(this.world, this.selected, this.selectedBuilding, this.kind, this.paused, active ? dt : 0);
+    this.radar.update(this.world, this.cameras.main, this.paused);
+    this.guide.available(this.world.commanding);
   }
 }
 
 declare global { interface Window {
-  __baseLight?: { snapshot: () => ReturnType<BaseWorld['snapshot']> & { selected: number[]; selectedBuilding: number | null; placement: BuildingKind | null; rotation: number; paused: boolean; ready: boolean; camera: { x: number; y: number; zoom: number }; view: { soldiers: number; buildings: number; objects: number } } };
-  __nightLight?: { snapshot: () => ReturnType<NightWorld['nightSnapshot']> & { selected: number[]; paused: boolean; ready: boolean; support: boolean; muted: boolean; camera: { x: number; y: number; zoom: number }; view: { soldiers: number; buildings: number; objects: number; enemies: number; bullets: number; particles: number; corpses: number } } };
+  __baseLight?: { snapshot: () => ReturnType<BaseWorld['snapshot']> & { selected: number[]; selectedBuilding: number | null; placement: BuildingKind | null; rotation: number; paused: boolean; guide: boolean; ready: boolean; camera: { x: number; y: number; zoom: number }; view: { soldiers: number; buildings: number; objects: number } } };
+  __nightLight?: { snapshot: () => ReturnType<NightWorld['nightSnapshot']> & { selected: number[]; paused: boolean; guide: boolean; ready: boolean; support: boolean; muted: boolean; camera: { x: number; y: number; zoom: number }; view: { soldiers: number; buildings: number; objects: number; enemies: number; bullets: number; particles: number; corpses: number } } };
 } }
