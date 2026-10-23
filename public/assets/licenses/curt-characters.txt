@@ -1,0 +1,10 @@
+Author: Curt
+Source: https://opengameart.org/content/characters-zombies-and-weapons-oh-my
+Used: https://opengameart.org/sites/default/files/Boy1.png
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Verified: 2026-10-22
+
+The author re-released these characters under CC0 on 2016-09-28.
+Only Boy1.png is used; no bundled Dungeon Crawl weapons/items are included.
+Credit retained voluntarily. See docs/07-assets.md.

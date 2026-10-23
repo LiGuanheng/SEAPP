@@ -1,0 +1,11 @@
+Author: Curt
+Source: https://opengameart.org/content/zombie-rpg-sprites
+Archive: https://opengameart.org/sites/default/files/Zombies.zip
+Used: Zombies/1ZombieSpriteSheet.png and Zombies/2ZombieSpriteSheet.png
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Verified: 2026-10-22
+
+The author re-released this sprite set under CC0 on 2016-09-28.
+The project preserves the original artwork and registers animation frames at runtime.
+Credit retained voluntarily. See docs/07-assets.md.

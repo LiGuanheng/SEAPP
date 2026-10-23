@@ -1,0 +1,9 @@
+:root { font-family: Consolas, 'Microsoft YaHei', sans-serif; color: #d8dccb; background: #080e12; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+#game { width: 100%; height: 100%; height: 100dvh; }
+canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; outline: none; touch-action: none; }
+#loading, #load-error { position: fixed; z-index: 10; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 20px; max-width: 90vw; text-align: center; color: #d9c390; background: #122128; border: 1px solid #64705a; line-height: 1.8; }
+#loading { pointer-events: none; font-size: 12px; top: 65%; background: transparent; border: 0; }
+#load-error { color: #efba9e; }
+[hidden] { display: none !important; }

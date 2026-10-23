@@ -1,0 +1,6 @@
+The Last Light: original pistol.svg, rifle.svg, bullet.svg, muzzle.svg, supply.svg,
+beacon.svg and programmatic combat / expedition effect artwork.
+Created for this project, 2026-10-22 through 2026-10-23.
+Original visual asset contributions are dedicated to CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+This does not relicense third-party assets or the game source code.

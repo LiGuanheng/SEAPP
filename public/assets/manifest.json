@@ -1,0 +1,80 @@
+{
+  "verifiedOn": "2026-10-23",
+  "assets": [
+    {
+      "file": "characters/survivor.png",
+      "bytes": 9155,
+      "sha256": "7fa8ec7f08397dc1392986eff5c1550c49cf4481d4aca0d9d159f5fe8ece999a"
+    },
+    {
+      "file": "characters/zombie-alt.png",
+      "bytes": 20425,
+      "sha256": "b437a673457298a69672b6495afbac653e5c29f51d480e649d81d24bf7d27c6c"
+    },
+    {
+      "file": "characters/zombie.png",
+      "bytes": 20009,
+      "sha256": "aa6238f00cbf142247c0b9363da2c1af604b6ec273984c1377038ecb54522964"
+    },
+    {
+      "file": "city/tilemap.png",
+      "bytes": 23387,
+      "sha256": "e8b653bd3f32a537a2634eaa55d6abb97f20e09fd974bc1278a2ea55c1cda59f"
+    },
+    {
+      "file": "licenses/curt-characters.txt",
+      "bytes": 442,
+      "sha256": "4bda4ac0aa744748dd6ea0be73970719e5d2334c92d4052ff98ea0eab3ece99b"
+    },
+    {
+      "file": "licenses/curt-zombies.txt",
+      "bytes": 511,
+      "sha256": "5a3e6bde4d7862d76e95eee84b982215e0dce5f36c999b235b3b7b784cbef661"
+    },
+    {
+      "file": "licenses/kenney-city.txt",
+      "bytes": 580,
+      "sha256": "24f97fdb24cfedfd8a4bf5645f5056312f3bc9cb4df91c3eff584073caecb9fb"
+    },
+    {
+      "file": "licenses/phaser-MIT.txt",
+      "bytes": 1120,
+      "sha256": "080f3d5539e766bb556df5b8e86c4f5d581ece35c692b80956ca352b84d29134"
+    },
+    {
+      "file": "licenses/project-art.txt",
+      "bytes": 396,
+      "sha256": "99c9c158f5cb2db1b54871876df9444e98151ed405e9d9f8e1567ca6c88cf0c7"
+    },
+    {
+      "file": "weapons/beacon.svg",
+      "bytes": 383,
+      "sha256": "c899903a72861fac9ee68d9f5358992c48d94435b65341851cca72caa92990ee"
+    },
+    {
+      "file": "weapons/bullet.svg",
+      "bytes": 206,
+      "sha256": "6d44d16c17821df145592c3c3d0ebebcb5fded15482338b0676cf0b49d3a03bc"
+    },
+    {
+      "file": "weapons/muzzle.svg",
+      "bytes": 285,
+      "sha256": "0bc1e0ebaa4c56fde7b1130eeae5321dffb519ecdf51027f128baf3134abc753"
+    },
+    {
+      "file": "weapons/pistol.svg",
+      "bytes": 496,
+      "sha256": "b2e31076d2aa3d1719a2cc19e62799f7613b7c929696f7adae10ea47d430b410"
+    },
+    {
+      "file": "weapons/rifle.svg",
+      "bytes": 373,
+      "sha256": "02e878cc5f04621657005b0b8684de45aaba2c2aa4b7320a026799e086c6434a"
+    },
+    {
+      "file": "weapons/supply.svg",
+      "bytes": 463,
+      "sha256": "9bbaf128f24f6a2a2409f2fd80dfba95ba8cf99d38abf300a9eb2968d87df005"
+    }
+  ]
+}
