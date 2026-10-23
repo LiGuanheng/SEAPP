@@ -26,15 +26,15 @@ export function decodeCampaign(raw: string | null): Campaign {
   if (!data || typeof data !== 'object') throw new Error('无效存档');
   const c = data as Campaign;
   if (c.version !== 2 || !count(c.expeditions) || !cargoValid(c.depot) ||
-      !idsValid(c.survivors, ['engineer', 'medic', 'captain']) || !idsValid(c.weapons, ['pistol', 'rifle']) || !c.weapons.includes('pistol')) throw new Error('存档结构不匹配');
+      !idsValid(c.survivors, ['engineer', 'medic', 'captain', 'ranger', 'brawler']) || !idsValid(c.weapons, ['pistol', 'rifle', 'axe', 'bow']) || !c.weapons.includes('pistol')) throw new Error('存档结构不匹配');
   const s = c.lastSummary;
   if (s !== null && (!s || !['return', 'sunset'].includes(s.reason) || !Number.isFinite(s.duration) || s.duration < 0 || s.duration > 90.1 ||
-    !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || !cargoValid(s.cargo) || !idsValid(s.rescued, ['engineer', 'medic', 'captain']))) throw new Error('结算记录无效');
+    !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || !cargoValid(s.cargo) || !idsValid(s.rescued, ['engineer', 'medic', 'captain', 'ranger', 'brawler']))) throw new Error('结算记录无效');
   if (c.base !== undefined && c.base !== null && !validBasePlan(c.base)) throw new Error('基地布防存档无效');
   if (c.nightsWon !== undefined && !count(c.nightsWon)) throw new Error('守夜次数无效');
   const n = c.lastNight;
   if (n !== undefined && n !== null && (!n || !['victory', 'defeat'].includes(n.outcome) || !Number.isFinite(n.duration) || n.duration < 0 || n.duration > 120 ||
-    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 4 || !count(n.buildings) || n.buildings > 14 || !count(n.strikes) || n.strikes > 2 ||
+    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 6 || !count(n.buildings) || n.buildings > 40 || !count(n.strikes) || n.strikes > 2 ||
     (n.outcome === 'victory' && (n.duration !== 120 || n.lampHealth === 0)) || (n.outcome === 'defeat' && n.lampHealth !== 0))) throw new Error('守夜结算无效');
   return cloneCampaign({ ...c, base: c.base ?? null });
 }

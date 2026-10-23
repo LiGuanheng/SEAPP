@@ -1,4 +1,4 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, LIGHTHOUSE_FOOT, buildingRect } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, LIGHTHOUSE_FOOT, TOWER_ATTACKS, buildingRect } from '../config/base.ts';
 import { GATES, INFECTED, LAMP_HEALTH, NIGHT_LIMITS, NIGHT_SECONDS, WAVES, type InfectedKind } from '../config/night.ts';
 import { BaseWorld } from './base-world.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
@@ -8,8 +8,8 @@ import type { Rect, Vec } from './types.ts';
 import type { ActionResult } from './expedition.ts';
 
 export interface NightEnemy extends Vec { id: number; kind: InfectedKind; health: number; aim: number; moving: boolean; cooldown: number; hurt: number }
-export interface NightBullet extends Vec { id: number; vx: number; vy: number; damage: number; life: number }
-export type NightEvent = { type: 'fire' | 'hit' | 'kill' | 'attack' | 'unit-death' | 'structure-death' | 'lamp-hit' | 'explosion' | 'heal' | 'wave' | 'victory' | 'defeat'; x: number; y: number; angle?: number; kind?: InfectedKind; id?: number };
+export interface NightBullet extends Vec { id: number; vx: number; vy: number; damage: number; life: number; splash?: number; projectile?: 'bullet' | 'arrow' | 'shell' }
+export type NightEvent = { type: 'fire' | 'swing' | 'hit' | 'kill' | 'attack' | 'unit-death' | 'structure-death' | 'lamp-hit' | 'explosion' | 'heal' | 'wave' | 'victory' | 'defeat'; x: number; y: number; angle?: number; kind?: InfectedKind; id?: number; projectile?: 'bullet' | 'arrow' | 'shell' };
 export interface NightResult { outcome: 'victory' | 'defeat'; duration: number; kills: number; lampHealth: number; soldiers: number; buildings: number; strikes: number }
 interface Fighter { health: number; cooldown: number; hurt: number }
 const edgePoint = (p: Vec, r: Rect): Vec => ({ x: Math.max(r.x, Math.min(p.x, r.x + r.width)), y: Math.max(r.y, Math.min(p.y, r.y + r.height)) });
@@ -32,7 +32,7 @@ export class NightWorld extends BaseWorld {
     super(campaign); super.finish();
     this.checkpoint = cloneCampaign(this.campaign);
     for (const s of this.plan.soldiers) this.fighters.set(s.id, { health: 90, cooldown: 0, hurt: 0 });
-    for (const b of this.plan.buildings) if (b.kind === 'turret') this.turrets.set(b.id, { cooldown: 0, aim: -Math.PI / 2 });
+    for (const b of this.plan.buildings) if (BUILDINGS[b.kind].range) this.turrets.set(b.id, { cooldown: 0, aim: -Math.PI / 2 });
     this.charges = this.campaign.weapons.includes('rifle') ? 2 : 1;
     this.enemyNavigation = this.makeEnemyNavigation();
   }
@@ -45,7 +45,7 @@ export class NightWorld extends BaseWorld {
   }
   canSee(p: Vec): boolean {
     return distance(p, LIGHTHOUSE) < 390 || this.livingSoldiers.some(s => distance(p, s) < 270) ||
-      this.plan.buildings.some(b => b.kind === 'turret' && distance(p, { x: b.x + 32, y: b.y + 32 }) < 300);
+      this.plan.buildings.some(b => BUILDINGS[b.kind].range > 0 && distance(p, { x: b.x + 32, y: b.y + 32 }) < 300);
   }
   callStrike(p: Vec): ActionResult {
     if (!this.commanding || this.charges <= 0 || this.supportCooldown > 0) return { ok: false, message: '支援不可用：信号弹已用完或正在冷却' };
@@ -53,13 +53,13 @@ export class NightWorld extends BaseWorld {
     this.charges--; this.strikesUsed++; this.supportCooldown = 8; this.strikes.push({ ...p, delay: 0.65 });
     return { ok: true, message: '信号确认，0.65 秒后炮火覆盖；不会伤及己方' };
   }
-  private fire(from: Vec, target: NightEnemy, damage: number): void {
+  private fire(from: Vec, target: NightEnemy, damage: number, speed = 850, splash = 0, projectile: 'bullet' | 'arrow' | 'shell' = 'bullet'): void {
     if (this.bullets.length >= NIGHT_LIMITS.bullets) return;
     const aim = Math.atan2(target.y - 16 - from.y, target.x - from.x);
     const muzzle = { x: from.x + Math.cos(aim) * 19, y: from.y + Math.sin(aim) * 19 };
     if (firstWall(from, muzzle, BASE_OBSTACLES) !== null) return;
-    this.bullets.push({ ...muzzle, id: this.nextBulletId++, vx: Math.cos(aim) * 850, vy: Math.sin(aim) * 850, damage, life: 0.8 });
-    this.events.push({ type: 'fire', ...muzzle, angle: aim });
+    this.bullets.push({ ...muzzle, id: this.nextBulletId++, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, damage, life: projectile === 'shell' ? 1.3 : 0.8, splash, projectile });
+    this.events.push({ type: 'fire', ...muzzle, angle: aim, projectile });
   }
   private target(from: Vec, range: number): NightEnemy | undefined {
     return this.enemies.filter(e => e.health > 0 && distance(e, from) <= range && firstWall(from, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null)
@@ -95,6 +95,7 @@ export class NightWorld extends BaseWorld {
     this.events = [];
     if (!this.commanding || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(dt, 0.05, Math.max(0, NIGHT_SECONDS - this.elapsed)); this.elapsed += dt; this.lampHurt = Math.max(0, this.lampHurt - dt); this.supportCooldown = Math.max(0, this.supportCooldown - dt);
+    let obstacles = this.obstacles;
     while (this.wave < WAVES.length && this.elapsed >= WAVES[this.wave].at) {
       const w = WAVES[this.wave++];
       for (const kind of ['walker', 'runner', 'brute'] as const) for (let i = 0; i < w[kind]; i++) this.queue.push({ kind, gate: (i + this.wave + (kind === 'runner' ? 1 : 0)) % GATES.length });
@@ -104,19 +105,24 @@ export class NightWorld extends BaseWorld {
     if (this.queue.length && this.spawnTimer <= 0 && this.enemies.length < NIGHT_LIMITS.enemies) {
       const next = this.queue.shift()!, gate = GATES[next.gate], offset = ((this.nextEnemyId % 3) - 1) * 24;
       const point = { x: gate.x + (next.gate % 2 === 0 ? offset : 0), y: gate.y + (next.gate % 2 ? offset : 0) };
-      if (canOccupy(point, 11, this.obstacles, BASE_WIDTH, BASE_HEIGHT)) this.enemies.push({ ...point, id: this.nextEnemyId++, kind: next.kind, health: INFECTED[next.kind].health, aim: 0, moving: true, cooldown: 0, hurt: 0 });
+      if (canOccupy(point, 11, obstacles, BASE_WIDTH, BASE_HEIGHT)) this.enemies.push({ ...point, id: this.nextEnemyId++, kind: next.kind, health: INFECTED[next.kind].health, aim: 0, moving: true, cooldown: 0, hurt: 0 });
       this.spawnTimer = 0.35;
     }
     this.stepSoldiers(dt);
     for (const s of this.livingSoldiers) {
       const state = this.fighters.get(s.id)!; state.cooldown = Math.max(0, state.cooldown - dt); state.hurt = Math.max(0, state.hurt - dt);
-      const origin = { x: s.x, y: s.y - 16 }, target = this.target(origin, 260);
-      if (target) { s.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (state.cooldown === 0) { this.fire(origin, target, 18); state.cooldown = 0.5; } }
+      const melee = s.role === 'vanguard', archer = s.role === 'archer';
+      const origin = { x: s.x, y: s.y - 16 }, target = this.target(origin, melee ? 72 : archer ? 310 : 260);
+      if (target) { s.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (state.cooldown === 0) {
+        if (melee) { this.events.push({ type: 'swing', ...origin, angle: s.aim }); for (const e of this.enemies) if (distance(e, s) < 72 && firstWall(s, e, obstacles) === null) this.damageEnemy(e, 42); }
+        else this.fire(origin, target, archer ? 36 : 18, archer ? 650 : 850, 0, archer ? 'arrow' : 'bullet'); state.cooldown = melee ? 0.7 : archer ? 0.85 : 0.5;
+      } }
     }
-    for (const b of this.plan.buildings) if (b.kind === 'turret') {
-      const turret = this.turrets.get(b.id)!, origin = { x: b.x + 32, y: b.y + 12 }, target = this.target(origin, BUILDINGS.turret.range);
+    for (const b of this.plan.buildings) if (b.kind === 'turret' || b.kind === 'cannon' || b.kind === 'arrowtower') {
+      const config = TOWER_ATTACKS[b.kind];
+      const turret = this.turrets.get(b.id)!, origin = { x: b.x + 32, y: b.y + 12 }, target = this.target(origin, BUILDINGS[b.kind].range);
       turret.cooldown = Math.max(0, turret.cooldown - dt);
-      if (target) { turret.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (turret.cooldown === 0) { this.fire(origin, target, 20); turret.cooldown = 0.18; } }
+      if (target) { turret.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (turret.cooldown === 0) { this.fire(origin, target, config.damage, config.speed, config.splash, config.projectile); turret.cooldown = config.interval; } }
     }
     for (const strike of this.strikes) { strike.delay -= dt; if (strike.delay <= 0) {
       for (const e of this.enemies) if (distance(e, strike) <= 98) this.damageEnemy(e, 130 * Math.max(0.4, 1 - distance(e, strike) / 150));
@@ -127,7 +133,11 @@ export class NightWorld extends BaseWorld {
       const end = { x: bullet.x + bullet.vx * dt, y: bullet.y + bullet.vy * dt };
       let closest = firstWall(bullet, end, BASE_OBSTACLES) ?? Infinity, victim: NightEnemy | undefined;
       for (const e of this.enemies) if (e.health > 0) { const t = segmentCircle(bullet, end, { x: e.x, y: e.y - 16 }, e.kind === 'brute' ? 20 : 14); if (t !== null && t < closest) { closest = t; victim = e; } }
-      if (closest !== Infinity) { bullet.life = 0; if (victim) this.damageEnemy(victim, bullet.damage); }
+      if (closest !== Infinity) {
+        bullet.x += (end.x - bullet.x) * closest; bullet.y += (end.y - bullet.y) * closest; bullet.life = 0;
+        if (bullet.splash) { for (const e of this.enemies) if (distance({ x: e.x, y: e.y - 16 }, bullet) <= bullet.splash && firstWall(bullet, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null) this.damageEnemy(e, bullet.damage); this.events.push({ type: 'explosion', x: bullet.x, y: bullet.y }); }
+        else if (victim) this.damageEnemy(victim, bullet.damage);
+      }
       else { bullet.x = end.x; bullet.y = end.y; bullet.life -= dt; }
     }
     this.bullets = this.bullets.filter(b => b.life > 0);
@@ -136,13 +146,13 @@ export class NightWorld extends BaseWorld {
     for (const e of this.enemies) {
       e.cooldown = Math.max(0, e.cooldown - dt); e.hurt = Math.max(0, e.hurt - dt);
       const type = INFECTED[e.kind], lampPoint = edgePoint(e, LIGHTHOUSE_FOOT);
-      const soldier = this.livingSoldiers.filter(s => distance(e, s) < 115 && firstWall(e, s, this.obstacles) === null).sort((a, b) => distance(e, a) - distance(e, b))[0];
+      const soldier = this.livingSoldiers.filter(s => distance(e, s) < 115 && firstWall(e, s, obstacles) === null).sort((a, b) => distance(e, a) - distance(e, b))[0];
       const building = this.plan.buildings.filter(b => b.health > 0 && distance(e, edgePoint(e, buildingRect(b))) < 50).sort((a, b) => distance(e, edgePoint(e, buildingRect(a))) - distance(e, edgePoint(e, buildingRect(b))))[0];
       const target = soldier ?? (building ? edgePoint(e, buildingRect(building)) : lampPoint);
       const inRange = distance(e, target) <= (soldier ? 27 : 24);
       const direction = soldier || building ? normalized(target.x - e.x, target.y - e.y) : this.enemyNavigation.direction(e, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
       e.aim = Math.atan2(direction.y, direction.x); e.moving = !inRange;
-      if (!inRange) moveWithCollision(e, direction.x * type.speed * dt, direction.y * type.speed * dt, 11, this.obstacles, BASE_WIDTH, BASE_HEIGHT);
+      if (!inRange) moveWithCollision(e, direction.x * type.speed * dt, direction.y * type.speed * dt, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
       if (inRange && e.cooldown === 0) {
         e.cooldown = type.interval; this.events.push({ type: 'attack', x: target.x, y: target.y });
         if (soldier) {
@@ -155,12 +165,12 @@ export class NightWorld extends BaseWorld {
       }
       if (this.lampHealth === 0) { this.end('defeat'); break; }
     }
-    if (geometryChanged) { this.plan.buildings = this.plan.buildings.filter(b => b.health > 0); this.enemyNavigation = this.makeEnemyNavigation(); this.rebuildNavigation(); }
+    if (geometryChanged) { this.plan.buildings = this.plan.buildings.filter(b => b.health > 0); obstacles = this.obstacles; this.enemyNavigation = this.makeEnemyNavigation(); this.rebuildNavigation(); }
     for (let i = 0; i < this.enemies.length; i++) for (let j = i + 1; j < this.enemies.length; j++) {
       const a = this.enemies[i], b = this.enemies[j], d = distance(a, b); if (d >= 22) continue;
       const v = d > 0.001 ? normalized(a.x - b.x, a.y - b.y) : { x: 1, y: 0 };
-      moveWithCollision(a, v.x * (22 - d) / 2, v.y * (22 - d) / 2, 11, this.obstacles, BASE_WIDTH, BASE_HEIGHT);
-      moveWithCollision(b, -v.x * (22 - d) / 2, -v.y * (22 - d) / 2, 11, this.obstacles, BASE_WIDTH, BASE_HEIGHT);
+      moveWithCollision(a, v.x * (22 - d) / 2, v.y * (22 - d) / 2, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
+      moveWithCollision(b, -v.x * (22 - d) / 2, -v.y * (22 - d) / 2, 11, obstacles, BASE_WIDTH, BASE_HEIGHT);
     }
     if (!this.commanding) return;
     this.healTimer -= dt;

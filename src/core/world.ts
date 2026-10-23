@@ -13,7 +13,7 @@ export class CombatWorld {
   events: CombatEvent[] = [];
   elapsed = 0; kills = 0; status: 'playing' | 'defeat' | 'complete' = 'playing';
   weaponId: WeaponId = 'pistol';
-  readonly ownedWeapons: WeaponId[] = ['pistol'];
+  readonly ownedWeapons: WeaponId[] = ['pistol', 'axe'];
   private magazines: Partial<Record<WeaponId, number>> = {};
   get weapon() { return WEAPONS[this.weaponId]; }
   get reloadDuration(): number { return this.weapon.reload; }
@@ -41,7 +41,7 @@ export class CombatWorld {
   }
   requestReload(): boolean {
     const p = this.player;
-    if (this.status !== 'playing' || p.reload > 0 || p.ammo >= this.weapon.magazine) return false;
+    if (this.weaponId === 'axe' || this.status !== 'playing' || p.reload > 0 || p.ammo >= this.weapon.magazine) return false;
     p.reload = this.reloadDuration;
     return true;
   }
@@ -66,6 +66,28 @@ export class CombatWorld {
       if (canOccupy(point, B.zombie.radius, this.obstacles, this.width, this.height)) { this.addZombie(point); return; }
     }
   }
+  protected strike(from: Vec, angle: number, damage: number, reach = 70): void {
+    this.events.push({ type: 'swing', ...from, angle });
+    for (const z of this.zombies) {
+      const target = { x: z.x, y: z.y - 16 }, dx = target.x - from.x, dy = target.y - from.y, d = Math.hypot(dx, dy);
+      if (z.health <= 0 || d > reach || (d > 0 && (dx * Math.cos(angle) + dy * Math.sin(angle)) / d < 0.45) || firstWall(from, target, this.obstacles) !== null) continue;
+      this.damageZombie(z, damage, angle, target);
+    }
+  }
+  private damageZombie(z: Zombie, damage: number, angle: number, point: Vec): void {
+    if (z.health <= 0) return;
+    z.health -= damage; z.hurt = 0.14; z.knockX += Math.cos(angle) * 85; z.knockY += Math.sin(angle) * 85;
+    this.events.push({ type: 'hit', ...point, id: z.id, angle });
+    if (z.health <= 0) { this.kills++; this.events.push({ type: 'kill', x: z.x, y: z.y, id: z.id, angle, skin: z.skin }); }
+  }
+  protected allyAttack(from: Vec, target: Zombie, melee: boolean): void {
+    const pivot = { x: from.x, y: from.y - 16 }, angle = Math.atan2(target.y - 16 - pivot.y, target.x - pivot.x);
+    if (melee) this.strike(pivot, angle, 42, 72);
+    else if (this.bullets.length < B.maxBullets) {
+      this.bullets.push({ ...pivot, id: this.nextId++, vx: Math.cos(angle) * 650, vy: Math.sin(angle) * 650, damage: 36, lifetime: 0.8, arrow: true });
+      this.events.push({ type: 'ally-shot', ...pivot, angle });
+    }
+  }
   step(input: InputState, dt = B.step): void {
     this.events = [];
     if (this.status !== 'playing' || !Number.isFinite(dt) || dt <= 0) return;
@@ -86,7 +108,8 @@ export class CombatWorld {
     moveWithCollision(p, move.x * speed * dt, move.y * speed * dt, B.player.radius, this.obstacles, this.width, this.height);
     p.aim = Math.atan2(input.aim.y - (p.y - 16), input.aim.x - p.x);
     if (input.firing && p.reload === 0 && p.shotCooldown <= 1e-9) {
-      if (p.ammo === 0) this.requestReload();
+      if (this.weaponId === 'axe') { p.shots++; p.shotCooldown = this.weapon.interval; this.strike({ x: p.x, y: p.y - 16 }, p.aim, this.weapon.damage); }
+      else if (p.ammo === 0) this.requestReload();
       else if (this.bullets.length < B.maxBullets) {
         p.ammo--; p.shots++; p.shotCooldown = this.weapon.interval;
         const pivot = { x: p.x, y: p.y - 16 };
@@ -94,7 +117,7 @@ export class CombatWorld {
         // 枪口若伸进墙里，弹体不能从墙另一侧穿出。
         const obstruction = firstWall(pivot, muzzle, this.obstacles);
         if (obstruction !== null) this.events.push({ type: 'impact', x: pivot.x + (muzzle.x - pivot.x) * obstruction, y: pivot.y + (muzzle.y - pivot.y) * obstruction });
-        else this.bullets.push({ ...muzzle, id: this.nextId++, vx: Math.cos(p.aim) * this.weapon.bulletSpeed, vy: Math.sin(p.aim) * this.weapon.bulletSpeed, lifetime: this.weapon.bulletLifetime, damage: this.weapon.damage });
+        else this.bullets.push({ ...muzzle, id: this.nextId++, vx: Math.cos(p.aim) * this.weapon.bulletSpeed, vy: Math.sin(p.aim) * this.weapon.bulletSpeed, lifetime: this.weapon.bulletLifetime, damage: this.weapon.damage, arrow: this.weaponId === 'bow' });
         this.events.push({ type: 'shot', ...muzzle, angle: p.aim });
         if (p.ammo === 0) this.requestReload();
       }
@@ -115,10 +138,7 @@ export class CombatWorld {
         bullet.x += (end.x - bullet.x) * closest; bullet.y += (end.y - bullet.y) * closest; bullet.lifetime = 0;
         if (victim) {
           const angle = Math.atan2(bullet.vy, bullet.vx);
-          victim.health -= bullet.damage; victim.hurt = 0.14;
-          victim.knockX += Math.cos(angle) * 85; victim.knockY += Math.sin(angle) * 85;
-          this.events.push({ type: 'hit', x: bullet.x, y: bullet.y, id: victim.id, angle });
-          if (victim.health <= 0) { this.kills++; this.events.push({ type: 'kill', x: victim.x, y: victim.y, id: victim.id, angle, skin: victim.skin }); }
+          this.damageZombie(victim, bullet.damage, angle, bullet);
         } else this.events.push({ type: 'impact', x: bullet.x, y: bullet.y });
       } else { bullet.x = end.x; bullet.y = end.y; bullet.lifetime -= dt; }
     }

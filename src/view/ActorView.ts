@@ -18,6 +18,7 @@ export class ActorView {
   private particles: Particle[] = [];
   private corpses: Corpse[] = [];
   private recoil = 0;
+  private swings: { graphic: Phaser.GameObjects.Graphics; age: number }[] = [];
   constructor(private scene: Phaser.Scene) {
     this.player = this.actor('player');
     this.gun = scene.add.image(0, 0, 'pistol').setOrigin(0.15, 0.5).setScale(0.85);
@@ -27,8 +28,12 @@ export class ActorView {
   }
   handle(events: readonly CombatEvent[]): void {
     for (const event of events) {
-      if (event.type === 'shot') {
-        this.recoil = 1;
+      if (event.type === 'swing') {
+        const graphic = this.scene.add.graphics().setDepth(event.y + 100).lineStyle(5, 0xe4d5ae, 0.9);
+        graphic.beginPath().arc(event.x, event.y, 62, event.angle - 1, event.angle + 1).strokePath(); this.swings.push({ graphic, age: 0 });
+        while (this.swings.length > 8) this.swings.shift()!.graphic.destroy();
+      } else if (event.type === 'shot' || event.type === 'ally-shot') {
+        if (event.type === 'shot') this.recoil = 1;
         const image = this.scene.add.image(event.x, event.y, 'muzzle').setOrigin(0.1, 0.5).setRotation(event.angle).setDepth(event.y + 100).setScale(0.65);
         this.particles.push({ image, age: 0, life: 0.055, vx: 0, vy: 0, angular: 0 });
         this.scatter(event.x - Math.cos(event.angle) * 12, event.y - Math.sin(event.angle) * 12, 2, 0xd3b278, 35);
@@ -76,7 +81,7 @@ export class ActorView {
     for (const bullet of world.bullets) {
       liveBullets.add(bullet.id);
       let image = this.bullets.get(bullet.id);
-      if (!image) { image = this.scene.add.image(bullet.x, bullet.y, 'bullet').setScale(0.9); this.bullets.set(bullet.id, image); }
+      if (!image) { image = this.scene.add.image(bullet.x, bullet.y, bullet.arrow ? 'arrow' : 'bullet').setScale(0.9); this.bullets.set(bullet.id, image); }
       image.setPosition(bullet.x, bullet.y).setRotation(Math.atan2(bullet.vy, bullet.vx)).setDepth(bullet.y + 80);
     }
     for (const [id, image] of this.bullets) if (!liveBullets.has(id)) { image.destroy(); this.bullets.delete(id); }
@@ -94,6 +99,8 @@ export class ActorView {
       if (corpse.age > 30) corpse.image.destroy();
     }
     this.corpses = this.corpses.filter(corpse => corpse.age <= 30);
+    for (const s of this.swings) { s.age += dt; s.graphic.setAlpha(Math.max(0, 1 - s.age / 0.22)); if (s.age >= 0.22) s.graphic.destroy(); }
+    this.swings = this.swings.filter(s => s.age < 0.22);
   }
   private syncActor(actor: Actor, x: number, y: number, angle: number, moving: boolean, paused: boolean, texture: string): void {
     actor.shadow.setPosition(x, y + 2).setDepth(y - 2);

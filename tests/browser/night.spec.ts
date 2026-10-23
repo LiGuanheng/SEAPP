@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => (window as any).__nightLight.snapshot());
+async function key(page: Page, code: string) { await page.keyboard.press(code); await page.clock.runFor(60); }
 async function screen(page: Page, x: number, y: number) { const b = (await page.locator('canvas').boundingBox())!; return { x: b.x + x / 1280 * b.width, y: b.y + y / 720 * b.height }; }
 async function worldPoint(page: Page, x: number, y: number, base = false) {
   const s = base ? await page.evaluate(() => (window as any).__baseLight.snapshot()) : await state(page);
@@ -21,22 +22,22 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
   test.setTimeout(180000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.clock.install(); await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
-  for (const p of [{ x: 1056, y: 736 }, { x: 1200, y: 780 }, { x: 1104, y: 852 }, { x: 920, y: 760 }]) { await walk(page, p.x, p.y); await page.clock.runFor(200); await page.keyboard.press('KeyE'); }
-  await page.keyboard.press('Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
-  await page.keyboard.press('Digit2'); await clickWorld(page, 836, 356, true);
-  await page.keyboard.press('Digit1'); await page.keyboard.press('KeyR'); await page.clock.runFor(50); await clickWorld(page, 964, 644, true); await page.keyboard.press('Escape');
+  for (const p of [{ x: 1056, y: 736 }, { x: 1200, y: 780 }, { x: 1104, y: 852 }, { x: 920, y: 760 }]) { await walk(page, p.x, p.y); await page.clock.runFor(200); await key(page, 'KeyE'); }
+  await key(page, 'Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
+  await key(page, 'Digit2'); await clickWorld(page, 836, 356, true);
+  await key(page, 'Digit1'); await key(page, 'KeyR'); await page.clock.runFor(50); await clickWorld(page, 964, 644, true); await key(page, 'Escape');
   expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.buildings).toHaveLength(2);
   expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.buildings[1].rotation).toBe(1);
   await page.clock.runFor(30000); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await page.clock.runFor(100);
   expect(await page.evaluate(() => '__baseLight' in window)).toBe(false);
   expect((await state(page)).status).toBe('playing'); expect((await state(page)).charges).toBe(2);
-  await page.keyboard.press('KeyM'); expect((await state(page)).muted).toBe(true); await page.keyboard.press('KeyM'); expect((await state(page)).muted).toBe(false);
+  await key(page, 'KeyM'); await page.clock.runFor(50); expect((await state(page)).muted).toBe(true); await key(page, 'KeyM'); await page.clock.runFor(50); expect((await state(page)).muted).toBe(false);
   await page.clock.runFor(6000); await page.screenshot({ path: 'artifacts/phase4-night.png' });
-  await clickWorld(page, 688, 604); await clickWorld(page, 688, 592, false, 'right'); await page.clock.runFor(300); await page.keyboard.press('KeyG');
-  await page.keyboard.press('Space'); expect((await state(page)).selected).toHaveLength(3);
-  await page.keyboard.press('KeyP'); await page.clock.runFor(100); const paused = await state(page);
+  await clickWorld(page, 688, 604); await clickWorld(page, 688, 592, false, 'right'); await page.clock.runFor(300); await key(page, 'KeyG');
+  await key(page, 'Space'); expect((await state(page)).selected).toHaveLength(3);
+  await key(page, 'KeyP'); await page.clock.runFor(100); const paused = await state(page); expect(paused.paused).toBe(true);
   const covered = await screen(page, 350, 663); await page.mouse.click(covered.x, covered.y); await page.clock.runFor(3000); expect(await state(page)).toEqual(paused);
-  await page.keyboard.press('KeyP'); await page.keyboard.press('KeyF'); await clickWorld(page, 920, 592); expect((await state(page)).charges).toBe(1);
+  await key(page, 'KeyP'); await key(page, 'KeyF'); await clickWorld(page, 920, 592); expect((await state(page)).charges).toBe(1);
   await page.clock.runFor(650); await page.screenshot({ path: 'artifacts/phase4-explosion.png' });
   let capturedHorde = false;
   for (let i = 0; i < 32; i++) {
@@ -44,7 +45,7 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
     if (s.elapsed > 107 && !capturedHorde) { await page.screenshot({ path: 'artifacts/phase4-horde.png' }); capturedHorde = true; }
     if (s.elapsed > 55 && s.charges && s.supportCooldown === 0) {
       const e = s.enemies.find((e: any) => e.kind === 'brute' && Math.hypot(e.x - 768, e.y - 512) < 360);
-      if (e) { await page.keyboard.press('KeyF'); await clickWorld(page, e.x, e.y); }
+      if (e) { await key(page, 'KeyF'); await clickWorld(page, e.x, e.y); }
     }
     await page.clock.runFor(4000);
   }
@@ -54,7 +55,7 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
   await page.clock.runFor(3000); expect(await state(page)).toEqual(won);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!)); expect(saved.nightsWon).toBe(1); expect(saved.lastNight.outcome).toBe('victory');
   expect(saved.base.buildings).toHaveLength(2);
-  await page.keyboard.press('Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('playing'); expect((await state(page)).lampHealth).toBe(380); expect((await state(page)).charges).toBe(2);
+  await key(page, 'Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('playing'); expect((await state(page)).lampHealth).toBe(380); expect((await state(page)).charges).toBe(2);
   expect((await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!))).nightsWon).toBe(1);
   expect(errors).toEqual([]);
 });
@@ -63,14 +64,14 @@ test('没有设施时真实失守，存储禁用仍能结算与重试，音效�
   test.setTimeout(120000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.clock.install(); await page.goto('/?mode=night&test=1'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await page.clock.runFor(100);
-  await page.keyboard.press('KeyM'); expect((await state(page)).muted).toBe(true);
+  await key(page, 'KeyM'); expect((await state(page)).muted).toBe(true);
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('disabled'); }; });
   for (let i = 0; i < 25 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(5000);
   const lost = await state(page); expect(lost.status).toBe('defeat'); expect(lost.lampHealth).toBe(0);
   await page.screenshot({ path: 'artifacts/phase4-defeat.png' });
   await page.clock.runFor(1000); expect(await state(page)).toEqual(lost);
   expect(await page.evaluate(() => localStorage.getItem('last-light.campaign.v2'))).toBe(null);
-  await page.keyboard.press('KeyM'); expect((await state(page)).muted).toBe(false);
-  await page.keyboard.press('Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('playing'); expect((await state(page)).muted).toBe(false); expect(errors).toEqual([]);
+  await key(page, 'KeyM'); expect((await state(page)).muted).toBe(false);
+  await key(page, 'Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('playing'); expect((await state(page)).muted).toBe(false); expect(errors).toEqual([]);
   await page.goto('/?mode=night'); await page.clock.runFor(200); expect(await page.evaluate(() => '__nightLight' in window)).toBe(false);
 });

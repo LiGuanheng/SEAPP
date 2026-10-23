@@ -43,8 +43,23 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 458,
-      "sha256": "eb5be3d3fdbd4900053eb42825210b5c7f32803c6d92f7be7fd74bd3d310a6ff"
+      "bytes": 563,
+      "sha256": "ed5e56fb1087e0c3b54c135cec75e0f5d3f8556304639cb7b59f5545267f170e"
+    },
+    {
+      "file": "weapons/arrow.svg",
+      "bytes": 245,
+      "sha256": "aea8b72059fb49f60e0f12a6c2a083c69ed489178dbf1a4f271440c84abedc19"
+    },
+    {
+      "file": "weapons/arrowtower.svg",
+      "bytes": 632,
+      "sha256": "37b70fcc64dbb024483dd97560a5e4a892769c9459318f66467ed9d652258eef"
+    },
+    {
+      "file": "weapons/axe.svg",
+      "bytes": 383,
+      "sha256": "1a9cc92d8f1c9a645d669d64ed30a5b2bf987cde59aa21860716e1a3ea22d1e3"
     },
     {
       "file": "weapons/barricade.svg",
@@ -57,9 +72,34 @@
       "sha256": "c899903a72861fac9ee68d9f5358992c48d94435b65341851cca72caa92990ee"
     },
     {
+      "file": "weapons/bed.svg",
+      "bytes": 412,
+      "sha256": "4989973797c474d8efa6b6d1a44bbbcf58424b2546905ffa6d614569d1ff315b"
+    },
+    {
+      "file": "weapons/bow.svg",
+      "bytes": 468,
+      "sha256": "e0b788150d5d87706e7a5654d09ee0797f03128996e29b90a113114875572d99"
+    },
+    {
       "file": "weapons/bullet.svg",
       "bytes": 206,
       "sha256": "6d44d16c17821df145592c3c3d0ebebcb5fded15482338b0676cf0b49d3a03bc"
+    },
+    {
+      "file": "weapons/cannon-barrel.svg",
+      "bytes": 362,
+      "sha256": "5afab7572a7e6893be868efcfd095cb3e457619316a285c3ab16940c7aeef3b6"
+    },
+    {
+      "file": "weapons/cannon.svg",
+      "bytes": 486,
+      "sha256": "8a2cfff85495f2a3054dde93027f4626809d5106b9647eec7cf9781986dd3249"
+    },
+    {
+      "file": "weapons/desk.svg",
+      "bytes": 416,
+      "sha256": "9defc96aa8f673f64b08521c53fb4a43235be3a80e2723854614aff63649e2c1"
     },
     {
       "file": "weapons/helmet.svg",
@@ -95,6 +135,11 @@
       "file": "weapons/turret.svg",
       "bytes": 597,
       "sha256": "182d872198d1fa56eed2ac98bdf8f48658cab5159dd92696376611aeb1aaa76c"
+    },
+    {
+      "file": "weapons/wall.svg",
+      "bytes": 452,
+      "sha256": "7aca5ae892cfad713c3000dba0bfc315a0addfe4b7fadd8868099372f447ee27"
     }
   ]
 }

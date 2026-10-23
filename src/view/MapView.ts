@@ -1,15 +1,24 @@
 import Phaser from 'phaser';
-import { BUILDINGS, CARS, COLS, DECORATIONS, ROWS, TILE, groundTile } from '../config/map.ts';
+import { BUILDINGS, CARS, COLS, DECORATIONS, ROWS, TILE, groundTile, roomAt, roomDoor, roomFurniture, roomWalls } from '../config/map.ts';
+import type { Vec } from '../core/types.ts';
 
 export class MapView {
+  private roofs: Phaser.GameObjects.Container[] = [];
   constructor(scene: Phaser.Scene) {
     const map = scene.make.tilemap({ data: Array.from({ length: ROWS }, (_, y) => Array.from({ length: COLS }, (_, x) => groundTile(x, y))), tileWidth: 16, tileHeight: 16 });
     const tiles = map.addTilesetImage('city', 'city', 16, 16, 0, 0)!;
     map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(0x87938e).setDepth(-100);
     const shadows = scene.add.graphics().setDepth(-1).fillStyle(0x101719, 0.4);
-    const tile = (x: number, y: number, frame: number, depth: number, tint = 0x9ca49a) => scene.add.image(x * TILE, y * TILE, 'city', frame).setOrigin(0).setScale(2).setDepth(depth).setTint(tint);
+    let roof: Phaser.GameObjects.Container | null = null;
+    const tile = (x: number, y: number, frame: number, depth: number, tint = 0x9ca49a) => { const image = scene.add.image(x * TILE, y * TILE, 'city', frame).setOrigin(0).setScale(2).setDepth(depth).setTint(tint); roof?.add(image); return image; };
     for (const building of BUILDINGS) {
       const { x, y, width, height, theme, label } = building, roofHeight = height - 2, depth = (y + height) * TILE - 1;
+      const door = roomDoor(building);
+      for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) tile(x + col, y + row, (row + col) % 5 ? 704 : 777, -2, 0x96968c);
+      for (const wall of roomWalls(building)) scene.add.image(wall.x, wall.y, 'city', 190).setOrigin(0).setDisplaySize(wall.width, wall.height).setTint(0x586764).setDepth(3);
+      roomFurniture(building).forEach((f, i) => scene.add.image(f.x, f.y, i ? 'bed' : 'desk').setOrigin(0).setDisplaySize(f.width, f.height).setDepth(f.y + f.height));
+      scene.add.text(door.x, door.y + 24, `${label} · 可进入 ↑`, { fontFamily: 'Microsoft YaHei', fontSize: '11px', color: '#d8c593', backgroundColor: '#172a29', padding: { x: 5, y: 3 } }).setOrigin(0.5).setDepth(door.y + 25);
+      roof = scene.add.container(0, 0).setDepth(10000); this.roofs.push(roof);
       shadows.fillRect(x * TILE + 13, y * TILE + 16, width * TILE, height * TILE);
       for (let row = 0; row < roofHeight; row++) for (let col = 0; col < width; col++) {
         const frame = theme + (row === 0 ? 0 : row === roofHeight - 1 ? 74 : 37) + (col === 0 ? 0 : col === width - 1 ? 2 : 1);
@@ -21,10 +30,11 @@ export class MapView {
       }
       for (let i = 2; i < width - 1; i += 4) tile(x + i, y + 2, 541, depth + 1, 0x8c9b95);
       tile(x + width - 3, y + roofHeight - 2, 545, depth + 1);
-      scene.add.rectangle((x + width / 2) * TILE, (y + height - 1.9) * TILE, Math.min(160, width * TILE - 24), 22, 0x172a2c, 0.95).setDepth(depth + 2);
-      scene.add.text((x + width / 2) * TILE, (y + height - 1.9) * TILE, label, { fontFamily: 'Microsoft YaHei, sans-serif', fontSize: '12px', color: '#c1c6a5', letterSpacing: 3 }).setOrigin(0.5).setDepth(depth + 3);
+      roof.add(scene.add.rectangle((x + width / 2) * TILE, (y + height - 1.9) * TILE, Math.min(160, width * TILE - 24), 22, 0x172a2c, 0.95));
+      roof.add(scene.add.text((x + width / 2) * TILE, (y + height - 1.9) * TILE, label, { fontFamily: 'Microsoft YaHei, sans-serif', fontSize: '12px', color: '#c1c6a5', letterSpacing: 3 }).setOrigin(0.5));
       // 屋顶局部污迹保留细节，避免一整块无纹理平面。
-      scene.add.image((x + width - 2) * TILE, (y + 3) * TILE, 'city', 494).setScale(2).setTint(0x737e74).setDepth(depth + 1);
+      roof.add(scene.add.image((x + width - 2) * TILE, (y + 3) * TILE, 'city', 494).setScale(2).setTint(0x737e74));
+      roof = null;
     }
     for (const car of CARS) {
       const base = car.style === 'green' ? 623 : 771, depth = (car.y + 2) * TILE;
@@ -43,4 +53,5 @@ export class MapView {
     scene.add.text(29 * TILE, 24.5 * TILE, 'NORTH DISTRICT  /  07', { fontFamily: 'monospace', fontSize: '11px', color: '#b7ad85', letterSpacing: 3 }).setAlpha(0.35).setDepth(0);
     scene.add.text(24.5 * TILE, 17 * TILE, '隔离区', { fontFamily: 'Microsoft YaHei, sans-serif', fontSize: '20px', color: '#a78e6a', letterSpacing: 5 }).setAlpha(0.5).setDepth(0);
   }
+  update(player: Vec): void { const inside = roomAt(player); this.roofs.forEach((roof, i) => { const door = roomDoor(BUILDINGS[i]); roof.setVisible(i !== inside && Math.hypot(player.x - door.x, player.y - door.y) > 75); }); }
 }

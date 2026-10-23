@@ -24,3 +24,7 @@ Phaser 原始 MIT 许可已从所安装的 phaser 包完整复制到 `public/ass
 阶段 4：三类感染者复用原 Curt 精灵并按比例/配色区分，没有加入新的第三方图像。迷雾、灯束、弹道、爆炸由 Phaser/Canvas 运行时绘制。SoundBus 中枪声/爆炸/波次低鸣是原创 Web Audio 合成，不使用外部音乐、音频包或网络流；不把第三方美术归为原创。静态素材文件与许可没有变更，原校验清单仍适用。
 
 v0.6：战术地图、指南与目标指引为 Phaser 场内图形/文字，白天交互反馈为原创合成音色；城市外围改用已有 Kenney 草地内部瓦片。没有新增或修改第三方资源文件，素材校验清单无需重写。
+
+v0.7：新增 axe.svg、bow.svg、arrow.svg、cannon.svg、cannon-barrel.svg、arrowtower.svg、wall.svg、desk.svg、bed.svg 九份原创像素网格 SVG，纳入 project-art.txt 的 CC0 说明与静态 SHA-256 清单。室内地面/外墙继续复用 Kenney 图集，人物继续复用 Curt 四方向动画，武器装备/配色区分角色。没有使用参考游戏的素材。
+
+MusicTrack.ts 的日/夜旋律、和弦、低音节奏为本项目原创 Web Audio 编配，不含外部录音、歌曲或第三方音乐包。音频由代码合成，没有新的音频下载来源或隐藏 CDN 依赖。音量/听感仍需人工验收。

@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { CAMP, ExpeditionWorld, SURVIVOR_PROFILES } from '../core/expedition.ts';
 import { facing } from './ActorView.ts';
+import { WEAPONS } from '../config/weapons.ts';
 
 export class ExpeditionView {
   private crates = new Map<string, { image: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text }>();
-  private people = new Map<string, { sprite: Phaser.GameObjects.Sprite; label: Phaser.GameObjects.Text; shadow: Phaser.GameObjects.Ellipse }>();
+  private people = new Map<string, { sprite: Phaser.GameObjects.Sprite; label: Phaser.GameObjects.Text; shadow: Phaser.GameObjects.Ellipse; weapon: Phaser.GameObjects.Image }>();
   private graphics: Phaser.GameObjects.Graphics;
   private prompt: Phaser.GameObjects.Text;
   constructor(scene: Phaser.Scene, world: ExpeditionWorld) {
@@ -23,6 +24,7 @@ export class ExpeditionView {
         sprite: scene.add.sprite(s.x, s.y, 'player', 1).setOrigin(0.5, 0.95).setScale(1.2).setTint(p.tint),
         shadow: scene.add.ellipse(s.x, s.y + 2, 29, 12, 0x0a1115, 0.4),
         label: scene.add.text(s.x, s.y - 57, `${p.name} · ${p.role}`, { fontFamily: 'Microsoft YaHei', fontSize: '11px', color: '#d7d5ae', backgroundColor: '#172a29', padding: { x: 5, y: 3 } }).setOrigin(0.5),
+        weapon: scene.add.image(s.x, s.y - 16, s.id === 'ranger' ? 'bow' : s.id === 'brawler' ? 'axe' : 'pistol').setOrigin(0.15, 0.5).setScale(0.8),
       });
     }
     this.prompt = scene.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei', fontSize: '13px', color: '#f5e0aa', backgroundColor: '#112a2d', padding: { x: 10, y: 6 } }).setOrigin(0.5).setDepth(90000);
@@ -36,7 +38,7 @@ export class ExpeditionView {
     for (const c of world.caches) {
       const view = this.crates.get(c.id)!;
       view.image.setAlpha(c.opened ? 0.38 : 1);
-      view.label.setText(c.opened ? '已搜刮' : c.rifle ? '武器箱 [2]' : c.id === 'medical' ? '医疗箱' : '补给箱').setAlpha(c.opened ? 0.5 : 1);
+      view.label.setText(c.opened ? '已搜刮' : c.weapon ? `${WEAPONS[c.weapon].name} / 补给` : c.rifle ? '武器箱 [2]' : c.id === 'medical' ? '医疗箱' : '补给箱').setAlpha(c.opened ? 0.5 : 1);
       if (!c.opened) g.fillStyle(c.rifle ? 0xe1bc80 : 0xa7d2ad, pulse).fillRect(c.x - 2, c.y - 43, 4, 4);
     }
     for (const s of world.survivors) {
@@ -44,6 +46,7 @@ export class ExpeditionView {
       view.sprite.setPosition(s.x, s.y).setDepth(s.y);
       view.shadow.setPosition(s.x, s.y + 2).setDepth(s.y - 2);
       view.label.setPosition(s.x, s.y - 57).setDepth(s.y + 3);
+      view.weapon.setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2).setVisible(s.id === 'ranger' || s.id === 'brawler');
       if (paused || world.status !== 'playing') view.sprite.anims.pause();
       else {
         view.sprite.anims.resume();

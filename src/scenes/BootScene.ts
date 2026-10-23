@@ -19,11 +19,11 @@ export class BootScene extends Phaser.Scene {
     this.load.svg('pistol', base + 'weapons/pistol.svg');
     this.load.svg('bullet', base + 'weapons/bullet.svg');
     this.load.svg('muzzle', base + 'weapons/muzzle.svg');
-    for (const key of ['rifle', 'supply', 'beacon', 'barricade', 'turret', 'lighthouse', 'helmet']) this.load.svg(key, base + `weapons/${key}.svg`);
+    for (const key of ['rifle', 'supply', 'beacon', 'barricade', 'turret', 'lighthouse', 'helmet', 'axe', 'bow', 'arrow', 'cannon', 'cannon-barrel', 'arrowtower', 'wall', 'desk', 'bed']) this.load.svg(key, base + `weapons/${key}.svg`);
     this.events.once('shutdown', () => { title.destroy(); status.destroy(); bar.destroy(); });
   }
   create(): void {
-    if (['city', 'player', 'zombie', 'zombie-alt', 'pistol', 'bullet', 'muzzle', 'rifle', 'supply', 'beacon', 'barricade', 'turret', 'lighthouse', 'helmet'].some(key => !this.textures.exists(key))) return;
+    if (['city', 'player', 'zombie', 'zombie-alt', 'pistol', 'bullet', 'muzzle', 'rifle', 'supply', 'beacon', 'barricade', 'turret', 'lighthouse', 'helmet', 'axe', 'bow', 'arrow', 'cannon', 'cannon-barrel', 'arrowtower', 'wall', 'desk', 'bed'].some(key => !this.textures.exists(key))) return;
     for (const name of ['zombie', 'zombie-alt']) {
       const texture = this.textures.get(name);
       for (let row = 0; row < 4; row++) for (let col = 0; col < 3; col++) texture.add(row * 3 + col, 0, col * 42, row * 36, 40, 36);

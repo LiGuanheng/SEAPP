@@ -1,5 +1,6 @@
 import { BALANCE as B } from '../config/balance.ts';
-import { OBSTACLES, PLAYER_SPAWN, WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
+import { BUILDINGS, OBSTACLES, PLAYER_SPAWN, WORLD_HEIGHT, WORLD_WIDTH, roomAt, roomDoor, roomRect } from '../config/map.ts';
+import { WEAPONS, type WeaponId } from '../config/weapons.ts';
 import { cloneCampaign, emptyCargo, newCampaign, type Campaign, type Cargo, type ExpeditionSummary } from './campaign.ts';
 import { canOccupy, distance, firstWall, moveWithCollision } from './geometry.ts';
 import type { InputState, Vec } from './types.ts';
@@ -12,10 +13,12 @@ export const SURVIVOR_PROFILES = {
   engineer: { name: '林岚', role: '工程师', ability: '返营额外回收 4 建材', tint: 0xe8c07c },
   medic: { name: '陈安', role: '医护员', ability: '营救时立即恢复 20 生命', tint: 0x9cdbcb },
   captain: { name: '周野', role: '教官', ability: '随队时换弹时间减少 20%', tint: 0xacc9ef },
+  ranger: { name: '叶青', role: '弓手', ability: '随队自动射箭；返营增加弓手守卫', tint: 0x99bf77 },
+  brawler: { name: '石川', role: '先锋', ability: '随队挥斧；返营增加近战先锋', tint: 0xd49b7c },
 } as const;
 export type SurvivorId = keyof typeof SURVIVOR_PROFILES;
 export interface Survivor extends Vec { id: SurvivorId; state: 'waiting' | 'following' | 'secured'; moving: boolean; aim: number }
-export interface Cache extends Vec { id: string; name: string; cargo: Cargo; rifle?: boolean; opened: boolean }
+export interface Cache extends Vec { id: string; name: string; cargo: Cargo; rifle?: boolean; weapon?: WeaponId; opened: boolean }
 export interface ActionResult { ok: boolean; message: string }
 export const cargoWeight = (c: Cargo): number => c.materials + c.energy + c.medkits * 2;
 
@@ -32,13 +35,22 @@ export class ExpeditionWorld extends CombatWorld {
     { id: 'engineer', x: 1104, y: 852, state: 'waiting', moving: false, aim: -Math.PI / 2 },
     { id: 'medic', x: 800, y: 560, state: 'waiting', moving: false, aim: 0 },
     { id: 'captain', x: 1400, y: 744, state: 'waiting', moving: false, aim: Math.PI },
+    { id: 'ranger', x: 1136, y: 400, state: 'waiting', moving: false, aim: Math.PI / 2 },
+    { id: 'brawler', x: 1136, y: 1168, state: 'waiting', moving: false, aim: -Math.PI / 2 },
   ];
   campaign: Campaign;
   summary: ExpeditionSummary | null = null;
   private enemiesEnabled: boolean;
+  readonly exploredRooms = new Set<number>();
+  private allyCooldowns = new Map<string, number>();
+  get currentRoom(): number { return roomAt(this.player); }
   constructor(campaign = newCampaign(), enemies = true) {
     super(20261023, OBSTACLES, WORLD_WIDTH, WORLD_HEIGHT, PLAYER_SPAWN, false);
     this.campaign = cloneCampaign(campaign); this.enemiesEnabled = enemies;
+    for (let i = 0; i < BUILDINGS.length; i++) {
+      const d = roomDoor(BUILDINGS[i]);
+      this.caches.push({ id: `room-${i}`, name: `${BUILDINGS[i].label} 储藏箱`, x: d.x - 48, y: d.y - 80, cargo: { materials: 4, energy: i % 2 ? 2 : 0, medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, opened: false });
+    }
     if (enemies) for (const point of [{ x: 1450, y: 680 }, { x: 720, y: 520 }, { x: 1440, y: 970 }]) {
       if (canOccupy(point, B.zombie.radius, this.obstacles, this.width, this.height)) this.addZombie(point);
     }
@@ -66,6 +78,8 @@ export class ExpeditionWorld extends CombatWorld {
     const item = this.nearby();
     if (item) return 'cargo' in item ? `[E] 搜刮 ${item.name}` : `[E] 营救 ${SURVIVOR_PROFILES[item.id].role} ${SURVIVOR_PROFILES[item.id].name}`;
     if (distance(this.player, CAMP) <= CAMP.radius) return this.hasFinds ? '[E] 提前回营 / 结算本次探索' : '回营信标 · 先带回一些物资或幸存者';
+    const entrance = BUILDINGS.find(b => distance(this.player, roomDoor(b)) < 72);
+    if (entrance) return `${entrance.label} · 从门口直接走入，屋顶自动隐藏`;
     return '';
   }
   interact(): ActionResult {
@@ -76,7 +90,8 @@ export class ExpeditionWorld extends CombatWorld {
       for (const key of ['materials', 'energy', 'medkits'] as const) this.inventory[key] += item.cargo[key];
       item.opened = true;
       if (item.rifle) this.acquireWeapon('rifle');
-      return { ok: true, message: item.rifle ? '获得 AR 突击步枪！按 1 / 2 切换武器' : `已搜刮 ${item.name} · 建材 +${item.cargo.materials} / 电力 +${item.cargo.energy} / 急救包 +${item.cargo.medkits}` };
+      if (item.weapon) this.acquireWeapon(item.weapon);
+      return { ok: true, message: item.weapon ? `获得 ${WEAPONS[item.weapon].name} · 4 装备猎弓` : item.rifle ? '获得 AR 突击步枪！按 1 / 2 切换武器' : `已搜刮 ${item.name} · 建材 +${item.cargo.materials} / 电力 +${item.cargo.energy} / 急救包 +${item.cargo.medkits}` };
     }
     if (item && 'state' in item) {
       item.state = 'following';
@@ -119,17 +134,30 @@ export class ExpeditionWorld extends CombatWorld {
     super.step(input, dt);
     if (this.status !== 'playing' || before === this.elapsed) return;
     const step = this.elapsed - before;
+    const room = this.currentRoom;
+    if (room >= 0 && !this.exploredRooms.has(room)) {
+      this.exploredRooms.add(room);
+      if (this.enemiesEnabled) {
+        const r = roomRect(BUILDINGS[room]);
+        for (const offset of [128, 192]) { const p = { x: r.x + offset, y: r.y + 144 }; if (this.zombies.length < 16 && canOccupy(p, 11, this.obstacles, this.width, this.height)) this.addZombie(p); }
+      }
+    }
     this.followers.forEach((s, i) => {
       const close = distance(s, this.player) <= 45 + i * 19;
       const direction = this.navigation.direction(s, this.player);
       s.moving = !close; s.aim = Math.atan2(direction.y, direction.x);
       if (!close) moveWithCollision(s, direction.x * 200 * step, direction.y * 200 * step, 10, this.obstacles, this.width, this.height);
+      if (s.id === 'ranger' || s.id === 'brawler') {
+        const cooldown = Math.max(0, (this.allyCooldowns.get(s.id) ?? 0) - step); this.allyCooldowns.set(s.id, cooldown);
+        const target = this.zombies.filter(z => z.health > 0 && distance(s, z) < (s.id === 'ranger' ? 270 : 72) && firstWall(s, z, this.obstacles) === null).sort((a, b) => distance(s, a) - distance(s, b))[0];
+        if (target && cooldown === 0) { s.aim = Math.atan2(target.y - s.y, target.x - s.x); this.allyAttack(s, target, s.id === 'brawler'); this.allyCooldowns.set(s.id, s.id === 'ranger' ? 0.85 : 0.7); }
+      }
     });
     if (this.remaining <= 1e-6) this.finish('sunset');
   }
   override snapshot() {
     return { ...super.snapshot(), expedition: { remaining: this.remaining, capacity: CAPACITY, weight: this.weight, inventory: { ...this.inventory },
       caches: structuredClone(this.caches), survivors: structuredClone(this.survivors), camp: { ...CAMP }, objective: structuredClone(this.objective()),
-      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt() } };
+      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms] } };
   }
 }

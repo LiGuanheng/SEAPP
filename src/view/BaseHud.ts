@@ -33,21 +33,20 @@ export class BaseHud {
     g.lineStyle(1, 0x5b7161, 0.7).lineBetween(20, 94, 1260, 94).lineBetween(20, 596, 1260, 596);
     text(26, 17, 'THE LAST LIGHT / 最后一盏灯', 13, '#dfc68d').setLetterSpacing(2);
     text(26, 44, '北境灯塔 · 黄昏布防', 18, '#e8d59f');
-    this.info = text(440, 23, '', 14, '#c9d1b3');
+    this.info = text(440, 23, '', 12, '#c9d1b3');
     this.timer = text(440, 51, '', 12, '#cfbb8d');
     this.storage = text(440, 78, '', 10, '#e4a689');
     button(1198, 27, 110, '暂停 [P]', pause);
     button(1198, 70, 110, '再次探索', explore);
     this.selection = text(26, 609, '', 13, '#e5d09a');
-    for (const [kind, x, key] of [['barricade', 112, '1'], ['turret', 326, '2']] as const) {
-      button(x, 661, 190, `[${key}] ${BUILDINGS[kind].name}`, () => build(kind));
-      this.costs.set(kind, text(x, 690, '', 10, '#a9b8a0').setOrigin(0.5));
+    for (const [kind, x, key] of [['barricade', 90, '1'], ['turret', 254, '2'], ['cannon', 418, '3'], ['arrowtower', 582, '4'], ['wall', 746, '5']] as const) {
+      button(x, 661, 150, `[${key}] ${BUILDINGS[kind].name}`, () => build(kind));
+      this.costs.set(kind, text(x, 688, '', 10, '#a9b8a0').setOrigin(0.5));
     }
-    button(549, 661, 168, '就地驻守 [G]', hold);
-    button(1090, 661, 240, '完成布防 [Enter]', finish);
-    this.mode = text(744, 651, '', 11, '#aabd9f').setOrigin(0.5);
-    text(744, 677, '左键/框选部队 · 右键移动', 10, '#a2b39d').setOrigin(0.5);
-    text(744, 695, 'WASD 镜头 · 滚轮缩放 · Space 全选', 10, '#a2b39d').setOrigin(0.5);
+    button(907, 661, 150, '就地驻守 [G]', hold);
+    button(1120, 661, 240, '完成布防 [Enter]', finish);
+    this.mode = text(640, 633, '', 11, '#aabd9f').setOrigin(0.5);
+    text(640, 708, '左键/框选部队 · 右键移动 · WASD 镜头 · 滚轮缩放 · Space 全选 · T 倍速 · L 配乐', 10, '#a2b39d').setOrigin(0.5);
     this.toast = text(640, 565, '', 13, '#eddaa3').setOrigin(0.5).setBackgroundColor('#0c2027').setPadding(9, 6).setVisible(false);
     this.overlay = scene.add.container(0, 0).setVisible(false); this.root.add(this.overlay);
     const shade = scene.add.rectangle(640, 360, 1280, 720, 0x081b22, 0.94).setInteractive();
@@ -67,8 +66,8 @@ export class BaseHud {
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);
     this.info.setText(`营地库存　建材 ${c.depot.materials}　电力 ${c.depot.energy}　急救包 ${c.depot.medkits}`);
-    this.timer.setText(`布防 ${Math.ceil(world.remaining)}s　/　设施 ${world.plan.buildings.length}/14　/　守备 ${world.plan.soldiers.length} 人${c.survivors.includes('engineer') ? '　工程师：设施少耗 1 建材' : ''}`);
-    this.selection.setText(b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · Delete 拆除：返还 ${Math.floor(b.paid.materials / 2)} 建材，电力不返还` : ids.size ? `已选 ${ids.size} 名士兵 · 右键指定目的地，G 就地驻守 · Shift 加选` : '选择士兵或设施；按 1 / 2 后在虚线区域直接建造');
+    this.timer.setText(`布防 ${Math.ceil(world.remaining)}s　/　设施 ${world.plan.buildings.length}/40　/　守备 ${world.plan.soldiers.length} 人`);
+    this.selection.setText(b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · Delete 拆除：返还 ${Math.floor(b.paid.materials / 2)} 建材，电力不返还` : ids.size ? `已选 ${ids.size} 名士兵 · 右键指定目的地，G 就地驻守 · Shift 加选` : '1 路障  2 机枪塔  3 加农炮（范围）  4 箭塔（远程）  5 城墙（低价、可攻破）');
     this.mode.setText(buildKind ? `${BUILDINGS[buildKind].name} · ${buildKind === 'barricade' ? 'R 旋转' : '左键放置'} · Esc/右键取消` : '指挥模式');
     for (const [kind, text] of this.costs) { const cost = world.cost(kind); text.setText(`建材 ${cost.materials} / 电力 ${cost.energy}`); }
     this.toastTime = Math.max(0, this.toastTime - dt); this.toast.setVisible(this.toastTime > 0);

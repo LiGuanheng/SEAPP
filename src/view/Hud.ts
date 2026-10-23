@@ -3,6 +3,7 @@ import { BALANCE as B } from '../config/balance.ts';
 import { BUILDINGS, WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
 import type { CombatWorld } from '../core/world.ts';
 import { CAMP, CAPACITY, ExpeditionWorld, SURVIVOR_PROFILES } from '../core/expedition.ts';
+import { WEAPONS } from '../config/weapons.ts';
 
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class Hud {
@@ -76,14 +77,14 @@ export class Hud {
   flashHurt(): void { this.hurt = 0.24; }
   setMuted(value: boolean): void { this.sound.setText(value ? '静音 [M]' : '声音 [M]'); }
   notify(message: string): void { this.toast.setText(message).setVisible(true); this.toastTime = 4.5; }
-  blocksInput(x: number, y: number): boolean { return this.isOverlay || y < 93 || x > 1090 && y < 235; }
+  blocksInput(x: number, y: number): boolean { return this.isOverlay || y < 93 || x > 980 && y < 132 || x > 1090 && y < 235; }
   update(world: CombatWorld, paused: boolean, dt: number, bag = false): void {
     const p = world.player, g = this.graphics;
     const expedition = world instanceof ExpeditionWorld ? world : null;
     this.navigation.clear(); this.bearing.setVisible(!!expedition && !paused && world.status === 'playing');
     if (expedition && !paused && world.status === 'playing') {
       const target = expedition.objective().point, camera = this.scene.cameras.main;
-      const x = target.x - camera.scrollX, y = target.y - camera.scrollY;
+      const x = (target.x - camera.worldView.x) * camera.zoom, y = (target.y - camera.worldView.y) * camera.zoom;
       // 沿目标方向投射到安全显示区域，避免被顶栏、背包提示和小地图遮挡。
       const dx = x - 640, dy = y - 350;
       const scale = Math.min(1, 400 / Math.max(1, Math.abs(dx)), 214 / Math.max(1, Math.abs(dy)));
@@ -102,10 +103,10 @@ export class Hud {
     g.fillStyle(p.health > 30 ? 0xa9c69b : 0xd68d79).fillRect(28, 94, 205 * p.health / B.player.health, 6);
     g.fillStyle(0xd9bd85).fillRect(93, 114, 140 * p.stamina / B.player.stamina, 4);
     this.health.setText(`守灯人   ${p.health} / ${B.player.health}`);
-    this.ammo.setText(`${String(p.ammo).padStart(2, '0')}  /  ${world.weapon.magazine}`);
-    this.caption.setText(`${world.weapon.name} / 无限备用弹药`);
+    this.ammo.setText(world.weaponId === 'axe' ? '近战 / 横扫' : `${String(p.ammo).padStart(2, '0')}  /  ${world.weapon.magazine}`);
+    this.caption.setText(`${world.weapon.name} / ${world.weaponId === 'axe' ? '70 像素范围 · 不耗弹药' : '无限备用弹药'}`);
     this.phase.setText(expedition ? '白昼行动 / 90s' : '战斗训练 / 北境旧城');
-    this.controls.setText(expedition ? 'WASD 移动  SHIFT 冲刺  鼠标射击  E 互动  R 换弹  1/2 武器  H 治疗  TAB 背包  ESC 暂停' : 'WASD 移动   SHIFT 冲刺   鼠标瞄准 / 左键射击   R 换弹   ESC 暂停');
+    this.controls.setText('WASD 移动  SHIFT 冲刺  滚轮缩放  左键攻击  1手枪 2步枪 3斧 4弓  E互动  H治疗  TAB背包  F1指南');
     this.mission.setText(expedition ? `${Math.ceil(expedition.remaining)}s  /  ${expedition.objective().text}` : '');
     this.cargo.setText(expedition ? `建材 ${expedition.inventory.materials}   电力 ${expedition.inventory.energy}   急救包 ${expedition.inventory.medkits}   负重 ${expedition.weight}/${CAPACITY}   随队 ${expedition.followers.length}` : '');
     this.stats.setText(`击杀 ${String(world.kills).padStart(2, '0')}   /   存活 ${Math.floor(world.elapsed / 60)}:${String(Math.floor(world.elapsed % 60)).padStart(2, '0')}   /   在场感染者 ${world.zombies.length}`);
@@ -136,7 +137,7 @@ export class Hud {
       this.overlayButton.setText(world.status === 'defeat' ? '重新出发  →' : '继续战斗  →');
       if (bag && expedition) {
         this.overlayTitle.setText('行军背包');
-        this.overlayBody.setText(`负重 ${expedition.weight} / ${CAPACITY} · 物资返营后入库\n建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　急救包 ${expedition.inventory.medkits}\n营地库存：建材 ${expedition.campaign.depot.materials} / 电力 ${expedition.campaign.depot.energy} / 急救包 ${expedition.campaign.depot.medkits}\n装备：${world.ownedWeapons.map(id => id === 'pistol' ? '9MM 手枪 [1]' : 'AR 步枪 [2]').join(' / ')}\n随队：${expedition.followers.map(s => SURVIVOR_PROFILES[s.id].name).join('、') || '暂无'}\n按 H 使用急救包（关闭背包后）\n时间已暂停 · Tab / B / Esc 关闭`);
+        this.overlayBody.setText(`负重 ${expedition.weight} / ${CAPACITY} · 物资返营后入库\n建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　急救包 ${expedition.inventory.medkits}\n营地库存：建材 ${expedition.campaign.depot.materials} / 电力 ${expedition.campaign.depot.energy} / 急救包 ${expedition.campaign.depot.medkits}\n装备：${world.ownedWeapons.map(id => WEAPONS[id].name).join(' / ')}\n随队：${expedition.followers.map(s => SURVIVOR_PROFILES[s.id].name).join('、') || '暂无'}\n按 H 使用急救包（关闭背包后）\n时间已暂停 · Tab / B / Esc 关闭`);
         this.overlayButton.setText('返回街区  →');
       }
       if (expedition?.summary) {

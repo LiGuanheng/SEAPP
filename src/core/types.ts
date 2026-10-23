@@ -9,8 +9,9 @@ export interface Zombie extends Vec {
   id: number; health: number; aim: number; moving: boolean; attackCooldown: number;
   hurt: number; knockX: number; knockY: number; skin: number;
 }
-export interface Bullet extends Vec { id: number; vx: number; vy: number; lifetime: number; damage: number }
+export interface Bullet extends Vec { id: number; vx: number; vy: number; lifetime: number; damage: number; arrow?: boolean }
 export type CombatEvent =
+  | { type: 'swing' | 'ally-shot'; x: number; y: number; angle: number }
   | { type: 'shot'; x: number; y: number; angle: number }
   | { type: 'impact'; x: number; y: number }
   | { type: 'hit'; x: number; y: number; id: number; angle: number }

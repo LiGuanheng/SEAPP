@@ -1,4 +1,4 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, LIGHTHOUSE, MAX_BUILDINGS, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
 import { canOccupy, circleOverlapsRect, distance, moveWithCollision, normalized } from './geometry.ts';
 import { Navigation } from './navigation.ts';
@@ -17,7 +17,16 @@ export class BaseWorld {
       { id: 2, x: 752, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
       { id: 3, x: 816, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
     ] };
-    if (this.campaign.survivors.includes('captain') && this.plan.soldiers.length < 4) this.plan.soldiers.push({ id: 4, x: 880, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false });
+    const recruit = (role: 'rifle' | 'archer' | 'vanguard') => {
+      const id = this.plan.soldiers.length + 1;
+      const candidate = { id, x: 880, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold' as const, moving: false, role };
+      // 旧阵地可能已占用新兵集结点；寻找真实可通行位置。
+      const free = (p: Vec) => canOccupy(p, 13, this.obstacles, BASE_WIDTH, BASE_HEIGHT) && this.plan.soldiers.every(s => distance(s, p) > 28);
+      if (!free(candidate)) for (let y = 592, found = false; y <= 752 && !found; y += 32) for (let x = 336; x <= 1200; x += 32) if (free({ x, y })) { candidate.x = x; candidate.y = y; found = true; break; }
+      if (this.plan.soldiers.length < 6) this.plan.soldiers.push(candidate);
+    };
+    if (this.campaign.survivors.includes('captain') && this.plan.soldiers.filter(s => !s.role || s.role === 'rifle').length < 4) recruit('rifle');
+    for (const [profile, role] of [['ranger', 'archer'], ['brawler', 'vanguard']] as const) if (this.campaign.survivors.includes(profile) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
     this.campaign.base = this.plan;
     this.nextId = Math.max(0, ...this.plan.buildings.map(b => b.id)) + 1;
     this.rebuildNavigation();
@@ -29,7 +38,7 @@ export class BaseWorld {
   get obstacles(): Rect[] { return [...BASE_OBSTACLES, ...this.plan.buildings.map(buildingRect)]; }
   cost(kind: BuildingKind) {
     const config = BUILDINGS[kind];
-    return { materials: config.materials - Number(this.campaign.survivors.includes('engineer')), energy: config.energy };
+    return { materials: Math.max(1, config.materials - Number(this.campaign.survivors.includes('engineer'))), energy: config.energy };
   }
   preview(kind: BuildingKind, point: Vec, rotation: 0 | 1): ActionResult {
     if (this.plan.status !== 'preparing') return { ok: false, message: '布防已完成，点击继续调整可重新部署' };
@@ -40,7 +49,7 @@ export class BaseWorld {
     if (this.obstacles.some(o => overlaps(r, o))) return { ok: false, message: '地基与已有设施重叠' };
     if (this.plan.soldiers.some(s => circleOverlapsRect(s, 13, r))) return { ok: false, message: '地基上有士兵，请先移开' };
     if (this.plan.soldiers.some(s => s.destination && circleOverlapsRect(s.destination, 13, r))) return { ok: false, message: '地基占用了部队目的地，请先更改指令' };
-    if (this.plan.buildings.length >= 14) return { ok: false, message: '已达 14 座设施上限' };
+    if (this.plan.buildings.length >= MAX_BUILDINGS) return { ok: false, message: `已达 ${MAX_BUILDINGS} 座设施上限` };
     const cost = this.cost(kind);
     if (this.campaign.depot.materials < cost.materials || this.campaign.depot.energy < cost.energy) return { ok: false, message: `库存不足：需要建材 ${cost.materials} / 电力 ${cost.energy}` };
     return { ok: true, message: `左键建造 ${BUILDINGS[kind].name} · 建材 ${cost.materials} / 电力 ${cost.energy}` };

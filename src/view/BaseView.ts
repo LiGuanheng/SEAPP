@@ -54,7 +54,8 @@ export class BaseView {
       v.sprite.setPosition(s.x, s.y).setDepth(s.y);
       v.shadow.setPosition(s.x, s.y + 2).setDepth(s.y - 2);
       v.helmet.setPosition(s.x, s.y - 37).setDepth(s.y + 1);
-      v.gun.setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
+      v.gun.setTexture(s.role === 'archer' ? 'bow' : s.role === 'vanguard' ? 'axe' : 'rifle').setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
+      v.sprite.setTint(s.role === 'archer' ? 0xa5c182 : s.role === 'vanguard' ? 0xd0a087 : 0x9eaf91);
       if (paused || !world.commanding) v.sprite.anims.pause();
       else {
         v.sprite.anims.resume();
@@ -74,8 +75,10 @@ export class BaseView {
       if (!this.buildings.has(b.id)) {
         const view = this.scene.add.container(r.x + r.width / 2, r.y + r.height / 2).setDepth(r.y + r.height);
         view.add(this.scene.add.ellipse(4, 11, r.width + 8, r.height, 0x0b2025, 0.35));
-        view.add(this.scene.add.image(0, b.kind === 'turret' ? -7 : -4, b.kind).setAngle(b.rotation * 90));
+        view.add(this.scene.add.image(0, b.kind === 'wall' ? -10 : b.kind === 'arrowtower' ? -20 : -7, b.kind).setAngle(b.rotation * 90));
         if (b.kind === 'turret') view.add(this.scene.add.image(0, -19, 'rifle').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2).setScale(1.1));
+        if (b.kind === 'cannon') view.add(this.scene.add.image(0, -15, 'cannon-barrel').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2));
+        if (b.kind === 'arrowtower') view.add(this.scene.add.image(0, -43, 'bow').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2).setScale(0.85));
         this.root.add(view); this.buildings.set(b.id, view);
       }
       const barrel = this.buildings.get(b.id)!.getByName('barrel') as Phaser.GameObjects.Image | null;

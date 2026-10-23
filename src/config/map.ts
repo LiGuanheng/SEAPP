@@ -17,6 +17,15 @@ export const CARS = [
   { x: 45, y: 10, style: 'gray' }, { x: 18, y: 32, style: 'green' },
   { x: 52, y: 23, style: 'gray' }, { x: 7, y: 24, style: 'green' },
 ] as const;
+export function roomRect(b: Building): Rect { return { x: b.x * TILE, y: b.y * TILE, width: b.width * TILE, height: b.height * TILE }; }
+export function roomDoor(b: Building): Vec { return { x: (b.x + Math.floor(b.width / 2) + 0.5) * TILE, y: (b.y + b.height) * TILE }; }
+export function roomAt(p: Vec): number { return BUILDINGS.findIndex(b => { const r = roomRect(b); return p.x > r.x + 16 && p.x < r.x + r.width - 16 && p.y > r.y + 16 && p.y < r.y + r.height; }); }
+export function roomFurniture(b: Building): Rect[] { const r = roomRect(b); return [{ x: r.x + 48, y: r.y + 64, width: 64, height: 32 }, { x: r.x + r.width - 80, y: r.y + 64, width: 32, height: 64 }]; }
+export function roomWalls(b: Building): Rect[] {
+  const r = roomRect(b), d = roomDoor(b);
+  return [{ x: r.x, y: r.y, width: r.width, height: 16 }, { x: r.x, y: r.y, width: 16, height: r.height }, { x: r.x + r.width - 16, y: r.y, width: 16, height: r.height },
+    { x: r.x, y: d.y - 16, width: d.x - 32 - r.x, height: 16 }, { x: d.x + 32, y: d.y - 16, width: r.x + r.width - d.x - 32, height: 16 }];
+}
 export interface Decoration { x: number; y: number; kind: 'tree' | 'bin' | 'litter' | 'grass' }
 export const DECORATIONS: Decoration[] = [];
 for (let y = 2; y < ROWS - 2; y++) for (let x = 2; x < COLS - 2; x++) {
@@ -29,7 +38,7 @@ for (let y = 2; y < ROWS - 2; y++) for (let x = 2; x < COLS - 2; x++) {
   else if (hash === 19 && !isRoad(x, y)) DECORATIONS.push({ x, y, kind: 'grass' });
 }
 export const OBSTACLES: Rect[] = [
-  ...BUILDINGS.map(b => ({ x: b.x * TILE, y: b.y * TILE, width: b.width * TILE, height: b.height * TILE })),
+  ...BUILDINGS.flatMap(b => [...roomWalls(b), ...roomFurniture(b)]),
   ...CARS.map(c => ({ x: c.x * TILE + 4, y: c.y * TILE + 12, width: TILE * 3 - 8, height: TILE * 2 - 16 })),
   ...DECORATIONS.filter(d => d.kind === 'tree' || d.kind === 'bin').map(d => ({ x: d.x * TILE + 11, y: d.y * TILE + 17, width: 10, height: 12 })),
 ];

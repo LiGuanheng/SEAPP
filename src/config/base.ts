@@ -2,6 +2,7 @@ import type { Rect, Vec } from '../core/types.ts';
 import { canOccupy } from '../core/geometry.ts';
 
 export const BASE_WIDTH = 1536, BASE_HEIGHT = 1024, GRID = 32, PREPARATION_SECONDS = 30;
+export const MAX_BUILDINGS = 40;
 export const BUILD_AREA: Rect = { x: 320, y: 256, width: 896, height: 512 };
 export const LIGHTHOUSE = { x: 768, y: 512 };
 export const LIGHTHOUSE_FOOT: Rect = { x: 736, y: 480, width: 64, height: 64 };
@@ -13,10 +14,18 @@ export const RESERVED_ROUTES: readonly Rect[] = [
 export const BUILDINGS = {
   barricade: { name: '沙袋路障', width: 64, height: 32, materials: 3, energy: 0, health: 160, range: 0 },
   turret: { name: '机枪塔', width: 64, height: 64, materials: 6, energy: 2, health: 100, range: 260 },
+  cannon: { name: '加农炮', width: 64, height: 64, materials: 7, energy: 3, health: 105, range: 310 },
+  arrowtower: { name: '箭塔', width: 64, height: 64, materials: 5, energy: 0, health: 90, range: 340 },
+  wall: { name: '木栅城墙', width: 32, height: 32, materials: 1, energy: 0, health: 80, range: 0 },
 } as const;
 export type BuildingKind = keyof typeof BUILDINGS;
+export const TOWER_ATTACKS = {
+  turret: { damage: 20, interval: 0.18, speed: 850, splash: 0, projectile: 'bullet' },
+  cannon: { damage: 68, interval: 1.8, speed: 340, splash: 62, projectile: 'shell' },
+  arrowtower: { damage: 32, interval: 0.72, speed: 760, splash: 0, projectile: 'arrow' },
+} as const;
 export interface BaseBuilding { id: number; kind: BuildingKind; x: number; y: number; rotation: 0 | 1; health: number; paid: { materials: number; energy: number } }
-export interface Soldier extends Vec { id: number; destination: Vec | null; stance: 'move' | 'hold'; moving: boolean; aim: number }
+export interface Soldier extends Vec { id: number; destination: Vec | null; stance: 'move' | 'hold'; moving: boolean; aim: number; role?: 'rifle' | 'archer' | 'vanguard' }
 export interface BasePlan { version: 1; status: 'preparing' | 'ready'; elapsed: number; buildings: BaseBuilding[]; soldiers: Soldier[] }
 export function buildingRect(b: Pick<BaseBuilding, 'kind' | 'x' | 'y' | 'rotation'>): Rect {
   const c = BUILDINGS[b.kind], rotate = b.kind === 'barricade' && b.rotation === 1;
@@ -30,21 +39,21 @@ export function validBasePlan(value: unknown): value is BasePlan {
   if (!value || typeof value !== 'object') return false;
   const p = value as BasePlan;
   if (p.version !== 1 || !['preparing', 'ready'].includes(p.status) || !Number.isFinite(p.elapsed) || p.elapsed < 0 || p.elapsed > PREPARATION_SECONDS ||
-    (p.status === 'ready' && p.elapsed !== PREPARATION_SECONDS) || !Array.isArray(p.buildings) || p.buildings.length > 14 || !Array.isArray(p.soldiers) || p.soldiers.length < 3 || p.soldiers.length > 4) return false;
+    (p.status === 'ready' && p.elapsed !== PREPARATION_SECONDS) || !Array.isArray(p.buildings) || p.buildings.length > MAX_BUILDINGS || !Array.isArray(p.soldiers) || p.soldiers.length < 3 || p.soldiers.length > 6) return false;
   const ids = new Set<number>();
   for (const b of p.buildings) {
     if (!b || !Object.hasOwn(BUILDINGS, b.kind) || !Number.isSafeInteger(b.id) || b.id <= 0 || b.id > 1_000_000 || ids.has(b.id) ||
       !Number.isFinite(b.x) || !Number.isFinite(b.y) || b.x % GRID || b.y % GRID || ![0, 1].includes(b.rotation)) return false;
     const c = BUILDINGS[b.kind], r = buildingRect(b);
     if (!Number.isFinite(b.health) || b.health <= 0 || b.health > c.health || !b.paid || !Number.isInteger(b.paid.materials) ||
-      b.paid.materials < c.materials - 1 || b.paid.materials > c.materials || b.paid.energy !== c.energy ||
+      b.paid.materials < Math.max(1, c.materials - 1) || b.paid.materials > c.materials || b.paid.energy !== c.energy ||
       r.x < BUILD_AREA.x || r.y < BUILD_AREA.y || r.x + r.width > BUILD_AREA.x + BUILD_AREA.width || r.y + r.height > BUILD_AREA.y + BUILD_AREA.height ||
       [...BASE_OBSTACLES, ...RESERVED_ROUTES, ...p.buildings.filter(other => !!other && other !== b && Object.hasOwn(BUILDINGS, other.kind)).map(buildingRect)].some(o => overlaps(r, o))) return false;
     ids.add(b.id);
   }
   ids.clear();
   for (const s of p.soldiers) {
-    if (!s || !validPoint(s) || !Number.isSafeInteger(s.id) || s.id < 1 || s.id > p.soldiers.length || ids.has(s.id) || !['move', 'hold'].includes(s.stance) ||
+    if (!s || !validPoint(s) || (s.role !== undefined && !['rifle', 'archer', 'vanguard'].includes(s.role)) || !Number.isSafeInteger(s.id) || s.id < 1 || s.id > p.soldiers.length || ids.has(s.id) || !['move', 'hold'].includes(s.stance) ||
       (s.destination !== null && !validPoint(s.destination)) || typeof s.moving !== 'boolean' || !Number.isFinite(s.aim) ||
       (s.stance === 'hold' && (s.destination !== null || s.moving)) || (s.stance === 'move' && s.destination === null) || (p.status === 'ready' && s.moving) ||
       !canOccupy(s, 11, [...BASE_OBSTACLES, ...p.buildings.map(buildingRect)], BASE_WIDTH, BASE_HEIGHT) ||

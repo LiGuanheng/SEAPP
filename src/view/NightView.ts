@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BASE_HEIGHT, BASE_WIDTH, BUILDINGS, LIGHTHOUSE } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_WIDTH, BUILDINGS, LIGHTHOUSE, buildingRect } from '../config/base.ts';
 import { INFECTED, NIGHT_LIMITS } from '../config/night.ts';
 import type { NightEnemy, NightEvent, NightWorld } from '../core/night-world.ts';
 import type { Vec } from '../core/types.ts';
@@ -20,6 +20,7 @@ export class NightView {
   private lastOutcome = '';
   private age = 0;
   private blasts: { x: number; y: number; age: number }[] = [];
+  private swings: { x: number; y: number; angle: number; age: number }[] = [];
   constructor(private scene: Phaser.Scene, private root: Phaser.GameObjects.Container) {
     this.fogKey = `night-fog-${scene.sys.settings.key}`;
     if (scene.textures.exists(this.fogKey)) scene.textures.remove(this.fogKey);
@@ -35,7 +36,8 @@ export class NightView {
   }
   handle(events: readonly NightEvent[]): void {
     for (const e of events) {
-      if (e.type === 'fire') {
+      if (e.type === 'swing') { this.swings.push({ ...e, angle: e.angle ?? 0, age: 0 }); if (this.swings.length > 12) this.swings.shift(); }
+      else if (e.type === 'fire') {
         const image = this.scene.add.image(e.x, e.y, 'muzzle').setOrigin(0.1, 0.5).setRotation(e.angle ?? 0).setScale(0.65).setDepth(8200); this.root.add(image);
         this.particles.push({ image, age: 0, life: 0.06, vx: 0, vy: 0, size: 15 });
       } else if (e.type === 'kill' || e.type === 'unit-death') {
@@ -72,7 +74,7 @@ export class NightView {
       };
       light(LIGHTHOUSE, 450, world.status === 'defeat' ? 0.1 : 0.92);
       for (const s of world.livingSoldiers) light(s, 290, 0.78);
-      for (const b of world.plan.buildings) if (b.kind === 'turret') light({ x: b.x + 32, y: b.y + 32 }, 300, 0.7);
+      for (const b of world.plan.buildings) if (BUILDINGS[b.kind].range) light({ x: b.x + 32, y: b.y + 32 }, 300, 0.7);
       c.globalCompositeOperation = 'source-over'; this.fog.refresh();
     }
     const live = new Set(world.enemies.map(e => e.id));
@@ -95,10 +97,12 @@ export class NightView {
       if (visible && (e.health < INFECTED[e.kind].health || e.kind === 'brute')) { g.fillStyle(0x2c3833).fillRect(e.x - 16, e.y - 60, 32, 3).fillStyle(e.kind === 'brute' ? 0xd9b57a : 0xb7957d).fillRect(e.x - 16, e.y - 60, 32 * e.health / INFECTED[e.kind].health, 3); }
     }
     for (const s of world.livingSoldiers) { const f = world.fighters.get(s.id)!; if (f.health < 90) g.fillStyle(0x34473c).fillRect(s.x - 16, s.y - 63, 32, 3).fillStyle(f.hurt > 0 ? 0xe5a38b : 0xb4d29f).fillRect(s.x - 16, s.y - 63, 32 * f.health / 90, 3); }
-    for (const b of world.plan.buildings) if (b.health < BUILDINGS[b.kind].health) g.fillStyle(0x31423e).fillRect(b.x, b.y - 20, 64, 4).fillStyle(0xd8b478).fillRect(b.x, b.y - 20, 64 * b.health / BUILDINGS[b.kind].health, 4);
+    for (const b of world.plan.buildings) if (b.health < BUILDINGS[b.kind].health) { const r = buildingRect(b); g.fillStyle(0x31423e).fillRect(b.x, b.y - 20, r.width, 4).fillStyle(0xd8b478).fillRect(b.x, b.y - 20, r.width * b.health / BUILDINGS[b.kind].health, 4); }
     const bulletIds = new Set(world.bullets.map(b => b.id));
     for (const [id, image] of this.bullets) if (!bulletIds.has(id)) { image.destroy(); this.bullets.delete(id); }
-    for (const b of world.bullets) { let image = this.bullets.get(b.id); if (!image) { image = this.scene.add.image(b.x, b.y, 'bullet').setDepth(8150); this.root.add(image); this.bullets.set(b.id, image); } image.setPosition(b.x, b.y).setRotation(Math.atan2(b.vy, b.vx)); }
+    for (const b of world.bullets) { let image = this.bullets.get(b.id); if (!image) { image = this.scene.add.image(b.x, b.y, b.projectile === 'arrow' ? 'arrow' : 'bullet').setDepth(8150).setScale(b.projectile === 'shell' ? 2 : 1).setTint(b.projectile === 'shell' ? 0xffbf78 : 0xffffff); this.root.add(image); this.bullets.set(b.id, image); } image.setPosition(b.x, b.y).setRotation(Math.atan2(b.vy, b.vx)); }
+    for (const s of this.swings) { s.age += dt; g.lineStyle(4, 0xe5d8a9, Math.max(0, 1 - s.age / 0.22)).beginPath().arc(s.x, s.y, 65, s.angle - 1, s.angle + 1).strokePath(); }
+    this.swings = this.swings.filter(s => s.age < 0.22);
     for (const s of world.strikes) g.lineStyle(2, 0xefc68a, 0.8).strokeCircle(s.x, s.y, 98 * (0.55 + s.delay * 0.5)).lineBetween(s.x - 14, s.y, s.x + 14, s.y).lineBetween(s.x, s.y - 14, s.x, s.y + 14);
     for (const blast of this.blasts) { blast.age += dt; const t = Math.min(1, blast.age / 0.55); g.fillStyle(0xffc77e, (1 - t) * 0.45).fillCircle(blast.x, blast.y, 28 + t * 70).lineStyle(3 * (1 - t), 0xffe1a0, 1 - t).strokeCircle(blast.x, blast.y, 20 + t * 95); }
     this.blasts = this.blasts.filter(b => b.age < 0.55);

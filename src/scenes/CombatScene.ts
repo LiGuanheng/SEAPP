@@ -28,6 +28,8 @@ export class CombatScene extends Phaser.Scene {
   private audio!: SoundBus;
   private guide!: FieldGuide;
   private guideWasPaused = false;
+  private mapView!: MapView;
+  private musicLabel!: Phaser.GameObjects.Text;
   constructor() { super('Combat'); }
   create(data: { campaign?: Campaign } = {}): void {
     const training = new URLSearchParams(location.search).get('mode') === 'combat';
@@ -39,12 +41,14 @@ export class CombatScene extends Phaser.Scene {
     }
     this.world = training ? new CombatWorld() : new ExpeditionWorld(campaign);
     this.held.clear(); this.firing = false; this.paused = false; this.pointerActive = false; this.accumulator = 0; this.bag = false; this.persisted = false;
-    new MapView(this);
+    this.mapView = new MapView(this);
     this.expeditionView = this.world instanceof ExpeditionWorld ? new ExpeditionView(this, this.world) : null;
     this.actors = new ActorView(this);
     this.audio = new SoundBus(false);
     this.hud = new Hud(this, () => this.togglePause(), () => this.advance(), () => this.audio.toggle());
     this.guide = new FieldGuide(this, this.hud.root, training ? 'combat' : 'city', () => this.toggleGuide());
+    this.musicLabel = this.add.text(1030, 107, '', { fontFamily: 'Microsoft YaHei', fontSize: '11px', color: '#d8c796', backgroundColor: '#193030', padding: { x: 7, y: 6 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.musicLabel.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.audio.toggleMusic(); }); this.hud.root.add(this.musicLabel);
     if (warning) this.hud.notify(warning);
     this.crosshair = this.add.graphics().setDepth(99999);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT).centerOn(this.world.player.x, this.world.player.y - 60).setRoundPixels(true);
@@ -61,6 +65,7 @@ export class CombatScene extends Phaser.Scene {
       if (event.repeat) return;
       if (event.code === 'F1') { this.toggleGuide(); return; }
       if (event.code === 'KeyM') { this.audio.toggle(); return; }
+      if (event.code === 'KeyL') { this.audio.toggleMusic(); return; }
       if (this.guide.visible) { if (['Escape', 'KeyP'].includes(event.code)) this.toggleGuide(); return; }
       if (event.code === 'Escape' || event.code === 'KeyP') { this.togglePause(); return; }
       if (event.code === 'Enter' && this.world.status !== 'playing') { this.advance(); return; }
@@ -70,6 +75,8 @@ export class CombatScene extends Phaser.Scene {
       if (this.paused || this.world.status !== 'playing') return;
       if (event.code === 'KeyR') this.world.requestReload();
       if (event.code === 'Digit1') this.world.switchWeapon('pistol');
+      if (event.code === 'Digit3') { this.world.switchWeapon('axe'); this.hud.notify('消防斧 · 朝鼠标方向挥砍，无弹药消耗'); }
+      if (event.code === 'Digit4') { if (this.world.ownedWeapons.includes('bow')) this.world.switchWeapon('bow'); else this.hud.notify('药房室内储藏箱可找到猎弓，弓手也在那里等待营救'); }
       if (event.code === 'Digit2') {
         if (this.world.ownedWeapons.includes('rifle')) { this.world.switchWeapon('rifle'); this.hud.notify('已装备 AR 突击步枪'); }
         else this.hud.notify('先找到军用武器箱，才能装备步枪');
@@ -88,8 +95,13 @@ export class CombatScene extends Phaser.Scene {
     };
     const up = () => { this.firing = false; };
     const move = () => { this.pointerActive = true; };
+    const wheel = (p: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+      if (this.paused || this.world.status !== 'playing' || this.hud.blocksInput(p.x, p.y)) return;
+      const camera = this.cameras.main; camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.65, 1.5)).centerOn(this.world.player.x, this.world.player.y - 55);
+    };
     this.input.keyboard!.on('keydown', keyDown); this.input.keyboard!.on('keyup', keyUp);
     this.input.on('pointerdown', down); this.input.on('pointerup', up); this.input.on('pointermove', move);
+    this.input.on('wheel', wheel);
     const loseFocus = () => { if (this.guide.visible) this.guideWasPaused = true; if (this.world.status === 'playing') this.setPaused(true); };
     const hidden = () => { if (document.hidden) loseFocus(); };
     const leaveCanvas = () => { this.firing = false; this.pointerActive = false; };
@@ -99,13 +111,14 @@ export class CombatScene extends Phaser.Scene {
       this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, added);
       this.input.keyboard?.off('keydown', keyDown); this.input.keyboard?.off('keyup', keyUp);
       this.input.off('pointerdown', down); this.input.off('pointerup', up); this.input.off('pointermove', move);
+      this.input.off('wheel', wheel);
       window.removeEventListener('blur', loseFocus); document.removeEventListener('visibilitychange', hidden);
       this.game.canvas.removeEventListener('pointerleave', leaveCanvas);
       delete window.__lastLight;
       this.audio.destroy();
     });
     if (new URLSearchParams(location.search).get('test') === '1') {
-      window.__lastLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), paused: this.paused, guide: this.guide.visible, muted: this.audio.muted, view: this.actors.counts(), objects: this.children.length, camera: { x: this.cameras.main.scrollX, y: this.cameras.main.scrollY }, ready: true }) });
+      window.__lastLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), paused: this.paused, guide: this.guide.visible, muted: this.audio.muted, musicMuted: this.audio.musicMuted, view: this.actors.counts(), objects: this.children.length, camera: { x: this.cameras.main.worldView.x, y: this.cameras.main.worldView.y, zoom: this.cameras.main.zoom }, ready: true }) });
     }
     this.actors.update(this.world, 0, false); this.expeditionView?.update(this.world as ExpeditionWorld, false); this.hud.update(this.world, false, 0);
     document.getElementById('loading')?.remove();
@@ -160,6 +173,8 @@ export class CombatScene extends Phaser.Scene {
     if (this.world instanceof ExpeditionWorld) this.expeditionView?.update(this.world, this.paused);
     this.hud.update(this.world, this.paused, visualDt, this.bag);
     this.hud.setMuted(this.audio.muted);
+    this.musicLabel.setText(this.audio.musicMuted ? '配乐关闭 [L]' : '配乐开启 [L]');
+    this.mapView.update(this.world.player);
     this.guide.available(this.world.status === 'playing');
     if (this.world.status !== 'playing') this.audio.pause(true);
     const input = this.inputState();
@@ -170,5 +185,5 @@ export class CombatScene extends Phaser.Scene {
 }
 
 declare global {
-  interface Window { __lastLight?: { snapshot: () => ReturnType<CombatWorld['snapshot']> & { paused: boolean; guide: boolean; muted: boolean; ready: boolean; objects: number; view: { actors: number; bullets: number; particles: number; corpses: number }; camera: { x: number; y: number } } } }
+  interface Window { __lastLight?: { snapshot: () => ReturnType<CombatWorld['snapshot']> & { paused: boolean; guide: boolean; muted: boolean; musicMuted: boolean; ready: boolean; objects: number; view: { actors: number; bullets: number; particles: number; corpses: number }; camera: { x: number; y: number; zoom: number } } } }
 }
