@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { ExpeditionWorld } from '../core/expedition.ts';
 import { BALANCE } from '../config/balance.ts';
 import type { CombatWorld } from '../core/world.ts';
 import type { CombatEvent } from '../core/types.ts';
@@ -73,6 +74,8 @@ export class ActorView {
       let actor = this.zombies.get(zombie.id);
       if (!actor) { actor = this.actor(key); this.zombies.set(zombie.id, actor); }
       this.syncActor(actor, zombie.x, zombie.y, zombie.aim, zombie.moving, paused || world.status !== 'playing', key);
+      const visible = !(world instanceof ExpeditionWorld) || world.canSee(zombie);
+      actor.sprite.setVisible(visible); actor.shadow.setVisible(visible);
       if (zombie.hurt > 0) actor.sprite.setTintFill(0xded6b1); else actor.sprite.clearTint();
       if (zombie.health < BALANCE.zombie.health) actor.sprite.setAlpha(0.96);
     }
@@ -111,5 +114,5 @@ export class ActorView {
     if (moving) actor.sprite.play(`${texture}-walk-${direction}`, true);
     else { actor.sprite.anims.stop(); actor.sprite.setFrame(direction * 3 + 1); }
   }
-  counts() { return { actors: this.zombies.size + 1, bullets: this.bullets.size, particles: this.particles.length, corpses: this.corpses.length }; }
+  counts() { return { actors: this.zombies.size + 1, visibleEnemies: [...this.zombies.values()].filter(v => v.sprite.visible).length, bullets: this.bullets.size, particles: this.particles.length, corpses: this.corpses.length }; }
 }

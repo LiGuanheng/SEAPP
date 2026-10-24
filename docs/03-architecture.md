@@ -157,3 +157,14 @@ config/night.ts 统一 Creature 数据（贴图、比例、半径、飞行、护
 NightView 只渲染事件和模型，识别三帧原创敌人图集，飞行循环振翅，读条脉动、落点预警、网/风暴区域与 Boss 血条均取真实世界坐标。NightHud 展示多 Boss 血量及机制；预警和普通敌人仍遵守 canSee，顶部 Boss 名称/血量作为全局波次情报。基地地面/施工网格/边界/战术地图/迷雾均使用 config/base 实际尺寸。
 
 core/exploration-layout.ts 为纯种子函数，产出有限障碍、支线奖励、室内左右侧与主题色；ExpeditionWorld 在 super 建立碰撞/导航前生成布局，MapView 使用同一布局渲染。CombatScene 每次创建新探索生成随机种子，快照保留完整布局，模型测试可指定种子复现；游戏里不增加改状态接口。固定道路/门口与教学位置保留，不保存中途探索。
+
+
+## v0.9 序章、迷雾和容量
+
+Boot 在默认入口且未看过序章时进入独立 PrologueScene，或通过 intro=1 强制重播；训练入口照常直达。Prologue 使用 MapView 和本地人物/怪物/灯塔素材，按独立时钟播放三幕，结束才创建 Combat 世界。sessionStorage 记录观看状态，内存回退处理存储被禁用；模态按键只作用于序章。失焦/隐藏暂停，退出移除监听与只读测试接口。
+
+ExplorationVision 是无 Phaser/DOM 的模型，存储 32 像素格 seen/visible 两张定长 Uint8Array，视线通过真实碰撞矩形检查。ExpeditionWorld 以 0.1 秒周期更新，升级时立即刷新；canSee、实体渲染和 HUD 小地图使用同一规则。ExplorationFog 在半分辨率离屏画布生成有记忆的遮罩，边界柔化后上传 CanvasTexture，每次 revision 变化才更新，离场释放画布与纹理。ActorView/ExpeditionView 显式隐藏视线外敌人、人物和标签；仅以半透明遮罩盖住它们不能保证无透视。
+
+Cache 增加可选 lampLevel，ExpeditionWorld 本轮灯级不直接改 Campaign；完成返营才写可选 campaign.lanternLevel，旧档缺失按 0，校验只允许整数 0～2。背包容量 48 仍走原整箱领取原子逻辑。BaseWorld.preview、validBasePlan、夜战结果校验移除原 40 座判断，保留地图/通道/费用等规则，HUD 不再显示 /40。
+
+SceneTransition 是 HUD 子容器，0.7 秒叠化，既不拦输入也不改变模拟时长；关闭视觉后容器保留到场景退出，避免结算快照对象数变化。探索的只读 presentation 方法单独提供动画状态，避免将短叠化进度混进需冻结的战斗/结算快照；没有增加可修改模型的接口。

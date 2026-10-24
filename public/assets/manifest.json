@@ -1,5 +1,5 @@
 {
-  "verifiedOn": "2026-10-24",
+  "verifiedOn": "2026-10-25",
   "assets": [
     {
       "file": "characters/survivor.png",
@@ -78,8 +78,8 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 688,
-      "sha256": "2c94e1ea73d98013b617ee5842c585b0cbaa97709d19a27c9655d82244d789cf"
+      "bytes": 701,
+      "sha256": "d285b048644140bc8dee2913a57cb4478199d56556e67b36c23d236202978ada"
     },
     {
       "file": "weapons/arrow.svg",
@@ -140,6 +140,11 @@
       "file": "weapons/helmet.svg",
       "bytes": 367,
       "sha256": "40ac0ced58d23e2cdcbb64ada3c89c9c4ce1c60b50c6281d6249a69ba04c28bb"
+    },
+    {
+      "file": "weapons/lantern.svg",
+      "bytes": 553,
+      "sha256": "fece4ec36f7a51fb1c4be2847c55946149df4eac08e534fed15bd0e952bcedcf"
     },
     {
       "file": "weapons/lighthouse.svg",

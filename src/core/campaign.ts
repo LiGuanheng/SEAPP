@@ -12,6 +12,7 @@ export interface Campaign {
   lastSummary: ExpeditionSummary | null;
   base: BasePlan | null;
   nightsWon?: number; lastNight?: NightResult | null;
+  lanternLevel?: number;
 }
 export const SAVE_KEY = 'last-light.campaign.v2';
 export const emptyCargo = (): Cargo => ({ materials: 0, energy: 0, medkits: 0 });
@@ -32,9 +33,10 @@ export function decodeCampaign(raw: string | null): Campaign {
     !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || !cargoValid(s.cargo) || !idsValid(s.rescued, ['engineer', 'medic', 'captain', 'ranger', 'brawler']))) throw new Error('结算记录无效');
   if (c.base !== undefined && c.base !== null && !validBasePlan(c.base)) throw new Error('基地布防存档无效');
   if (c.nightsWon !== undefined && !count(c.nightsWon)) throw new Error('守夜次数无效');
+  if (c.lanternLevel !== undefined && (!count(c.lanternLevel) || c.lanternLevel > 2)) throw new Error('提灯升级无效');
   const n = c.lastNight;
   if (n !== undefined && n !== null && (!n || !['victory', 'defeat'].includes(n.outcome) || !Number.isFinite(n.duration) || n.duration < 0 || n.duration > 120 ||
-    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 6 || !count(n.buildings) || n.buildings > 40 || !count(n.strikes) || n.strikes > 2 ||
+    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 6 || !count(n.buildings) || !count(n.strikes) || n.strikes > 2 ||
     (n.bossKills !== undefined && (!count(n.bossKills) || n.bossKills > 4)) || (n.outcome === 'victory' && (n.duration !== 120 || n.lampHealth === 0)) || (n.outcome === 'defeat' && n.lampHealth !== 0))) throw new Error('守夜结算无效');
   return cloneCampaign({ ...c, base: c.base ?? null });
 }

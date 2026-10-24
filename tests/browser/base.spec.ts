@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => (window as any).__baseLight.snapshot());
 async function uiPoint(page: Page, x: number, y: number) {

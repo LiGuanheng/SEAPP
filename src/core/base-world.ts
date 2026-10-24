@@ -1,4 +1,4 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, LIGHTHOUSE, MAX_BUILDINGS, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
 import { canOccupy, circleOverlapsRect, distance, moveWithCollision, normalized } from './geometry.ts';
 import { Navigation } from './navigation.ts';
@@ -49,7 +49,6 @@ export class BaseWorld {
     if (this.obstacles.some(o => overlaps(r, o))) return { ok: false, message: '地基与已有设施重叠' };
     if (this.plan.soldiers.some(s => circleOverlapsRect(s, 13, r))) return { ok: false, message: '地基上有士兵，请先移开' };
     if (this.plan.soldiers.some(s => s.destination && circleOverlapsRect(s.destination, 13, r))) return { ok: false, message: '地基占用了部队目的地，请先更改指令' };
-    if (this.plan.buildings.length >= MAX_BUILDINGS) return { ok: false, message: `已达 ${MAX_BUILDINGS} 座设施上限` };
     const cost = this.cost(kind);
     if (this.campaign.depot.materials < cost.materials || this.campaign.depot.energy < cost.energy) return { ok: false, message: `库存不足：需要建材 ${cost.materials} / 电力 ${cost.energy}` };
     return { ok: true, message: `左键建造 ${BUILDINGS[kind].name} · 建材 ${cost.materials} / 电力 ${cost.energy}` };

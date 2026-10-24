@@ -6,9 +6,10 @@ import { canOccupy, distance, firstWall, moveWithCollision } from './geometry.ts
 import type { InputState, Vec } from './types.ts';
 import { CombatWorld } from './world.ts';
 import { explorationLayout, type ExplorationLayout } from './exploration-layout.ts';
+import { ExplorationVision, LIGHT_RADII } from './exploration-vision.ts';
 
 export const EXPEDITION_SECONDS = 90;
-export const CAPACITY = 24;
+export const CAPACITY = 48;
 export const CAMP = { x: 920, y: 760, radius: 66 };
 export const SURVIVOR_PROFILES = {
   engineer: { name: '林岚', role: '工程师', ability: '返营额外回收 4 建材', tint: 0xe8c07c },
@@ -19,7 +20,7 @@ export const SURVIVOR_PROFILES = {
 } as const;
 export type SurvivorId = keyof typeof SURVIVOR_PROFILES;
 export interface Survivor extends Vec { id: SurvivorId; state: 'waiting' | 'following' | 'secured'; moving: boolean; aim: number }
-export interface Cache extends Vec { id: string; name: string; cargo: Cargo; rifle?: boolean; weapon?: WeaponId; opened: boolean }
+export interface Cache extends Vec { id: string; name: string; cargo: Cargo; rifle?: boolean; weapon?: WeaponId; lampLevel?: 1 | 2; opened: boolean }
 export interface ActionResult { ok: boolean; message: string }
 export const cargoWeight = (c: Cargo): number => c.materials + c.energy + c.medkits * 2;
 
@@ -45,6 +46,11 @@ export class ExpeditionWorld extends CombatWorld {
   readonly exploredRooms = new Set<number>();
   private allyCooldowns = new Map<string, number>();
   readonly layout: ExplorationLayout;
+  readonly vision: ExplorationVision;
+  lanternLevel = 0;
+  private visionTimer = 0;
+  get lightRadius(): number { return LIGHT_RADII[this.lanternLevel]; }
+  canSee(p: Vec): boolean { return this.vision.canSee(p); }
   get currentRoom(): number { return roomAt(this.player); }
   constructor(campaign = newCampaign(), enemies = true, seed = 20261023 + campaign.expeditions * 7919) {
     const layout = explorationLayout(seed);
@@ -54,9 +60,12 @@ export class ExpeditionWorld extends CombatWorld {
     this.survivors[1].x += layout.medicOffset; this.survivors[2].x += layout.captainOffset;
     for (let i = 0; i < BUILDINGS.length; i++) {
       const d = roomDoor(BUILDINGS[i]);
-      this.caches.push({ id: `room-${i}`, name: `${BUILDINGS[i].label} 储藏箱`, x: d.x + layout.roomSides[i] * 48, y: d.y - 80, cargo: { materials: 4, energy: i % 2 ? 2 : 0, medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, opened: false });
+      this.caches.push({ id: `room-${i}`, name: `${BUILDINGS[i].label} 储藏箱`, x: d.x + layout.roomSides[i] * 48, y: d.y - 80, cargo: { materials: 4, energy: i % 2 ? 2 : 0, medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, lampLevel: i === 1 ? 2 : undefined, opened: false });
     }
     layout.stashes.forEach((p, i) => this.caches.push({ ...p, id: `scout-${i}`, name: '游荡商队遗留补给', cargo: { materials: 3 + i % 2, energy: i % 2, medkits: 0 }, opened: false }));
+    this.caches.push({ id: 'lantern-lens', name: '聚光镜片 · 提灯升级', x: 1152, y: 688, cargo: emptyCargo(), lampLevel: 1, opened: false });
+    this.lanternLevel = campaign.lanternLevel ?? 0;
+    this.vision = new ExplorationVision(this.width, this.height, this.obstacles); this.vision.update(this.player, this.lightRadius);
     if (enemies) for (const point of [{ x: 1450, y: 680 }, { x: 720, y: 520 }, { x: 1440, y: 970 }]) {
       if (canOccupy(point, B.zombie.radius, this.obstacles, this.width, this.height)) this.addZombie(point);
     }
@@ -97,7 +106,9 @@ export class ExpeditionWorld extends CombatWorld {
       item.opened = true;
       if (item.rifle) this.acquireWeapon('rifle');
       if (item.weapon) this.acquireWeapon(item.weapon);
-      return { ok: true, message: item.weapon ? `获得 ${WEAPONS[item.weapon].name} · 4 装备猎弓` : item.rifle ? '获得 AR 突击步枪！按 1 / 2 切换武器' : `已搜刮 ${item.name} · 建材 +${item.cargo.materials} / 电力 +${item.cargo.energy} / 急救包 +${item.cargo.medkits}` };
+      const upgraded = item.lampLevel !== undefined && item.lampLevel > this.lanternLevel;
+      if (upgraded) { this.lanternLevel = item.lampLevel!; this.vision.update(this.player, this.lightRadius); }
+      return { ok: true, message: `${item.weapon ? `获得 ${WEAPONS[item.weapon].name} · 4 装备猎弓` : item.rifle ? '获得 AR 突击步枪！按 1 / 2 切换武器' : `已搜刮 ${item.name} · 建材 +${item.cargo.materials} / 电力 +${item.cargo.energy} / 急救包 +${item.cargo.medkits}`}${upgraded ? ` · 提灯 ${this.lanternLevel} 级 / 视野 ${this.lightRadius}` : ''}` };
     }
     if (item && 'state' in item) {
       item.state = 'following';
@@ -131,6 +142,7 @@ export class ExpeditionWorld extends CombatWorld {
     this.campaign.survivors = [...new Set([...this.campaign.survivors, ...rescued.map(s => s.id)])];
     this.campaign.weapons = [...new Set([...this.campaign.weapons, ...this.ownedWeapons])];
     this.campaign.lastSummary = structuredClone(this.summary);
+    this.campaign.lanternLevel = this.lanternLevel;
     for (const s of rescued) s.state = 'secured';
     this.status = 'complete'; this.player.moving = false; this.player.sprinting = false;
     for (const s of this.survivors) s.moving = false;
@@ -140,6 +152,8 @@ export class ExpeditionWorld extends CombatWorld {
     super.step(input, dt);
     if (this.status !== 'playing' || before === this.elapsed) return;
     const step = this.elapsed - before;
+    this.visionTimer -= step;
+    if (this.visionTimer <= 0) { this.vision.update(this.player, this.lightRadius); this.visionTimer = 0.1; }
     const room = this.currentRoom;
     if (room >= 0 && !this.exploredRooms.has(room)) {
       this.exploredRooms.add(room);
@@ -164,6 +178,7 @@ export class ExpeditionWorld extends CombatWorld {
   override snapshot() {
     return { ...super.snapshot(), expedition: { remaining: this.remaining, capacity: CAPACITY, weight: this.weight, inventory: { ...this.inventory },
       caches: structuredClone(this.caches), survivors: structuredClone(this.survivors), camp: { ...CAMP }, objective: structuredClone(this.objective()),
-      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms], layout: structuredClone(this.layout) } };
+      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms], layout: structuredClone(this.layout),
+      lanternLevel: this.lanternLevel, lightRadius: this.lightRadius, vision: { explored: this.vision.explored, revision: this.vision.revision, visibleEnemies: this.zombies.filter(z => this.canSee(z)).map(z => z.id), visibleCaches: this.caches.filter(c => this.canSee(c)).map(c => c.id), visibleSurvivors: this.survivors.filter(s => this.canSee(s)).map(s => s.id) } } };
   }
 }

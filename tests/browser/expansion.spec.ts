@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => ((window as any).__nightLight ?? (window as any).__baseLight ?? (window as any).__lastLight).snapshot());
 async function key(page: Page, code: string) { await page.keyboard.press(code); await page.clock.runFor(60); }
@@ -29,7 +29,7 @@ test('真实走入药房战斗、取得猎弓、营救弓手，再从门口护�
     if (!z) break; await fire(page, z.x, z.y - 16, 130);
   }
   expect((await state(page)).kills).toBeGreaterThanOrEqual(2);
-  await walk(page, 1024, 432); await key(page, 'KeyE'); expect((await state(page)).weaponId).toBe('bow');
+  await walk(page, 1024, 432); await key(page, 'KeyE'); expect((await state(page)).weaponId).toBe('bow'); expect((await state(page)).expedition.lanternLevel).toBe(2);
   await page.clock.runFor(700); const shots = (await state(page)).player.shots; await fire(page, 1072, 230, 150); expect((await state(page)).player.shots).toBeGreaterThan(shots);
   expect((await state(page)).bullets.some((b: any) => b.arrow)).toBe(true);
   await key(page, 'Digit3'); expect((await state(page)).weaponId).toBe('axe'); const swung = (await state(page)).player.shots;

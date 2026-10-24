@@ -108,18 +108,19 @@ export class Hud {
     this.phase.setText(expedition ? `${expedition.layout.theme} / ${expedition.layout.seed.toString(16).slice(-5)} / 90s` : '战斗训练 / 北境旧城');
     this.controls.setText('WASD 移动  SHIFT 冲刺  滚轮缩放  左键攻击  1手枪 2步枪 3斧 4弓  E互动  H治疗  TAB背包  F1指南');
     this.mission.setText(expedition ? `${Math.ceil(expedition.remaining)}s  /  ${expedition.objective().text}` : '');
-    this.cargo.setText(expedition ? `建材 ${expedition.inventory.materials}   电力 ${expedition.inventory.energy}   急救包 ${expedition.inventory.medkits}   负重 ${expedition.weight}/${CAPACITY}   随队 ${expedition.followers.length}` : '');
+    this.cargo.setText(expedition ? `建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　负重 ${expedition.weight}/${CAPACITY}　提灯 ${expedition.lanternLevel}级 / ${expedition.lightRadius}　随队 ${expedition.followers.length}` : '');
     this.stats.setText(`击杀 ${String(world.kills).padStart(2, '0')}   /   存活 ${Math.floor(world.elapsed / 60)}:${String(Math.floor(world.elapsed % 60)).padStart(2, '0')}   /   在场感染者 ${world.zombies.length}`);
     const reloadProgress = Math.max(0, Math.min(1, 1 - p.reload / world.reloadDuration));
     this.reload.setText(p.reload > 0 ? `正在换弹  ${(100 * reloadProgress).toFixed(0)}%` : '');
     if (p.reload > 0) { g.fillStyle(0x263c3a).fillRect(580, 537, 120, 3); g.fillStyle(0xe6c184).fillRect(580, 537, 120 * reloadProgress, 3); }
     const mx = 1100, my = 111, mw = 150, mh = 113;
     g.fillStyle(0x213430).fillRect(mx, my, mw, mh);
-    for (const b of BUILDINGS) g.fillStyle(0x4a5c50).fillRect(mx + b.x * 32 / WORLD_WIDTH * mw, my + b.y * 32 / WORLD_HEIGHT * mh, b.width * 32 / WORLD_WIDTH * mw, b.height * 32 / WORLD_HEIGHT * mh);
-    for (const zombie of world.zombies) g.fillStyle(0xba8d70).fillRect(mx + zombie.x / WORLD_WIDTH * mw - 1, my + zombie.y / WORLD_HEIGHT * mh - 1, 2, 2);
+    if (expedition) for (let i = 0; i < expedition.vision.seen.length; i++) if (expedition.vision.seen[i]) g.fillStyle(0x3b4c40).fillRect(mx + i % expedition.vision.cols * 32 / WORLD_WIDTH * mw, my + Math.floor(i / expedition.vision.cols) * 32 / WORLD_HEIGHT * mh, 32 / WORLD_WIDTH * mw + 0.5, 32 / WORLD_HEIGHT * mh + 0.5);
+    for (const b of BUILDINGS) if (!expedition || [0, 1].some(i => expedition.vision.wasSeen({ x: (b.x + b.width * i) * 32, y: (b.y + b.height) * 32 - 20 }))) g.fillStyle(0x4a5c50).fillRect(mx + b.x * 32 / WORLD_WIDTH * mw, my + b.y * 32 / WORLD_HEIGHT * mh, b.width * 32 / WORLD_WIDTH * mw, b.height * 32 / WORLD_HEIGHT * mh);
+    for (const zombie of world.zombies) if (!expedition || expedition.canSee(zombie)) g.fillStyle(0xba8d70).fillRect(mx + zombie.x / WORLD_WIDTH * mw - 1, my + zombie.y / WORLD_HEIGHT * mh - 1, 2, 2);
     if (expedition) {
-      for (const c of expedition.caches) if (!c.opened) g.fillStyle(0xa5c6a0).fillRect(mx + c.x / WORLD_WIDTH * mw - 1.5, my + c.y / WORLD_HEIGHT * mh - 1.5, 3, 3);
-      for (const s of expedition.survivors) g.fillStyle(0x8bc9d1).fillCircle(mx + s.x / WORLD_WIDTH * mw, my + s.y / WORLD_HEIGHT * mh, 2);
+      for (const c of expedition.caches) if (!c.opened && expedition.vision.wasSeen(c)) g.fillStyle(c.lampLevel ? 0xe1c284 : 0xa5c6a0).fillRect(mx + c.x / WORLD_WIDTH * mw - 1.5, my + c.y / WORLD_HEIGHT * mh - 1.5, 3, 3);
+      for (const s of expedition.survivors) if (expedition.canSee(s)) g.fillStyle(0x8bc9d1).fillCircle(mx + s.x / WORLD_WIDTH * mw, my + s.y / WORLD_HEIGHT * mh, 2);
       g.lineStyle(1, 0xe7d5a0).strokeCircle(mx + CAMP.x / WORLD_WIDTH * mw, my + CAMP.y / WORLD_HEIGHT * mh, 4);
       const target = expedition.objective().point;
       g.lineStyle(1.5, 0xf2d48c).strokeCircle(mx + target.x / WORLD_WIDTH * mw, my + target.y / WORLD_HEIGHT * mh, 4 + Math.sin(world.elapsed * 4));

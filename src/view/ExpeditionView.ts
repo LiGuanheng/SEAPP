@@ -15,6 +15,7 @@ export class ExpeditionView {
     for (const c of world.caches) {
       const image = scene.add.image(c.x, c.y, 'supply').setOrigin(0.5, 0.85).setScale(1.25).setDepth(c.y);
       if (c.rifle) image.setTint(0xddba84);
+      if (c.lampLevel) image.setTint(0xf1d491);
       const label = scene.add.text(c.x, c.y + 20, c.rifle ? '武器箱' : c.id === 'medical' ? '医疗箱' : '补给箱', { fontFamily: 'Microsoft YaHei', fontSize: '10px', color: '#b4cbb3', backgroundColor: '#172a29', padding: { x: 4, y: 2 } }).setOrigin(0.5).setDepth(c.y + 22);
       this.crates.set(c.id, { image, label });
     }
@@ -37,16 +38,18 @@ export class ExpeditionView {
     g.lineStyle(2, 0xe3ca82, pulse).strokeCircle(target.x, target.y, 29);
     for (const c of world.caches) {
       const view = this.crates.get(c.id)!;
+      const visible = world.canSee(c); view.image.setVisible(visible); view.label.setVisible(visible);
       view.image.setAlpha(c.opened ? 0.38 : 1);
-      view.label.setText(c.opened ? '已搜刮' : c.weapon ? `${WEAPONS[c.weapon].name} / 补给` : c.rifle ? '武器箱 [2]' : c.id === 'medical' ? '医疗箱' : '补给箱').setAlpha(c.opened ? 0.5 : 1);
-      if (!c.opened) g.fillStyle(c.rifle ? 0xe1bc80 : 0xa7d2ad, pulse).fillRect(c.x - 2, c.y - 43, 4, 4);
+      view.label.setText(c.opened ? '已搜刮' : c.lampLevel ? c.weapon ? '猎弓 / 高能灯芯' : '聚光镜片 / 提灯升级' : c.weapon ? `${WEAPONS[c.weapon].name} / 补给` : c.rifle ? '武器箱 [2]' : c.id === 'medical' ? '医疗箱' : '补给箱').setAlpha(c.opened ? 0.5 : 1);
+      if (!c.opened && visible) g.fillStyle(c.lampLevel || c.rifle ? 0xe1bc80 : 0xa7d2ad, pulse).fillRect(c.x - 2, c.y - 43, 4, 4);
     }
     for (const s of world.survivors) {
       const view = this.people.get(s.id)!;
+      const visible = world.canSee(s); view.sprite.setVisible(visible); view.shadow.setVisible(visible); view.label.setVisible(visible);
       view.sprite.setPosition(s.x, s.y).setDepth(s.y);
       view.shadow.setPosition(s.x, s.y + 2).setDepth(s.y - 2);
       view.label.setPosition(s.x, s.y - 57).setDepth(s.y + 3);
-      view.weapon.setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2).setVisible(s.id === 'ranger' || s.id === 'brawler');
+      view.weapon.setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2).setVisible(visible && (s.id === 'ranger' || s.id === 'brawler'));
       if (paused || world.status !== 'playing') view.sprite.anims.pause();
       else {
         view.sprite.anims.resume();

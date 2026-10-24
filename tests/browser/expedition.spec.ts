@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => (window as any).__lastLight.snapshot());
 async function ready(page: Page) {

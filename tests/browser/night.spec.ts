@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './fixtures.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => (window as any).__nightLight.snapshot());
 async function key(page: Page, code: string) { await page.keyboard.press(code); await page.clock.runFor(60); }

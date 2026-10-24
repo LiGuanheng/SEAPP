@@ -2,7 +2,6 @@ import type { Rect, Vec } from '../core/types.ts';
 import { canOccupy } from '../core/geometry.ts';
 
 export const BASE_WIDTH = 1792, BASE_HEIGHT = 1152, GRID = 32, PREPARATION_SECONDS = 30;
-export const MAX_BUILDINGS = 40;
 export const BUILD_AREA: Rect = { x: 192, y: 160, width: 1280, height: 768 };
 export const LIGHTHOUSE = { x: 768, y: 512 };
 export const LIGHTHOUSE_FOOT: Rect = { x: 736, y: 480, width: 64, height: 64 };
@@ -39,7 +38,7 @@ export function validBasePlan(value: unknown): value is BasePlan {
   if (!value || typeof value !== 'object') return false;
   const p = value as BasePlan;
   if (p.version !== 1 || !['preparing', 'ready'].includes(p.status) || !Number.isFinite(p.elapsed) || p.elapsed < 0 || p.elapsed > PREPARATION_SECONDS ||
-    (p.status === 'ready' && p.elapsed !== PREPARATION_SECONDS) || !Array.isArray(p.buildings) || p.buildings.length > MAX_BUILDINGS || !Array.isArray(p.soldiers) || p.soldiers.length < 3 || p.soldiers.length > 6) return false;
+    (p.status === 'ready' && p.elapsed !== PREPARATION_SECONDS) || !Array.isArray(p.buildings) || !Array.isArray(p.soldiers) || p.soldiers.length < 3 || p.soldiers.length > 6) return false;
   const ids = new Set<number>();
   for (const b of p.buildings) {
     if (!b || !Object.hasOwn(BUILDINGS, b.kind) || !Number.isSafeInteger(b.id) || b.id <= 0 || b.id > 1_000_000 || ids.has(b.id) ||

@@ -14,6 +14,7 @@ import { SoundBus } from '../view/SoundBus.ts';
 import { FieldGuide } from '../view/FieldGuide.ts';
 import { TacticalRadar } from '../view/TacticalRadar.ts';
 import { INFECTED } from '../config/night.ts';
+import { SceneTransition } from '../view/SceneTransition.ts';
 
 const contains = (r: Rect, p: Vec): boolean => p.x >= r.x && p.y >= r.y && p.x <= r.x + r.width && p.y <= r.y + r.height;
 
@@ -41,6 +42,7 @@ export class BaseScene extends Phaser.Scene {
   private speed: 1 | 2 | 3 = 1;
   private speedLabel!: Phaser.GameObjects.Text;
   private musicLabel!: Phaser.GameObjects.Text;
+  private transition!: SceneTransition;
   constructor() { super('Base'); }
   create(data: { campaign?: Campaign; fresh?: boolean; battle?: boolean } = {}): void {
     let campaign = data.campaign ?? newCampaign(), warning = '';
@@ -62,6 +64,8 @@ export class BaseScene extends Phaser.Scene {
     const control = (y: number, action: () => void) => { const t = this.add.text(930, y, '', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e4ca91', backgroundColor: '#263d3b', padding: { x: 7, y: 8 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }); t.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); action(); }); this.hud.root.add(t); return t; };
     this.speedLabel = control(27, () => this.cycleSpeed()); this.musicLabel = control(70, () => this.audio?.toggleMusic());
     this.guide = new FieldGuide(this, this.hud.root, data.battle ? 'night' : 'base', () => this.toggleGuide());
+    this.transition = new SceneTransition(this, this.hud.root);
+    this.transition.play(data.battle ? '黑雾将至，守住灯塔' : '回到家园，筑起防线', data.battle ? '最后一盏灯 · 坚持到黎明' : '将探索所得变成防线 · 为幸存者留住光');
     camera.ignore(this.hud.root);
     const ui = this.cameras.add(0, 0, 1280, 720).setName('BaseUI'); ui.ignore(this.view.root);
     if (warning) this.hud.notify(warning);
@@ -213,6 +217,7 @@ export class BaseScene extends Phaser.Scene {
     this.hud.update(this.world, this.selected, this.selectedBuilding, this.kind, this.paused, active ? dt : 0);
     this.radar.update(this.world, this.cameras.main, this.paused);
     this.guide.available(this.world.commanding);
+    this.transition.update(this.paused ? 0 : dt, !this.paused && !this.guide.visible);
     this.speedLabel.setText(`×${this.speed} 倍速 [T]`); this.musicLabel.setText(this.audio?.musicMuted ? '配乐关 [L]' : '配乐开 [L]');
   }
 }

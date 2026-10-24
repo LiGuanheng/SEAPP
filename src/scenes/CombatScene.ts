@@ -11,6 +11,8 @@ import { cloneCampaign, loadCampaign, newCampaign, saveCampaign, type Campaign }
 import { ExpeditionView } from '../view/ExpeditionView.ts';
 import { SoundBus } from '../view/SoundBus.ts';
 import { FieldGuide } from '../view/FieldGuide.ts';
+import { ExplorationFog } from '../view/ExplorationFog.ts';
+import { SceneTransition } from '../view/SceneTransition.ts';
 
 export class CombatScene extends Phaser.Scene {
   private world!: CombatWorld;
@@ -30,6 +32,8 @@ export class CombatScene extends Phaser.Scene {
   private guideWasPaused = false;
   private mapView!: MapView;
   private musicLabel!: Phaser.GameObjects.Text;
+  private fog: ExplorationFog | null = null;
+  private transition!: SceneTransition;
   constructor() { super('Combat'); }
   create(data: { campaign?: Campaign } = {}): void {
     const training = new URLSearchParams(location.search).get('mode') === 'combat';
@@ -42,11 +46,14 @@ export class CombatScene extends Phaser.Scene {
     this.world = training ? new CombatWorld() : new ExpeditionWorld(campaign, true, crypto.getRandomValues(new Uint32Array(1))[0]);
     this.held.clear(); this.firing = false; this.paused = false; this.pointerActive = false; this.accumulator = 0; this.bag = false; this.persisted = false;
     this.mapView = new MapView(this, this.world instanceof ExpeditionWorld ? this.world.layout : undefined);
+    this.fog = this.world instanceof ExpeditionWorld ? new ExplorationFog(this, this.world) : null;
     this.expeditionView = this.world instanceof ExpeditionWorld ? new ExpeditionView(this, this.world) : null;
     this.actors = new ActorView(this);
     this.audio = new SoundBus(false);
     this.hud = new Hud(this, () => this.togglePause(), () => this.advance(), () => this.audio.toggle());
     this.guide = new FieldGuide(this, this.hud.root, training ? 'combat' : 'city', () => this.toggleGuide());
+    this.transition = new SceneTransition(this, this.hud.root);
+    if (!training) this.transition.play('提灯出发', '深入黑雾寻找补给 · 入夜前回到灯塔');
     this.musicLabel = this.add.text(1030, 107, '', { fontFamily: 'Microsoft YaHei', fontSize: '11px', color: '#d8c796', backgroundColor: '#193030', padding: { x: 7, y: 6 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.musicLabel.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.audio.toggleMusic(); }); this.hud.root.add(this.musicLabel);
     if (warning) this.hud.notify(warning);
@@ -118,9 +125,10 @@ export class CombatScene extends Phaser.Scene {
       this.audio.destroy();
     });
     if (new URLSearchParams(location.search).get('test') === '1') {
-      window.__lastLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), paused: this.paused, guide: this.guide.visible, muted: this.audio.muted, musicMuted: this.audio.musicMuted, view: this.actors.counts(), objects: this.children.length, camera: { x: this.cameras.main.worldView.x, y: this.cameras.main.worldView.y, zoom: this.cameras.main.zoom }, ready: true }) });
+      window.__lastLight = Object.freeze({ presentation: () => this.transition.snapshot(), snapshot: () => ({ ...this.world.snapshot(), paused: this.paused, guide: this.guide.visible, muted: this.audio.muted, musicMuted: this.audio.musicMuted, view: this.actors.counts(), objects: this.children.length, camera: { x: this.cameras.main.worldView.x, y: this.cameras.main.worldView.y, zoom: this.cameras.main.zoom }, ready: true }) });
     }
     this.actors.update(this.world, 0, false); this.expeditionView?.update(this.world as ExpeditionWorld, false); this.hud.update(this.world, false, 0);
+    if (this.world instanceof ExpeditionWorld) this.fog?.update(this.world);
     document.getElementById('loading')?.remove();
   }
   private setPaused(paused: boolean): void { this.paused = paused; this.held.clear(); this.firing = false; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio.pause(paused); }
@@ -138,6 +146,7 @@ export class CombatScene extends Phaser.Scene {
   private persistResult(): void {
     if (!(this.world instanceof ExpeditionWorld) || this.world.status !== 'complete' || this.persisted) return;
     this.persisted = true;
+    this.transition.play('灯火接应，队伍归来', '战利品已送入仓库 · 接下来守护家园');
     try { if (saveCampaign(window.localStorage, this.world.campaign)) return; } catch { /* 存储被禁用时保留本次结算画面。 */ }
     this.hud.saveWarning = '存档未写入：浏览器禁用了存储，本次结果仅保留在画面中。';
   }
@@ -175,6 +184,8 @@ export class CombatScene extends Phaser.Scene {
     this.hud.setMuted(this.audio.muted);
     this.musicLabel.setText(this.audio.musicMuted ? '配乐关闭 [L]' : '配乐开启 [L]');
     this.mapView.update(this.world.player);
+    this.transition.update(this.paused ? 0 : dt, !this.paused && !this.guide.visible);
+    if (this.world instanceof ExpeditionWorld) this.fog?.update(this.world);
     this.guide.available(this.world.status === 'playing');
     if (this.world.status !== 'playing') this.audio.pause(true);
     const input = this.inputState();
@@ -185,5 +196,5 @@ export class CombatScene extends Phaser.Scene {
 }
 
 declare global {
-  interface Window { __lastLight?: { snapshot: () => ReturnType<CombatWorld['snapshot']> & { paused: boolean; guide: boolean; muted: boolean; musicMuted: boolean; ready: boolean; objects: number; view: { actors: number; bullets: number; particles: number; corpses: number }; camera: { x: number; y: number; zoom: number } } } }
+  interface Window { __lastLight?: { presentation: () => { active: boolean; progress: number; title: string }; snapshot: () => ReturnType<CombatWorld['snapshot']> & { paused: boolean; guide: boolean; muted: boolean; musicMuted: boolean; ready: boolean; objects: number; view: { actors: number; bullets: number; particles: number; corpses: number }; camera: { x: number; y: number; zoom: number } } } }
 }

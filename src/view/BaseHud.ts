@@ -66,7 +66,7 @@ export class BaseHud {
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);
     this.info.setText(`营地库存　建材 ${c.depot.materials}　电力 ${c.depot.energy}　急救包 ${c.depot.medkits}`);
-    this.timer.setText(`布防 ${Math.ceil(world.remaining)}s　/　设施 ${world.plan.buildings.length}/40　/　守备 ${world.plan.soldiers.length} 人`);
+    this.timer.setText(`布防 ${Math.ceil(world.remaining)}s　/　设施 ${world.plan.buildings.length} 座　/　守备 ${world.plan.soldiers.length} 人`);
     this.selection.setText(b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · Delete 拆除：返还 ${Math.floor(b.paid.materials / 2)} 建材，电力不返还` : ids.size ? `已选 ${ids.size} 名士兵 · 右键指定目的地，G 就地驻守 · Shift 加选` : '1 路障  2 机枪塔  3 加农炮（范围）  4 箭塔（远程）  5 城墙（低价、可攻破）');
     this.mode.setText(buildKind ? `${BUILDINGS[buildKind].name} · ${buildKind === 'barricade' ? 'R 旋转' : '左键放置'} · Esc/右键取消` : '指挥模式');
     for (const [kind, text] of this.costs) { const cost = world.cost(kind); text.setText(`建材 ${cost.materials} / 电力 ${cost.energy}`); }
