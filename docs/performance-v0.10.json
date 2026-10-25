@@ -1,0 +1,155 @@
+{
+  "date": "2026-10-25",
+  "model": [
+    {
+      "stage": 1,
+      "summary": {
+        "stage": 1,
+        "outcome": "victory",
+        "duration": 120,
+        "kills": 59,
+        "lampHealth": 380,
+        "soldiers": 3,
+        "buildings": 4,
+        "strikes": 2,
+        "bossKills": 1
+      },
+      "bosses": [
+        "axeman"
+      ],
+      "peak": {
+        "enemies": 14,
+        "bullets": 11,
+        "zones": 0
+      },
+      "modelStepMs": {
+        "mean": 0.013146527777777764,
+        "p95": 0.040300000000002,
+        "max": 0.9209000000000032
+      },
+      "depot": {
+        "materials": 1,
+        "energy": 0,
+        "medkits": 0
+      }
+    },
+    {
+      "stage": 2,
+      "summary": {
+        "stage": 2,
+        "outcome": "victory",
+        "duration": 120,
+        "kills": 107,
+        "lampHealth": 380,
+        "soldiers": 4,
+        "buildings": 8,
+        "strikes": 2,
+        "bossKills": 2
+      },
+      "bosses": [
+        "queen",
+        "blighter"
+      ],
+      "peak": {
+        "enemies": 24,
+        "bullets": 9,
+        "zones": 1
+      },
+      "modelStepMs": {
+        "mean": 0.02716126388888862,
+        "p95": 0.07479999999998199,
+        "max": 0.9160999999999717
+      },
+      "depot": {
+        "materials": 16,
+        "energy": 5,
+        "medkits": 0
+      }
+    },
+    {
+      "stage": 3,
+      "summary": {
+        "stage": 3,
+        "outcome": "victory",
+        "duration": 120,
+        "kills": 158,
+        "lampHealth": 380,
+        "soldiers": 7,
+        "buildings": 11,
+        "strikes": 2,
+        "bossKills": 4
+      },
+      "bosses": [
+        "knight",
+        "bird",
+        "bomber",
+        "blighter",
+        "queen"
+      ],
+      "peak": {
+        "enemies": 34,
+        "bullets": 9,
+        "zones": 1
+      },
+      "modelStepMs": {
+        "mean": 0.048263236111111454,
+        "p95": 0.1409999999999627,
+        "max": 2.750499999999988
+      },
+      "depot": {
+        "materials": 32,
+        "energy": 12,
+        "medkits": 0
+      }
+    },
+    {
+      "stress": true,
+      "buildings": 120,
+      "initialEnemies": 72,
+      "steps": 600,
+      "modelStepMs": {
+        "mean": 1.1912611666666695,
+        "p95": 1.5372999999999593,
+        "max": 7.433499999999867
+      }
+    }
+  ],
+  "browser": {
+    "frames": 1153,
+    "meanFrameMs": 6.080832610581119,
+    "p95FrameMs": 6.200000000000728,
+    "maxFrameMs": 18.100000000000364,
+    "buildings": 120,
+    "enemies": 1,
+    "speed": 3,
+    "elapsed": 24.099999999999913,
+    "view": {
+      "soldiers": 8,
+      "buildings": 120,
+      "objects": 296,
+      "enemies": 1,
+      "bullets": 2,
+      "particles": 3,
+      "corpses": 17
+    },
+    "errors": [],
+    "note": "本机无虚拟时钟的Chrome 8秒采样，120设施生产构建；模型72敌人压力另测。非低配设备承诺。"
+  },
+  "validation": {
+    "rules": {
+      "passed": 76,
+      "total": 76
+    },
+    "legacy": {
+      "passed": 22,
+      "total": 22
+    },
+    "productionChrome": {
+      "passed": 32,
+      "total": 32,
+      "duration": "5.1m"
+    },
+    "bundle": "index-BRNWdiu3.js",
+    "build": "passed"
+  }
+}

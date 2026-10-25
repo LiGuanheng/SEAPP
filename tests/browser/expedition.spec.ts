@@ -75,7 +75,8 @@ test('损坏存档与浏览器禁用存储时仍能探索、结算并清楚提�
 });
 
 test('实际射击防守至 90 秒，黄昏自动收队并只入库一次', async ({ page }) => {
-  test.setTimeout(90000);
+  // 完整90秒模拟在并行Chrome软件渲染下可能接近真实时间；保留全部战斗断言。
+  test.setTimeout(180000);
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });

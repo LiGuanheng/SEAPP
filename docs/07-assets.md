@@ -36,3 +36,6 @@ v0.8（2026-10-24）：新增 public/assets/enemies 下 queen.svg、axeman.svg�
 
 
 v0.9（2026-10-25）：新增 weapons/lantern.svg 为本项目原创像素网格提灯，纳入 project-art.txt 的 CC0 声明与 SHA-256 清单。序章复用现有城市、人物、四 Boss 和灯塔素材，移动雾层/灯束/字幕与叠化由 Phaser 绘制；探索雾层为运行时 CanvasTexture，无新外部图片/音乐来源，原第三方署名与 PNG 不变。
+
+
+v0.10（2026-10-25）：新增原创网格矢量weapons/grid、repair、flame、sniper.svg与enemies/blighter、bomber.svg（三帧96×96）。复用青灰轮廓/锈黄结构/功能色，无新第三方图片和音频。scripts/generate-progression-art.mjs可复现，project-art.txt的CC0声明、manifest字节数/SHA-256随新增同步，public/assets字节保留规则不变。统一地台、范围环、减速/火焰脉冲、毒池与Boss死亡效果为运行时图形。

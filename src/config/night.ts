@@ -23,6 +23,13 @@ export const BOSS_ABILITIES: Record<BossKind, string> = {
   axeman: '蓄力重斧 · 离开落点', queen: '织网减速 / 蜘蛛随从', knight: '25%护甲 / 亡灵召唤', bird: '飞行 / 腐羽风暴',
   blighter: '远程毒池 · 持续伤害，调兵躲开', bomber: '近身自爆 · 1.6s蓄力可击杀打断',
 };
+export const BOSS_SKILLS = {
+  axeman: { kind: 'slam', range: 100, windup: 0.95, radius: 82, cooldown: 8 },
+  queen: { kind: 'web', range: 230, windup: 1.1, radius: 92, cooldown: 10 },
+  bird: { kind: 'storm', range: 230, windup: 1.1, radius: 92, cooldown: 10 },
+  blighter: { kind: 'poison', range: 360, windup: 1.1, radius: 92, cooldown: 10 },
+  bomber: { kind: 'detonate', range: 100, windup: 1.6, radius: 125, cooldown: 10 },
+} as const;
 export const ENEMY_SPRITES = { queen: 96, axeman: 96, knight: 96, bird: 96, blighter: 96, bomber: 96, crow: 64, undead: 64, spiderling: 64 } as const;
 export const MOB_KINDS = ['walker', 'runner', 'brute', 'spiderling', 'undead', 'crow'] as const;
 export type Wave = { at: number; bosses: readonly BossKind[] } & Record<typeof MOB_KINDS[number], number>;

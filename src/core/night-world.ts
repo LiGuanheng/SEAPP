@@ -1,5 +1,5 @@
 import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, FIELD_SYSTEMS, GRID, LIGHTHOUSE, LIGHTHOUSE_FOOT, TOWER_ATTACKS, buildingRect, type BaseBuilding, type Soldier } from '../config/base.ts';
-import { GATES, INFECTED, LAMP_HEALTH, MOB_KINDS, NIGHT_LIMITS, NIGHT_SECONDS, gatesForStage, wavesForStage, levelStats, type InfectedKind } from '../config/night.ts';
+import { BOSS_SKILLS, GATES, INFECTED, LAMP_HEALTH, MOB_KINDS, NIGHT_LIMITS, NIGHT_SECONDS, gatesForStage, wavesForStage, levelStats, type InfectedKind } from '../config/night.ts';
 import { STAGES, type StageId } from '../config/progression.ts';
 import { BaseWorld } from './base-world.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
@@ -135,13 +135,12 @@ export class NightWorld extends BaseWorld {
         continue;
       }
       if (e.skillCooldown > 0 || e.kind === 'knight') continue;
-      const unit = this.livingSoldiers.filter(s => distance(e, s) <= (e.kind === 'blighter' ? 360 : 230)).sort((a, b) => distance(e, a) - distance(e, b))[0];
+      const skill = BOSS_SKILLS[e.kind as keyof typeof BOSS_SKILLS];
+      const unit = this.livingSoldiers.filter(s => distance(e, s) <= skill.range).sort((a, b) => distance(e, a) - distance(e, b))[0];
       const building = this.plan.buildings.filter(b => b.health > 0).sort((a, b) => distance(e, edgePoint(e, buildingRect(a))) - distance(e, edgePoint(e, buildingRect(b))))[0];
       const point = unit ? { x: unit.x, y: unit.y } : building && distance(e, edgePoint(e, buildingRect(building))) < distance(e, LIGHTHOUSE) ? edgePoint(e, buildingRect(building)) : { ...LIGHTHOUSE };
-      if (distance(e, point) > (e.kind === 'axeman' || e.kind === 'bomber' ? 100 : e.kind === 'blighter' ? 360 : 230)) continue;
-      const kind = e.kind === 'axeman' ? 'slam' : e.kind === 'queen' ? 'web' : e.kind === 'blighter' ? 'poison' : e.kind === 'bomber' ? 'detonate' : 'storm';
-      const duration = kind === 'slam' ? 0.95 : kind === 'detonate' ? 1.6 : 1.1;
-      e.windup = { kind, point: kind === 'detonate' ? { x: e.x, y: e.y } : point, remaining: duration, duration, radius: kind === 'slam' ? 82 : kind === 'detonate' ? 125 : 92 }; e.moving = false; e.skillCooldown = kind === 'slam' ? 8 : 10;
+      if (distance(e, point) > skill.range) continue;
+      e.windup = { kind: skill.kind, point: skill.kind === 'detonate' ? { x: e.x, y: e.y } : point, remaining: skill.windup, duration: skill.windup, radius: skill.radius }; e.moving = false; e.skillCooldown = skill.cooldown;
     }
     return changed;
   }
@@ -246,9 +245,10 @@ export class NightWorld extends BaseWorld {
     if (!this.commanding) return;
     for (const e of this.enemies) {
       e.cooldown = Math.max(0, e.cooldown - dt); e.hurt = Math.max(0, e.hurt - dt);
+      e.slowed = Math.max(0, (e.slowed ?? 0) - dt);
       if (e.windup) { e.moving = false; continue; }
       const type = INFECTED[e.kind], stats = levelStats(e.kind, e.level, this.stage), lampPoint = edgePoint(e, LIGHTHOUSE_FOOT);
-      e.slowed = Math.max(0, (e.slowed ?? 0) - dt); if (e.slowed > 0) stats.speed *= 0.55;
+      if (e.slowed > 0) stats.speed *= 0.55;
       const soldier = this.livingSoldiers.filter(s => distance(e, s) < 115 && (type.flying || firstWall(e, s, obstacles) === null)).sort((a, b) => distance(e, a) - distance(e, b))[0];
       const building = type.flying ? undefined : this.plan.buildings.filter(b => b.health > 0 && distance(e, edgePoint(e, buildingRect(b))) < 50).sort((a, b) => distance(e, edgePoint(e, buildingRect(a))) - distance(e, edgePoint(e, buildingRect(b))))[0];
       const target = soldier ?? (building ? edgePoint(e, buildingRect(building)) : lampPoint);

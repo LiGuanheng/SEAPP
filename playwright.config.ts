@@ -4,7 +4,8 @@ export default defineConfig({
   testDir: './tests/browser',
   fullyParallel: true,
   workers: 2,
-  timeout: 60000,
+  // 长时场景包含完整60/90秒模拟；为并行Chrome的软件渲染保留墙钟余量。
+  timeout: 120000,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',

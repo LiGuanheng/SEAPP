@@ -1,6 +1,6 @@
 # 测试、追溯与人工验收
 
-当前版本 v0.5（2026-10-23），阶段 4 结果见文末。阶段 1–3 结果与限制保留为历史，不代表当前功能边界。
+当前版本 v0.10（2026-10-25），最新设计、验证和演示见 [三阶段成长验收](16-progression.md)。下方各阶段结果按原时间保留，不代表当前功能边界。
 
 ## 自动化
 
@@ -10,6 +10,7 @@ npm test
 npm run build
 npm run test:legacy
 npm run test:e2e
+npm run simulate:progression
 ```
 
 浏览器默认本机 Chrome。无 Chrome 时安装 Chromium 并设置 `PLAYWRIGHT_CHROMIUM=1`。产物测试先构建，PowerShell：`$env:E2E_PRODUCTION='1'; npm run test:e2e`；Linux/macOS：`E2E_PRODUCTION=1 npm run test:e2e`。
@@ -238,3 +239,17 @@ Playwright 使用虚拟时钟推进游戏时间，所有操作走真实键鼠；
 | 最终生产 Chrome 全套 | 29/29 通过（约 3 分钟），包含原完整昼夜、四 Boss/三倍速、药房取弓和营救、90 秒自动收队、失守/存储异常 |
 
 实机无已捕获页面错误。暂停下世界/迷雾冻结，返回时的装饰叠化不改变模型结算；正常入口仍不暴露测试状态接口。已检查并原样保存序章、迷雾升级、家园转场、60 墙截图。素材新增原创 lantern.svg 并更新许可/校验，Git 素材字节保留规则继续沿用。主观背景表达、灯光舒适度及大量设施在目标设备上的帧率待用户试玩；未发布公网或核实远端 CI。
+
+
+## v0.10 成长追溯
+
+| 需求 | 自动验证 |
+| --- | --- |
+| R-51 | progression.test：首胜、结算幂等、重试不刷物资、失败/旧v2；browser/progression：真实首夜胜利→探索→阶段2 |
+| R-52 | 新旧边界、合法放置/困兵回归、BFS、保存；browser/progression：小地图定位新区域、施工/行军/刷新 |
+| R-53 | 真实减速和过期、火焰群伤/隔墙/对空差异、维修范围封顶、不复活、狙击Boss优先与弹道 |
+| R-54 | 分阶段波次和双Boss队列、毒池锁点/躲避、自爆打断、Boss蓄力时减速到期；browser/bosses：阶段3整夜五Boss/技能/暂停/有界/终局 |
+| R-55 | 多种子可达性、英雄重复出发/返营招募、电工单次奖励、医疗范围/重炮对地；browser/progression：真实救援/战斗/护送/刷新 |
+| R-56 | SHA-256素材核对、实机截图目视，simulate:progression三夜与120设施/72敌人压力；measure:base真实Chrome帧间隔采样 |
+
+最终数字、性能边界、截图和人工路线统一记录在 [v0.10验收](16-progression.md)，不把虚拟时钟浏览器测试当作真实帧率。

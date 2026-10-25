@@ -46,10 +46,10 @@ test('第二阶段真实进入维修站，英雄营救、伏击与护送返营�
   await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 1, lanternLevel: 2, expeditions: 1, depot: { materials: 0, energy: 0, medkits: 0 }, survivors: [], weapons: ['pistol'], lastSummary: null, base: null })); });
   await page.clock.install(); await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
   await key(page, 'Digit3'); const box = (await page.locator('canvas').boundingBox())!; await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
-  for (const [x, y] of [[624, 720], [624, 528], [272, 528], [272, 432], [352, 368]]) await walk(page, x, y);
+  for (const [x, y] of [[624, 720], [624, 592], [272, 592], [272, 528], [272, 432], [352, 368]]) await walk(page, x, y);
   await page.mouse.up(); await page.screenshot({ path: 'artifacts/progression-hero-rescue.png' });
   await key(page, 'KeyE'); expect((await state(page)).expedition.survivors.find((s: any) => s.id === 'guardian').state).toBe('following');
-  await page.mouse.down(); for (const [x, y] of [[272, 432], [272, 528], [624, 528], [624, 720], [920, 760]]) await walk(page, x, y); await page.mouse.up();
+  await page.mouse.down(); for (const [x, y] of [[272, 432], [272, 528], [272, 592], [624, 592], [624, 720], [920, 760]]) await walk(page, x, y); await page.mouse.up();
   await page.clock.runFor(1200); await key(page, 'KeyE'); expect((await state(page)).expedition.summary.rescued).toContain('guardian');
   await key(page, 'Enter'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
   expect((await state(page)).plan.soldiers.filter((s: any) => s.role === 'guardian')).toHaveLength(1);

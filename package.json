@@ -1,7 +1,7 @@
 {
   "name": "the-last-light",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -13,7 +13,9 @@
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:legacy": "node --experimental-strip-types --test legacy/v0.1/tests/*.test.ts",
     "test:e2e": "playwright test",
-    "simulate:night": "node --experimental-strip-types scripts/simulate-night.mjs"
+    "simulate:night": "node --experimental-strip-types scripts/simulate-night.mjs",
+    "simulate:progression": "node --experimental-strip-types scripts/simulate-progression.mjs",
+    "measure:base": "node scripts/measure-base-performance.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

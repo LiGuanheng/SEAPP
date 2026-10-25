@@ -72,6 +72,12 @@ test('火焰塔按冷却范围清群且不对空，不穿静态建筑', () => {
   const hidden = enemy(blocked, 'walker', 784, 560), before = hidden.health; blocked.step(); assert.equal(hidden.health, before);
 });
 
+test('Boss蓄力期间减速仍按模拟时间到期，技能不会冻结状态计时', () => {
+  const w = quiet(), e = enemy(w, 'bomber', 1300, 900); e.slowed = 0.9;
+  e.windup = { kind: 'detonate', point: { x: 1300, y: 900 }, duration: 1.6, remaining: 1.6, radius: 125 };
+  run(w, 1); assert.equal(e.slowed, 0); assert.ok(e.windup && e.windup.remaining > 0);
+});
+
 test('维修站仅恢复范围内其他存活设施，不修自己/灯塔，不复活被毁设施', () => {
   const b = new BaseWorld(campaign(2)); b.build('repair', { x: 960, y: 640 }); b.build('wall', { x: 1056, y: 640 }); b.build('wall', { x: 1408, y: 640 });
   const w = new NightWorld(b.campaign); const [repair, near, far] = w.plan.buildings; repair.health = 90; near.health = 75; far.health = 20; w.lampHealth = 300;

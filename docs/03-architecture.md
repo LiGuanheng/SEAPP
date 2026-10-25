@@ -168,3 +168,12 @@ ExplorationVision 是无 Phaser/DOM 的模型，存储 32 像素格 seen/visible
 Cache 增加可选 lampLevel，ExpeditionWorld 本轮灯级不直接改 Campaign；完成返营才写可选 campaign.lanternLevel，旧档缺失按 0，校验只允许整数 0～2。背包容量 48 仍走原整箱领取原子逻辑。BaseWorld.preview、validBasePlan、夜战结果校验移除原 40 座判断，保留地图/通道/费用等规则，HUD 不再显示 /40。
 
 SceneTransition 是 HUD 子容器，0.7 秒叠化，既不拦输入也不改变模拟时长；关闭视觉后容器保留到场景退出，避免结算快照对象数变化。探索的只读 presentation 方法单独提供动画状态，避免将短叠化进度混进需冻结的战斗/结算快照；没有增加可修改模型的接口。
+
+
+## v0.10 三阶段成长
+
+新增config/progression和config/survivors，复用原Campaign、BaseWorld、NightWorld、ExpeditionWorld。clearedStage记录最高通关，BasePlan.stage锁定检查点，fresh布防才通过resume进入下阶段；奖励与原阵地同一JSON保存，结算缓存并按最高通关记录防重复。缺字段旧v2从首阶段继续，原nightsWon不参与解锁推断。
+
+每阶段五波数据来自wavesForStage，普通敌人和Boss共用72上限、队列和固定步长；BOSS_SKILLS集中范围/半径/蓄力/冷却。新设施复用建造/拆除/碰撞/存档，电网和火焰按有界周期处理范围效果，维修站只修其他活设施；狙击复用连续弹道。英雄依旧走Survivor护送和Soldier/fighters，不新增独立角色引擎。BaseView/NightView只读这些状态呈现统一底座、范围、预警和粒子，场景保持只读测试接口。
+
+尺寸/阶段表、文件追溯、边界与验收见 [v0.10设计](16-progression.md)。

@@ -92,7 +92,7 @@ export class NightHud {
     if (paused || this.ready) {
       this.title.setText(!this.ready ? '指挥暂停' : w.status === 'victory' ? '天亮了，最后一盏灯仍在。' : '灯塔熄灭，防线失守。');
       const firstClear = w.stage > (w.checkpoint.clearedStage ?? 0), reward = STAGES[w.stage].reward;
-      this.body.setText(this.ready ? `阶段 ${w.stage}/3 · ${STAGES[w.stage].name} · 守夜 ${Math.floor(w.elapsed)}秒\n击杀 ${w.kills} · Boss 击败 ${w.bossKills}/${w.bossCount} · 灯塔 ${w.lampHealth}/${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? firstClear ? `首次守住：建材+${reward.materials} / 电力+${reward.energy}\n${STAGES[w.stage].unlock}` : '本阶段已通关，重复守夜不重复发放补给。' : '分散驻守躲技能，搭配控场与对空火力。'}\nEnter 重试本阶段；返回城市探索 → 下一阶段布防` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
+      this.body.setText(this.ready ? `阶段 ${w.stage}/3 · ${STAGES[w.stage].name} · 守夜 ${Math.floor(w.elapsed)}秒\n击杀 ${w.kills} · Boss 击败 ${w.bossKills}/${w.bossCount} · 灯塔 ${w.lampHealth}/${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? firstClear ? `首次守住：建材+${reward.materials} / 电力+${reward.energy}\n${STAGES[w.stage].unlock}` : '本阶段已通关，重复守夜不重复发放补给。' : '分散驻守躲技能，搭配控场与对空火力。'}\nEnter 重试本阶段；返回城市探索可重新整备` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
       if (this.saveWarning) this.body.setText(this.body.text + '\n' + this.saveWarning);
       this.primary.setText(this.ready ? '再次守夜 [Enter]' : '继续指挥 [P]');
     }
