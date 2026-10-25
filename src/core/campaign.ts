@@ -1,11 +1,13 @@
 import type { WeaponId } from '../config/weapons.ts';
 import { validBasePlan, type BasePlan } from '../config/base.ts';
 import type { NightResult } from './night-world.ts';
+import { SURVIVOR_IDS } from '../config/survivors.ts';
+import { validStage } from '../config/progression.ts';
 
 export interface Cargo { materials: number; energy: number; medkits: number }
 export interface ExpeditionSummary {
   reason: 'return' | 'sunset'; duration: number; kills: number; caches: number;
-  rescued: string[]; cargo: Cargo; engineerBonus: number;
+  rescued: string[]; cargo: Cargo; engineerBonus: number; specialistBonus?: number;
 }
 export interface Campaign {
   version: 2; expeditions: number; depot: Cargo; survivors: string[]; weapons: WeaponId[];
@@ -13,6 +15,7 @@ export interface Campaign {
   base: BasePlan | null;
   nightsWon?: number; lastNight?: NightResult | null;
   lanternLevel?: number;
+  clearedStage?: number;
 }
 export const SAVE_KEY = 'last-light.campaign.v2';
 export const emptyCargo = (): Cargo => ({ materials: 0, energy: 0, medkits: 0 });
@@ -27,17 +30,18 @@ export function decodeCampaign(raw: string | null): Campaign {
   if (!data || typeof data !== 'object') throw new Error('无效存档');
   const c = data as Campaign;
   if (c.version !== 2 || !count(c.expeditions) || !cargoValid(c.depot) ||
-      !idsValid(c.survivors, ['engineer', 'medic', 'captain', 'ranger', 'brawler']) || !idsValid(c.weapons, ['pistol', 'rifle', 'axe', 'bow']) || !c.weapons.includes('pistol')) throw new Error('存档结构不匹配');
+      !idsValid(c.survivors, SURVIVOR_IDS) || !idsValid(c.weapons, ['pistol', 'rifle', 'axe', 'bow']) || !c.weapons.includes('pistol')) throw new Error('存档结构不匹配');
   const s = c.lastSummary;
   if (s !== null && (!s || !['return', 'sunset'].includes(s.reason) || !Number.isFinite(s.duration) || s.duration < 0 || s.duration > 90.1 ||
-    !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || !cargoValid(s.cargo) || !idsValid(s.rescued, ['engineer', 'medic', 'captain', 'ranger', 'brawler']))) throw new Error('结算记录无效');
+    !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || (s.specialistBonus !== undefined && s.specialistBonus !== 3) || !cargoValid(s.cargo) || !idsValid(s.rescued, SURVIVOR_IDS))) throw new Error('结算记录无效');
   if (c.base !== undefined && c.base !== null && !validBasePlan(c.base)) throw new Error('基地布防存档无效');
   if (c.nightsWon !== undefined && !count(c.nightsWon)) throw new Error('守夜次数无效');
+  if (c.clearedStage !== undefined && (!count(c.clearedStage) || c.clearedStage > 3)) throw new Error('战役阶段无效');
   if (c.lanternLevel !== undefined && (!count(c.lanternLevel) || c.lanternLevel > 2)) throw new Error('提灯升级无效');
   const n = c.lastNight;
   if (n !== undefined && n !== null && (!n || !['victory', 'defeat'].includes(n.outcome) || !Number.isFinite(n.duration) || n.duration < 0 || n.duration > 120 ||
-    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 6 || !count(n.buildings) || !count(n.strikes) || n.strikes > 2 ||
-    (n.bossKills !== undefined && (!count(n.bossKills) || n.bossKills > 4)) || (n.outcome === 'victory' && (n.duration !== 120 || n.lampHealth === 0)) || (n.outcome === 'defeat' && n.lampHealth !== 0))) throw new Error('守夜结算无效');
+    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 8 || !count(n.buildings) || !count(n.strikes) || n.strikes > 2 ||
+    (n.stage !== undefined && !validStage(n.stage)) || (n.bossKills !== undefined && (!count(n.bossKills) || n.bossKills > 6)) || (n.outcome === 'victory' && (n.duration !== 120 || n.lampHealth === 0)) || (n.outcome === 'defeat' && n.lampHealth !== 0))) throw new Error('守夜结算无效');
   return cloneCampaign({ ...c, base: c.base ?? null });
 }
 export function loadCampaign(storage: Pick<Storage, 'getItem'>): { campaign: Campaign; warning: string } {

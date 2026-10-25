@@ -7,18 +7,13 @@ import type { InputState, Vec } from './types.ts';
 import { CombatWorld } from './world.ts';
 import { explorationLayout, type ExplorationLayout } from './exploration-layout.ts';
 import { ExplorationVision, LIGHT_RADII } from './exploration-vision.ts';
+import { SURVIVOR_PROFILES, type SurvivorId } from '../config/survivors.ts';
+import { nextStage } from '../config/progression.ts';
+export { SURVIVOR_PROFILES, type SurvivorId } from '../config/survivors.ts';
 
 export const EXPEDITION_SECONDS = 90;
 export const CAPACITY = 48;
 export const CAMP = { x: 920, y: 760, radius: 66 };
-export const SURVIVOR_PROFILES = {
-  engineer: { name: '林岚', role: '工程师', ability: '返营额外回收 4 建材', tint: 0xe8c07c },
-  medic: { name: '陈安', role: '医护员', ability: '营救时立即恢复 20 生命', tint: 0x9cdbcb },
-  captain: { name: '周野', role: '教官', ability: '随队时换弹时间减少 20%', tint: 0xacc9ef },
-  ranger: { name: '叶青', role: '弓手', ability: '随队自动射箭；返营增加弓手守卫', tint: 0x99bf77 },
-  brawler: { name: '石川', role: '先锋', ability: '随队挥斧；返营增加近战先锋', tint: 0xd49b7c },
-} as const;
-export type SurvivorId = keyof typeof SURVIVOR_PROFILES;
 export interface Survivor extends Vec { id: SurvivorId; state: 'waiting' | 'following' | 'secured'; moving: boolean; aim: number }
 export interface Cache extends Vec { id: string; name: string; cargo: Cargo; rifle?: boolean; weapon?: WeaponId; lampLevel?: 1 | 2; opened: boolean }
 export interface ActionResult { ok: boolean; message: string }
@@ -39,6 +34,9 @@ export class ExpeditionWorld extends CombatWorld {
     { id: 'captain', x: 1400, y: 744, state: 'waiting', moving: false, aim: Math.PI },
     { id: 'ranger', x: 1136, y: 400, state: 'waiting', moving: false, aim: Math.PI / 2 },
     { id: 'brawler', x: 1136, y: 1168, state: 'waiting', moving: false, aim: -Math.PI / 2 },
+    { id: 'electrician', x: 1824, y: 352, state: 'waiting', moving: false, aim: 0 },
+    { id: 'guardian', x: 352, y: 368, state: 'waiting', moving: false, aim: 0 },
+    { id: 'gunner', x: 1824, y: 1168, state: 'waiting', moving: false, aim: 0 },
   ];
   campaign: Campaign;
   summary: ExpeditionSummary | null = null;
@@ -58,20 +56,26 @@ export class ExpeditionWorld extends CombatWorld {
     this.layout = layout;
     this.campaign = cloneCampaign(campaign); this.enemiesEnabled = enemies;
     this.survivors[1].x += layout.medicOffset; this.survivors[2].x += layout.captainOffset;
+    const stage = nextStage(campaign.clearedStage);
+    for (let i = this.survivors.length - 1; i >= 0; i--) {
+      const s = this.survivors[i], p = SURVIVOR_PROFILES[s.id];
+      if (p.stage > stage || p.hero && campaign.survivors.includes(s.id)) this.survivors.splice(i, 1);
+    }
     for (let i = 0; i < BUILDINGS.length; i++) {
       const d = roomDoor(BUILDINGS[i]);
       this.caches.push({ id: `room-${i}`, name: `${BUILDINGS[i].label} 储藏箱`, x: d.x + layout.roomSides[i] * 48, y: d.y - 80, cargo: { materials: 4, energy: i % 2 ? 2 : 0, medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, lampLevel: i === 1 ? 2 : undefined, opened: false });
     }
     layout.stashes.forEach((p, i) => this.caches.push({ ...p, id: `scout-${i}`, name: '游荡商队遗留补给', cargo: { materials: 3 + i % 2, energy: i % 2, medkits: 0 }, opened: false }));
     this.caches.push({ id: 'lantern-lens', name: '聚光镜片 · 提灯升级', x: 1152, y: 688, cargo: emptyCargo(), lampLevel: 1, opened: false });
+    if (stage >= 2) this.caches.push({ id: 'relief', name: '高危区域 · 工程储备', x: 352, y: 400, cargo: { materials: 6, energy: 4, medkits: 0 }, opened: false });
     this.lanternLevel = campaign.lanternLevel ?? 0;
     this.vision = new ExplorationVision(this.width, this.height, this.obstacles); this.vision.update(this.player, this.lightRadius);
     if (enemies) for (const point of [{ x: 1450, y: 680 }, { x: 720, y: 520 }, { x: 1440, y: 970 }]) {
       if (canOccupy(point, B.zombie.radius, this.obstacles, this.width, this.height)) this.addZombie(point);
     }
   }
-  protected override get spawnInterval(): number { return 6; }
-  protected override get maxZombies(): number { return this.enemiesEnabled ? 10 : 0; }
+  protected override get spawnInterval(): number { return 6 - (nextStage(this.campaign?.clearedStage) - 1) * 0.6; }
+  protected override get maxZombies(): number { return this.enemiesEnabled ? 10 + (nextStage(this.campaign.clearedStage) - 1) * 2 : 0; }
   override get reloadDuration(): number { return this.weapon.reload * (this.survivors.some(s => s.id === 'captain' && s.state === 'following') ? 0.8 : 1); }
   get remaining(): number { return Math.max(0, EXPEDITION_SECONDS - this.elapsed); }
   get weight(): number { return cargoWeight(this.inventory); }
@@ -86,6 +90,8 @@ export class ExpeditionWorld extends CombatWorld {
   objective(): { text: string; point: Vec } {
     if (!this.caches[0].opened) return { text: '搜刮工具箱 · 靠近后按 E', point: this.caches[0] };
     if (!this.caches[1].opened) return { text: '寻找步枪 · 靠近武器箱按 E', point: this.caches[1] };
+    const hero = this.survivors.find(s => SURVIVOR_PROFILES[s.id].hero && s.state === 'waiting');
+    if (hero) return { text: `高危搜救 · ${SURVIVOR_PROFILES[hero.id].role} [E]`, point: hero };
     if (this.survivors[0].state === 'waiting') return { text: '营救工程师 · 靠近后按 E', point: this.survivors[0] };
     return { text: '返回信标 · 带物资与幸存者回营 [E]', point: CAMP };
   }
@@ -114,6 +120,10 @@ export class ExpeditionWorld extends CombatWorld {
       item.state = 'following';
       if (item.id === 'medic') this.player.health = Math.min(B.player.health, this.player.health + 20);
       const profile = SURVIVOR_PROFILES[item.id];
+      if (profile.hero && this.enemiesEnabled) for (const dx of [-96, 96]) {
+        const point = { x: item.x + dx, y: item.y - 48 };
+        if (this.zombies.length < 16 && distance(point, this.player) > 64 && canOccupy(point, 11, this.obstacles, this.width, this.height)) this.addZombie(point);
+      }
       return { ok: true, message: `${profile.name} 已加入队伍 · ${profile.ability}` };
     }
     if (distance(this.player, CAMP) <= CAMP.radius && this.hasFinds) {
@@ -139,6 +149,7 @@ export class ExpeditionWorld extends CombatWorld {
     this.campaign.expeditions++;
     for (const key of ['materials', 'energy', 'medkits'] as const) this.campaign.depot[key] += this.inventory[key];
     this.campaign.depot.materials += engineerBonus;
+    if (rescued.some(s => s.id === 'electrician')) { this.campaign.depot.energy += 3; this.summary.specialistBonus = 3; }
     this.campaign.survivors = [...new Set([...this.campaign.survivors, ...rescued.map(s => s.id)])];
     this.campaign.weapons = [...new Set([...this.campaign.weapons, ...this.ownedWeapons])];
     this.campaign.lastSummary = structuredClone(this.summary);

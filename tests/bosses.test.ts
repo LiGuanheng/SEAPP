@@ -17,14 +17,14 @@ function enemy(w: NightWorld, kind: InfectedKind, x: number, y: number, level = 
 }
 function run(w: NightWorld, seconds: number) { for (let i = 0; i < Math.ceil(seconds * 60); i++) w.step(); }
 
-test('五波编成递增、四种 Boss 各一位，波次同时提升耐久/伤害/速度且等级封顶', () => {
-  const sizes = WAVES.map(w => MOB_KINDS.reduce((n, k) => n + w[k], Number(!!w.boss)));
-  assert.deepEqual(sizes, [8, 16, 23, 31, 45]); assert.equal(sizes.reduce((a, b) => a + b), 123);
-  assert.deepEqual(WAVES.map(w => w.boss).filter(Boolean), ['axeman', 'queen', 'knight', 'bird']);
+test('首阶段五波编成递增，仅最终巨汉；波次提升耐久/伤害/速度且等级封顶', () => {
+  const sizes = WAVES.map(w => MOB_KINDS.reduce((n, k) => n + w[k], w.bosses.length));
+  assert.deepEqual(sizes, [6, 9, 12, 14, 18]); assert.equal(sizes.reduce((a, b) => a + b), 59);
+  assert.deepEqual(WAVES.flatMap(w => w.bosses), ['axeman']);
   for (const k of Object.keys(INFECTED) as InfectedKind[]) {
     const a = levelStats(k), b = levelStats(k, 5); assert.ok(b.health > a.health && b.damage > a.damage && b.speed > a.speed); assert.deepEqual(levelStats(k, 50), b);
   }
-  const w = quiet(); w.elapsed = 94; w.step(); assert.equal(w.enemies[0].kind, 'bird'); assert.equal(w.enemies[0].level, 5); assert.ok(w.bossesSeen.has('bird'));
+  const w = quiet(); w.elapsed = 94; w.step(); assert.equal(w.enemies[0].kind, 'axeman'); assert.equal(w.enemies[0].level, 5); assert.ok(w.bossesSeen.has('axeman'));
 });
 
 test('女皇召唤蜘蛛、骑士召唤亡灵，继承波次，召唤冷却与总人数上限生效', () => {
@@ -94,7 +94,7 @@ test('扩展基地可在旧边界外施工，旧坐标阵地及缺少 Boss 字�
   const c = newCampaign(); c.depot.materials = 100; const b = new BaseWorld(c);
   for (const point of [{ x: 352, y: 192 }, { x: 1376, y: 672 }, { x: 352, y: 864 }]) assert.ok(b.build('wall', point).ok);
   assert.ok(validBasePlan(b.plan)); assert.deepEqual(decodeCampaign(JSON.stringify(b.campaign)).base, b.plan);
-  const bad = structuredClone(c); bad.lastNight = { outcome: 'defeat', duration: 10, kills: 0, lampHealth: 0, soldiers: 0, buildings: 0, strikes: 0, bossKills: 5 };
+  const bad = structuredClone(c); bad.lastNight = { outcome: 'defeat', duration: 10, kills: 0, lampHealth: 0, soldiers: 0, buildings: 0, strikes: 0, bossKills: 7 };
   assert.throws(() => decodeCampaign(JSON.stringify(bad)));
 });
 

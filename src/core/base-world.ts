@@ -1,9 +1,10 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
 import { canOccupy, circleOverlapsRect, distance, moveWithCollision, normalized } from './geometry.ts';
 import { Navigation } from './navigation.ts';
 import type { Rect, Vec } from './types.ts';
 import type { ActionResult } from './expedition.ts';
+import { nextStage, STAGES, type StageId } from '../config/progression.ts';
 
 export class BaseWorld {
   readonly campaign: Campaign;
@@ -17,21 +18,26 @@ export class BaseWorld {
       { id: 2, x: 752, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
       { id: 3, x: 816, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
     ] };
-    const recruit = (role: 'rifle' | 'archer' | 'vanguard') => {
+    this.plan.stage ??= nextStage(campaign.clearedStage);
+    const recruit = (role: NonNullable<Soldier['role']>) => {
       const id = this.plan.soldiers.length + 1;
       const candidate = { id, x: 880, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold' as const, moving: false, role };
       // 旧阵地可能已占用新兵集结点；寻找真实可通行位置。
       const free = (p: Vec) => canOccupy(p, 13, this.obstacles, BASE_WIDTH, BASE_HEIGHT) && this.plan.soldiers.every(s => distance(s, p) > 28);
       if (!free(candidate)) for (let y = 592, found = false; y <= 752 && !found; y += 32) for (let x = 336; x <= 1200; x += 32) if (free({ x, y })) { candidate.x = x; candidate.y = y; found = true; break; }
-      if (this.plan.soldiers.length < 6) this.plan.soldiers.push(candidate);
+      if (this.plan.soldiers.length < 8) this.plan.soldiers.push(candidate);
     };
     if (this.campaign.survivors.includes('captain') && this.plan.soldiers.filter(s => !s.role || s.role === 'rifle').length < 4) recruit('rifle');
     for (const [profile, role] of [['ranger', 'archer'], ['brawler', 'vanguard']] as const) if (this.campaign.survivors.includes(profile) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
+    for (const role of ['guardian', 'gunner'] as const) if (this.campaign.survivors.includes(role) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
     this.campaign.base = this.plan;
     this.nextId = Math.max(0, ...this.plan.buildings.map(b => b.id)) + 1;
     this.rebuildNavigation();
   }
   get remaining(): number { return Math.max(0, PREPARATION_SECONDS - this.plan.elapsed); }
+  get stage(): StageId { return this.plan.stage ?? nextStage(this.campaign.clearedStage); }
+  get buildArea(): Rect { return STAGES[this.stage].area; }
+  unlocked(kind: BuildingKind): boolean { return BUILDINGS[kind].stage <= this.stage; }
   get commanding(): boolean { return this.plan.status === 'preparing'; }
   get livingSoldiers(): Soldier[] { return this.plan.soldiers; }
   turretAim(_id: number): number { return -Math.PI / 2; }
@@ -42,9 +48,11 @@ export class BaseWorld {
   }
   preview(kind: BuildingKind, point: Vec, rotation: 0 | 1): ActionResult {
     if (this.plan.status !== 'preparing') return { ok: false, message: '布防已完成，点击继续调整可重新部署' };
+    if (!this.unlocked(kind)) return { ok: false, message: `${BUILDINGS[kind].name} 在第 ${BUILDINGS[kind].stage} 阶段解锁` };
     if (!Number.isFinite(point.x) || !Number.isFinite(point.y) || point.x % GRID || point.y % GRID) return { ok: false, message: '请选择有效网格' };
     const r = buildingRect({ kind, ...point, rotation });
-    if (r.x < BUILD_AREA.x || r.y < BUILD_AREA.y || r.x + r.width > BUILD_AREA.x + BUILD_AREA.width || r.y + r.height > BUILD_AREA.y + BUILD_AREA.height) return { ok: false, message: '仅可在虚线布防区内建设' };
+    const area = this.buildArea;
+    if (r.x < area.x || r.y < area.y || r.x + r.width > area.x + area.width || r.y + r.height > area.y + area.height) return { ok: false, message: '仅可在本阶段虚线布防区内建设；守夜胜利可扩建' };
     if (RESERVED_ROUTES.some(o => overlaps(r, o))) return { ok: false, message: '保留十字通道，不能封锁出入口' };
     if (this.obstacles.some(o => overlaps(r, o))) return { ok: false, message: '地基与已有设施重叠' };
     if (this.plan.soldiers.some(s => circleOverlapsRect(s, 13, r))) return { ok: false, message: '地基上有士兵，请先移开' };
@@ -118,7 +126,7 @@ export class BaseWorld {
     this.plan.elapsed = PREPARATION_SECONDS; this.plan.status = 'ready';
     for (const s of this.plan.soldiers) s.moving = false;
   }
-  resume(): void { this.plan.status = 'preparing'; this.plan.elapsed = 0; }
+  resume(): void { this.plan.status = 'preparing'; this.plan.elapsed = 0; this.plan.stage = nextStage(this.campaign.clearedStage); }
   step(dt = 1 / 60): void {
     if (this.plan.status !== 'preparing' || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(dt, 0.05); this.plan.elapsed += dt;
