@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { BASE_HEIGHT, BASE_WIDTH, GRID, LIGHTHOUSE, buildingRect, type BuildingKind } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_WIDTH, BUILDING_KEYS, BUILDINGS, GRID, LIGHTHOUSE, buildingRect, type BuildingKind } from '../config/base.ts';
+import { STAGES } from '../config/progression.ts';
 import { BaseWorld } from '../core/base-world.ts';
 import { loadCampaign, newCampaign, saveCampaign, type Campaign } from '../core/campaign.ts';
 import { distance } from '../core/geometry.ts';
@@ -65,7 +66,7 @@ export class BaseScene extends Phaser.Scene {
     this.speedLabel = control(27, () => this.cycleSpeed()); this.musicLabel = control(70, () => this.audio?.toggleMusic());
     this.guide = new FieldGuide(this, this.hud.root, data.battle ? 'night' : 'base', () => this.toggleGuide());
     this.transition = new SceneTransition(this, this.hud.root);
-    this.transition.play(data.battle ? '黑雾将至，守住灯塔' : '回到家园，筑起防线', data.battle ? '最后一盏灯 · 坚持到黎明' : '将探索所得变成防线 · 为幸存者留住光');
+    this.transition.play(`阶段 ${this.world.stage}/3 · ${STAGES[this.world.stage].name}`, STAGES[this.world.stage].description);
     camera.ignore(this.hud.root);
     const ui = this.cameras.add(0, 0, 1280, 720).setName('BaseUI'); ui.ignore(this.view.root);
     if (warning) this.hud.notify(warning);
@@ -86,11 +87,8 @@ export class BaseScene extends Phaser.Scene {
       if (this.paused || !this.world.commanding) return;
       if (e.code === 'KeyC') { this.home(); return; }
       if (e.code === 'KeyT') { this.cycleSpeed(); return; }
-      if (e.code === 'Digit1') this.setKind('barricade');
-      if (e.code === 'Digit2') this.setKind('turret');
-      if (e.code === 'Digit3') this.setKind('cannon');
-      if (e.code === 'Digit4') this.setKind('arrowtower');
-      if (e.code === 'Digit5') this.setKind('wall');
+      const buildIndex = /^Digit[1-9]$/.test(e.code) ? Number(e.code.slice(-1)) - 1 : -1;
+      if (buildIndex >= 0) this.setKind(BUILDING_KEYS[buildIndex]);
       if (e.code === 'KeyR' && this.kind === 'barricade') this.rotation = this.rotation === 0 ? 1 : 0;
       if (e.code === 'Space') { this.selected = new Set(this.world.livingSoldiers.map(s => s.id)); this.kind = null; this.selectedBuilding = null; this.support = false; }
       if (e.code === 'KeyF') this.toggleSupport();
@@ -131,7 +129,7 @@ export class BaseScene extends Phaser.Scene {
     const wheel = (p: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
       if (this.paused || !this.world.commanding || this.hud.blocks(p.x, p.y)) return;
       const center = { x: camera.midPoint.x, y: camera.midPoint.y };
-      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.55, 1.3)).centerOn(center.x, center.y);
+      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.5, 1.3)).centerOn(center.x, center.y);
       this.drag = null;
     };
     const move = () => { this.pointerActive = true; };
@@ -167,6 +165,7 @@ export class BaseScene extends Phaser.Scene {
   }
   private setKind(kind: BuildingKind): void {
     if (this.paused || this.world.plan.status !== 'preparing' || this.world instanceof NightWorld) return;
+    if (!this.world.unlocked(kind)) { this.hud.notify(`${BUILDINGS[kind].name} · 第 ${BUILDINGS[kind].stage} 阶段解锁`); return; }
     this.kind = this.kind === kind ? null : kind; this.rotation = 0; this.drag = null; this.selectedBuilding = null;
   }
   private setPaused(paused: boolean): void { this.paused = paused; this.held.clear(); this.drag = null; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio?.pause(paused); }

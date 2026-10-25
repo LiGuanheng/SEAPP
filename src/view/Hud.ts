@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { nextStage, STAGES } from '../config/progression.ts';
 import { BALANCE as B } from '../config/balance.ts';
 import { BUILDINGS, WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
 import type { CombatWorld } from '../core/world.ts';
@@ -105,7 +106,7 @@ export class Hud {
     this.health.setText(`守灯人   ${p.health} / ${B.player.health}`);
     this.ammo.setText(world.weaponId === 'axe' ? '近战 / 横扫' : `${String(p.ammo).padStart(2, '0')}  /  ${world.weapon.magazine}`);
     this.caption.setText(`${world.weapon.name} / ${world.weaponId === 'axe' ? '70 像素范围 · 不耗弹药' : '无限备用弹药'}`);
-    this.phase.setText(expedition ? `${expedition.layout.theme} / ${expedition.layout.seed.toString(16).slice(-5)} / 90s` : '战斗训练 / 北境旧城');
+    this.phase.setText(expedition ? `阶段${nextStage(expedition.campaign.clearedStage)} · ${STAGES[nextStage(expedition.campaign.clearedStage)].name} / ${expedition.layout.theme}` : '战斗训练 / 北境旧城');
     this.controls.setText('WASD 移动  SHIFT 冲刺  滚轮缩放  左键攻击  1手枪 2步枪 3斧 4弓  E互动  H治疗  TAB背包  F1指南');
     this.mission.setText(expedition ? `${Math.ceil(expedition.remaining)}s  /  ${expedition.objective().text}` : '');
     this.cargo.setText(expedition ? `建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　负重 ${expedition.weight}/${CAPACITY}　提灯 ${expedition.lanternLevel}级 / ${expedition.lightRadius}　随队 ${expedition.followers.length}` : '');

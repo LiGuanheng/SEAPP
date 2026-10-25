@@ -73,7 +73,7 @@ test('镜头缩放/移动后仍正确落地，HUD 固定，旋转、拆除、驻
   const p = await uiPoint(page, 700, 350); await page.mouse.move(p.x, p.y); await page.mouse.wheel(0, -200); await page.clock.runFor(100);
   const zoom = (await state(page)).camera.zoom; expect(zoom).toBeGreaterThan(0.9);
   await page.keyboard.down('KeyD'); await page.clock.runFor(250); await page.keyboard.up('KeyD');
-  const button = await uiPoint(page, 112, 661); await page.mouse.click(button.x, button.y); await page.keyboard.press('KeyR');
+  const button = await uiPoint(page, 65, 658); await page.mouse.click(button.x, button.y); await page.keyboard.press('KeyR');
   await click(page, 964, 356); const s = await state(page);
   expect(s.plan.buildings[0]).toMatchObject({ kind: 'barricade', x: 960, y: 352, rotation: 1 });
   await page.keyboard.press('Escape'); await click(page, 976, 384); expect((await state(page)).selectedBuilding).toBe(1);

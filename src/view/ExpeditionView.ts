@@ -56,7 +56,8 @@ export class ExpeditionView {
         if (s.moving) view.sprite.play(`player-walk-${facing(s.aim)}`, true);
         else { view.sprite.anims.stop(); view.sprite.setFrame(facing(s.aim) * 3 + 1); }
       }
-      view.label.setText(`${s.state === 'waiting' ? '◇' : '✓'} ${SURVIVOR_PROFILES[s.id].name} · ${SURVIVOR_PROFILES[s.id].role}`);
+      const profile = SURVIVOR_PROFILES[s.id];
+      view.label.setText(`${s.state === 'waiting' ? profile.hero ? '★ 高危搜救' : '◇' : '✓'} ${profile.name} · ${profile.role}`).setColor(profile.hero ? '#efd29c' : '#d7d5ae');
     }
     this.prompt.setPosition(world.player.x, world.player.y + 65).setText(world.prompt()).setVisible(!paused && world.status === 'playing' && !!world.prompt());
   }

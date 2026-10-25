@@ -22,6 +22,11 @@ export class BaseView {
     const tiles = map.addTilesetImage('city', 'city', 16, 16, 0, 0)!;
     add(map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(0x849086).setDepth(-100));
     const ground = add(scene.add.graphics().setDepth(-80));
+    // 与旧城一致的青灰底色、锈色接缝；装饰不进入碰撞或寻路。
+    for (let y = 96; y < BASE_HEIGHT - 80; y += 96) for (let x = 96; x < BASE_WIDTH - 80; x += 96) {
+      ground.fillStyle((x + y) % 192 ? 0x263b38 : 0x72694e, 0.13).fillRect(x + (y % 64), y, 48, 24);
+      ground.lineStyle(1, 0x192d30, 0.3).lineBetween(x, y + 32, x + 32, y + 32);
+    }
     for (const route of RESERVED_ROUTES) ground.fillStyle(0x192f32, 0.35).fillRect(route.x, route.y, route.width, route.height);
     ground.lineStyle(2, 0xb7ad77, 0.6);
     const right = BUILD_AREA.x + BUILD_AREA.width, bottom = BUILD_AREA.y + BUILD_AREA.height;
@@ -43,6 +48,10 @@ export class BaseView {
   }
   update(world: BaseWorld, selected: Set<number>, buildingId: number | null, placement: Placement | null, marquee: Rect | null, paused: boolean): void {
     const g = this.graphics.clear();
+    const area = world.buildArea;
+    g.lineStyle(2, 0xd5bd83, 0.55);
+    for (let x = area.x; x < area.x + area.width; x += 32) g.lineBetween(x, area.y, x + 16, area.y).lineBetween(x, area.y + area.height, x + 16, area.y + area.height);
+    for (let y = area.y; y < area.y + area.height; y += 32) g.lineBetween(area.x, y, area.x, y + 16).lineBetween(area.x + area.width, y, area.x + area.width, y + 16);
     const living = new Set(world.livingSoldiers.map(s => s.id));
     for (const [id, v] of this.soldiers) if (!living.has(id)) { v.sprite.destroy(); v.shadow.destroy(); v.helmet.destroy(); v.gun.destroy(); this.soldiers.delete(id); }
     for (const s of world.livingSoldiers) {
@@ -55,8 +64,9 @@ export class BaseView {
       v.sprite.setPosition(s.x, s.y).setDepth(s.y);
       v.shadow.setPosition(s.x, s.y + 2).setDepth(s.y - 2);
       v.helmet.setPosition(s.x, s.y - 37).setDepth(s.y + 1);
-      v.gun.setTexture(s.role === 'archer' ? 'bow' : s.role === 'vanguard' ? 'axe' : 'rifle').setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
-      v.sprite.setTint(s.role === 'archer' ? 0xa5c182 : s.role === 'vanguard' ? 0xd0a087 : 0x9eaf91);
+      v.gun.setTexture(s.role === 'gunner' ? 'cannon-barrel' : s.role === 'guardian' ? 'pistol' : s.role === 'archer' ? 'bow' : s.role === 'vanguard' ? 'axe' : 'rifle').setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
+      v.sprite.setTint(s.role === 'guardian' ? 0x8bd6bc : s.role === 'gunner' ? 0xdca077 : s.role === 'archer' ? 0xa5c182 : s.role === 'vanguard' ? 0xd0a087 : 0x9eaf91);
+      if (s.role === 'guardian' || s.role === 'gunner') g.lineStyle(2, s.role === 'guardian' ? 0x8bd6bc : 0xdca077, 0.85).strokeRect(s.x - 5, s.y - 65, 10, 10);
       if (paused || !world.commanding) v.sprite.anims.pause();
       else {
         v.sprite.anims.resume();
@@ -76,10 +86,13 @@ export class BaseView {
       if (!this.buildings.has(b.id)) {
         const view = this.scene.add.container(r.x + r.width / 2, r.y + r.height / 2).setDepth(r.y + r.height);
         view.add(this.scene.add.ellipse(4, 11, r.width + 8, r.height, 0x0b2025, 0.35));
+        view.add(this.scene.add.rectangle(0, 3, r.width - 4, r.height - 4, 0x253b3a).setStrokeStyle(2, 0x65786c));
+        view.add(this.scene.add.rectangle(0, r.height / 2 - 3, r.width - 12, 3, BUILDINGS[b.kind].tint));
         view.add(this.scene.add.image(0, b.kind === 'wall' ? -10 : b.kind === 'arrowtower' ? -20 : -7, b.kind).setAngle(b.rotation * 90));
         if (b.kind === 'turret') view.add(this.scene.add.image(0, -19, 'rifle').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2).setScale(1.1));
         if (b.kind === 'cannon') view.add(this.scene.add.image(0, -15, 'cannon-barrel').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2));
         if (b.kind === 'arrowtower') view.add(this.scene.add.image(0, -43, 'bow').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2).setScale(0.85));
+        if (b.kind === 'sniper') view.add(this.scene.add.image(0, -39, 'rifle').setName('barrel').setOrigin(0.15, 0.5).setRotation(-Math.PI / 2).setScale(1.3));
         this.root.add(view); this.buildings.set(b.id, view);
       }
       const barrel = this.buildings.get(b.id)!.getByName('barrel') as Phaser.GameObjects.Image | null;
@@ -94,12 +107,13 @@ export class BaseView {
     if (placement && !paused) {
       const { kind, point, rotation } = placement, r = buildingRect({ kind, ...point, rotation }), validity = world.preview(kind, point, rotation);
       g.lineStyle(1, 0x9db59a, 0.16);
-      for (let x = BUILD_AREA.x; x <= BUILD_AREA.x + BUILD_AREA.width; x += GRID) g.lineBetween(x, BUILD_AREA.y, x, BUILD_AREA.y + BUILD_AREA.height);
-      for (let y = BUILD_AREA.y; y <= BUILD_AREA.y + BUILD_AREA.height; y += GRID) g.lineBetween(BUILD_AREA.x, y, BUILD_AREA.x + BUILD_AREA.width, y);
+      for (let x = area.x; x <= area.x + area.width; x += GRID) g.lineBetween(x, area.y, x, area.y + area.height);
+      for (let y = area.y; y <= area.y + area.height; y += GRID) g.lineBetween(area.x, y, area.x + area.width, y);
       for (const route of RESERVED_ROUTES) g.fillStyle(0xe1b66a, 0.09).fillRect(route.x, route.y, route.width, route.height);
       g.fillStyle(validity.ok ? 0xa4c69b : 0xd47865, 0.25).fillRect(r.x, r.y, r.width, r.height);
       g.lineStyle(2, validity.ok ? 0xb9d9ab : 0xe18c75).strokeRect(r.x, r.y, r.width, r.height);
       this.previewImage.setTexture(kind).setPosition(r.x + r.width / 2, r.y + r.height / 2 - 4).setAngle(rotation * 90).setTint(validity.ok ? 0xd7e3be : 0xe08f7e);
+      if (BUILDINGS[kind].range) g.lineStyle(1, BUILDINGS[kind].tint, 0.45).strokeCircle(r.x + r.width / 2, r.y + r.height / 2, BUILDINGS[kind].range);
       this.hint.setText(validity.message).setPosition(r.x + r.width / 2, r.y + r.height + 22);
     }
     if (marquee) g.fillStyle(0xcbd6a6, 0.08).fillRect(marquee.x, marquee.y, marquee.width, marquee.height).lineStyle(1, 0xcbd6a6).strokeRect(marquee.x, marquee.y, marquee.width, marquee.height);

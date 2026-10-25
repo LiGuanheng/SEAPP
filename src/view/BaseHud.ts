@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { BUILDINGS, type BuildingKind } from '../config/base.ts';
+import { BUILDINGS, BUILDING_KEYS, type BuildingKind } from '../config/base.ts';
 import type { BaseWorld } from '../core/base-world.ts';
+import { STAGES } from '../config/progression.ts';
 
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class BaseHud {
@@ -39,14 +40,15 @@ export class BaseHud {
     button(1198, 27, 110, '暂停 [P]', pause);
     button(1198, 70, 110, '再次探索', explore);
     this.selection = text(26, 609, '', 13, '#e5d09a');
-    for (const [kind, x, key] of [['barricade', 90, '1'], ['turret', 254, '2'], ['cannon', 418, '3'], ['arrowtower', 582, '4'], ['wall', 746, '5']] as const) {
-      button(x, 661, 150, `[${key}] ${BUILDINGS[kind].name}`, () => build(kind));
-      this.costs.set(kind, text(x, 688, '', 10, '#a9b8a0').setOrigin(0.5));
-    }
-    button(907, 661, 150, '就地驻守 [G]', hold);
-    button(1120, 661, 240, '完成布防 [Enter]', finish);
-    this.mode = text(640, 633, '', 11, '#aabd9f').setOrigin(0.5);
-    text(640, 708, '左键/框选部队 · 右键移动 · WASD 镜头 · 滚轮缩放 · Space 全选 · T 倍速 · L 配乐', 10, '#a2b39d').setOrigin(0.5);
+    BUILDING_KEYS.forEach((kind, i) => {
+      const x = 65 + i * 112;
+      button(x, 665, 106, `[${i + 1}] ${BUILDINGS[kind].name}`, () => build(kind));
+      this.costs.set(kind, text(x, 691, '', 10, '#a9b8a0').setOrigin(0.5));
+    });
+    button(1128, 641, 238, '完成布防 [Enter]', finish);
+    button(1128, 684, 238, '就地驻守 [G]', hold);
+    this.mode = text(26, 630, '', 11, '#aabd9f');
+    text(640, 708, '左键/框选 · 右键移动 · WASD/滚轮 镜头 · Space 全选 · T 倍速 · L 配乐 · 锁定设施守夜胜利后开放', 10, '#a2b39d').setOrigin(0.5);
     this.toast = text(640, 565, '', 13, '#eddaa3').setOrigin(0.5).setBackgroundColor('#0c2027').setPadding(9, 6).setVisible(false);
     this.overlay = scene.add.container(0, 0).setVisible(false); this.root.add(this.overlay);
     const shade = scene.add.rectangle(640, 360, 1280, 720, 0x081b22, 0.94).setInteractive();
@@ -66,10 +68,10 @@ export class BaseHud {
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);
     this.info.setText(`营地库存　建材 ${c.depot.materials}　电力 ${c.depot.energy}　急救包 ${c.depot.medkits}`);
-    this.timer.setText(`布防 ${Math.ceil(world.remaining)}s　/　设施 ${world.plan.buildings.length} 座　/　守备 ${world.plan.soldiers.length} 人`);
-    this.selection.setText(b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · Delete 拆除：返还 ${Math.floor(b.paid.materials / 2)} 建材，电力不返还` : ids.size ? `已选 ${ids.size} 名士兵 · 右键指定目的地，G 就地驻守 · Shift 加选` : '1 路障  2 机枪塔  3 加农炮（范围）  4 箭塔（远程）  5 城墙（低价、可攻破）');
-    this.mode.setText(buildKind ? `${BUILDINGS[buildKind].name} · ${buildKind === 'barricade' ? 'R 旋转' : '左键放置'} · Esc/右键取消` : '指挥模式');
-    for (const [kind, text] of this.costs) { const cost = world.cost(kind); text.setText(`建材 ${cost.materials} / 电力 ${cost.energy}`); }
+    this.timer.setText(`阶段 ${world.stage}/3 ${STAGES[world.stage].name} · 布防 ${Math.ceil(world.remaining)}s · 设施 ${world.plan.buildings.length} · 守备 ${world.plan.soldiers.length}`);
+    this.selection.setText(b ? `${BUILDINGS[b.kind].name} · 耐久 ${Math.ceil(b.health)}/${BUILDINGS[b.kind].health} · 射程 ${BUILDINGS[b.kind].range} · Delete 返 ${Math.floor(b.paid.materials / 2)} 建材` : buildKind ? `${BUILDINGS[buildKind].name} · ${BUILDINGS[buildKind].description} · 耐久${BUILDINGS[buildKind].health} / 射程${BUILDINGS[buildKind].range}` : ids.size ? `已选 ${ids.size} 名士兵 · 右键移动 / G驻守 · 英雄：重炮手慢速对地，医师180范围治疗` : '外围拖延 → 中层火力 → 灯塔核心 · 6 电网 7 维修站（阶段2） · 8 火焰 9 狙击（阶段3）');
+    this.mode.setText(buildKind ? `${buildKind === 'barricade' ? 'R 旋转 · ' : ''}左键放置 · Esc/右键取消` : `本阶段 ${world.buildArea.width / 32}×${world.buildArea.height / 32} 格 · ${STAGES[world.stage].description}`);
+    for (const [kind, text] of this.costs) { const cost = world.cost(kind); text.setText(world.unlocked(kind) ? `建材${cost.materials} / 电${cost.energy}` : `阶段 ${BUILDINGS[kind].stage} 解锁`).setColor(world.unlocked(kind) ? '#b9c5a5' : '#7d8c88'); }
     this.toastTime = Math.max(0, this.toastTime - dt); this.toast.setVisible(this.toastTime > 0);
     this.storage.setText(this.saveWarning);
     const ready = world.plan.status === 'ready'; this.overlay.setVisible(paused || ready);

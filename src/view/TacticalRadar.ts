@@ -20,6 +20,8 @@ export class TacticalRadar {
     this.root.setVisible(!paused && w.commanding);
     const g = this.graphics.clear(), sx = 170 / BASE_WIDTH, sy = 114 / BASE_HEIGHT;
     g.fillStyle(0x10232c, 0.95).fillRect(0, 0, 170, 114);
+    const area = w.buildArea;
+    g.fillStyle(0x657b5d, 0.23).fillRect(area.x * sx, area.y * sy, area.width * sx, area.height * sy).lineStyle(1, 0xc3b483, 0.6).strokeRect(area.x * sx, area.y * sy, area.width * sx, area.height * sy);
     for (const b of BASE_OBSTACLES) g.fillStyle(0x41534b).fillRect(b.x * sx, b.y * sy, b.width * sx, b.height * sy);
     for (const b of w.plan.buildings) { const r = buildingRect(b); g.fillStyle(0xe2be7e).fillRect(r.x * sx, r.y * sy, r.width * sx, r.height * sy); }
     if (w instanceof NightWorld) for (const e of w.enemies) if (w.canSee(e)) g.fillStyle(INFECTED[e.kind].boss ? 0xf1b58a : INFECTED[e.kind].flying ? 0xb49ce1 : 0xc86460).fillCircle(e.x * sx, e.y * sy, INFECTED[e.kind].boss ? 3.5 : 1.5);

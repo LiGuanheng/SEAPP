@@ -8,3 +8,6 @@ Created for this project, 2026-10-22 through 2026-10-25.
 Original visual asset contributions are dedicated to CC0 1.0 Universal.
 https://creativecommons.org/publicdomain/zero/1.0/
 This does not relicense third-party assets or the game source code.
+
+Progression expansion: weapons/grid.svg, repair.svg, flame.svg, sniper.svg;
+enemies/blighter.svg, bomber.svg. Original grid-vector art, CC0 1.0, 2026-10-25.

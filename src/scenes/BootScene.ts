@@ -22,13 +22,13 @@ export class BootScene extends Phaser.Scene {
     this.load.svg('bullet', base + 'weapons/bullet.svg');
     this.load.svg('muzzle', base + 'weapons/muzzle.svg');
     this.load.svg('lantern', base + 'weapons/lantern.svg');
-    for (const key of ['rifle', 'supply', 'beacon', 'barricade', 'turret', 'lighthouse', 'helmet', 'axe', 'bow', 'arrow', 'cannon', 'cannon-barrel', 'arrowtower', 'wall', 'desk', 'bed']) this.load.svg(key, base + `weapons/${key}.svg`);
+    for (const key of ['rifle', 'supply', 'beacon', 'barricade', 'turret', 'lighthouse', 'helmet', 'axe', 'bow', 'arrow', 'cannon', 'cannon-barrel', 'arrowtower', 'wall', 'desk', 'bed', 'grid', 'repair', 'flame', 'sniper']) this.load.svg(key, base + `weapons/${key}.svg`);
     for (const key of Object.keys(ENEMY_SPRITES)) this.load.svg(key, base + `enemies/${key}.svg`);
     this.events.once('shutdown', () => { title.destroy(); status.destroy(); bar.destroy(); });
   }
   create(): void {
     if (['city', 'player', 'zombie', 'zombie-alt', 'pistol', 'bullet', 'muzzle', 'rifle', 'supply', 'beacon', 'barricade', 'turret', 'lighthouse', 'helmet', 'axe', 'bow', 'arrow', 'cannon', 'cannon-barrel', 'arrowtower', 'wall', 'desk', 'bed'].some(key => !this.textures.exists(key))) return;
-    if (!this.textures.exists('lantern') || Object.keys(ENEMY_SPRITES).some(key => !this.textures.exists(key))) return;
+    if (['lantern', 'grid', 'repair', 'flame', 'sniper'].some(key => !this.textures.exists(key)) || Object.keys(ENEMY_SPRITES).some(key => !this.textures.exists(key))) return;
     for (const [name, size] of Object.entries(ENEMY_SPRITES)) {
       for (let frame = 0; frame < 3; frame++) this.textures.get(name).add(frame, 0, frame * size, 0, size, size);
       for (let d = 0; d < 4; d++) this.anims.create({ key: `${name}-walk-${d}`, frames: [0, 1, 2, 1].map(frame => ({ key: name, frame })), frameRate: name === 'bird' || name === 'crow' ? 8 : 6, repeat: -1 });

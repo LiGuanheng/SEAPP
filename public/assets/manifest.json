@@ -78,8 +78,8 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 701,
-      "sha256": "d285b048644140bc8dee2913a57cb4478199d56556e67b36c23d236202978ada"
+      "bytes": 859,
+      "sha256": "01c85305ece39cd806657f6a9814371de99d2a7eef83d62959f6174ef3c5f041"
     },
     {
       "file": "weapons/arrow.svg",
@@ -180,6 +180,36 @@
       "file": "weapons/wall.svg",
       "bytes": 452,
       "sha256": "7aca5ae892cfad713c3000dba0bfc315a0addfe4b7fadd8868099372f447ee27"
+    },
+    {
+      "file": "weapons/grid.svg",
+      "bytes": 698,
+      "sha256": "82bb0b5e29d4006a7551dc8cfb50bd8fc69cb9bc97cc69f7a6a49a9ff0952f02"
+    },
+    {
+      "file": "weapons/repair.svg",
+      "bytes": 556,
+      "sha256": "93f6c293f0cb6106a5eab7a06854fb513c5783ac386a4ff3ea1d49652eb3a59d"
+    },
+    {
+      "file": "weapons/flame.svg",
+      "bytes": 639,
+      "sha256": "fed7b1ef3b2c2ce393b0dbfedd0415a5398f32e1b07af4633e216d2ef3c7ca68"
+    },
+    {
+      "file": "weapons/sniper.svg",
+      "bytes": 590,
+      "sha256": "14dfd44dc71ba3b9d638c9fb93020baccd8476acd23bf72985d7a9ca6b9ffd35"
+    },
+    {
+      "file": "enemies/blighter.svg",
+      "bytes": 2566,
+      "sha256": "e0e8f1848c34559445d494b8eb67fd7192c9b81435b6873ad1b49bda371a1066"
+    },
+    {
+      "file": "enemies/bomber.svg",
+      "bytes": 2596,
+      "sha256": "da4bc66487631007a595c764edd2230017d8f5dc9be959c4da6dd8b03f6d4c31"
     }
   ]
 }

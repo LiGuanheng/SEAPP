@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BUILDINGS, type BuildingKind } from '../config/base.ts';
-import { INFECTED, LAMP_HEALTH, NIGHT_SECONDS, WAVES } from '../config/night.ts';
+import { BOSS_ABILITIES, INFECTED, LAMP_HEALTH, NIGHT_SECONDS, type BossKind } from '../config/night.ts';
+import { STAGES } from '../config/progression.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { NightWorld } from '../core/night-world.ts';
 
@@ -47,7 +48,7 @@ export class NightHud {
     text(660, 652, '左键 / 拖框选兵 · Shift 加选 · Space 全选', 12, '#b8c8aa');
     text(660, 680, '右键移动 · WASD 镜头 · 滚轮缩放 · Esc 取消支援 / 暂停', 11, '#9fb09f');
     this.toast = text(640, 565, '', 13, '#f1d497').setOrigin(0.5).setBackgroundColor('#10252c').setPadding(9, 6).setVisible(false);
-    for (let i = 0; i < 4; i++) this.bosses.push(text(640, 113 + i * 29, '', 12, '#f0c1b1').setOrigin(0.5).setVisible(false));
+    for (let i = 0; i < 5; i++) this.bosses.push(text(640, 113 + i * 29, '', 12, '#f0c1b1').setOrigin(0.5).setVisible(false));
     this.overlay = scene.add.container(0, 0).setVisible(false); this.root.add(this.overlay);
     const shade = scene.add.rectangle(640, 360, 1280, 720, 0x07141f, 0.94).setInteractive();
     shade.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => e.stopPropagation()); this.overlay.add(shade);
@@ -71,15 +72,15 @@ export class NightHud {
     g.fillStyle(0xb6bfa0).fillRect(425, 79, 560 * Math.min(1, w.elapsed / NIGHT_SECONDS), 3);
     if (w.lampHurt > 0) g.lineStyle(16, 0xd07761, w.lampHurt).strokeRect(0, 0, 1280, 720);
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
-    this.status.setText(`距离天亮 ${Math.ceil(w.remaining)}s　/　第 ${w.wave}/${WAVES.length} 波　/　击杀 ${w.kills}`);
-    const next = WAVES[w.wave];
-    this.forecast.setText(next ? `下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s · ${next.boss ? INFECTED[next.boss].name : '游荡者'} · 威胁 ${w.wave + 1}/5` : '最终尸潮已出动 · 守到天亮，无需全歼');
-    const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 4); this.bossRows = bosses.length;
+    this.status.setText(`阶段${w.stage}/3 · 天亮 ${Math.ceil(w.remaining)}s · ${w.wave}/${w.waves.length}波 · 击杀${w.kills}`);
+    const next = w.waves[w.wave];
+    this.forecast.setText(next ? `${STAGES[w.stage].name} · 下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s · ${next.bosses.length ? next.bosses.map(k => INFECTED[k].name).join(' + ') : '感染者集群'}` : '最终尸潮已出动 · 守到天亮，无需全歼');
+    const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 5); this.bossRows = bosses.length;
     this.bosses.forEach((label, i) => {
       const e = bosses[i]; label.setVisible(!!e && !paused && w.commanding); if (!e) return;
       const y = 100 + i * 29, max = e.maxHealth ?? INFECTED[e.kind].health;
       g.fillStyle(0x10202a, 0.94).fillRoundedRect(350, y, 580, 27, 3).fillStyle(0x573947).fillRect(358, y + 23, 564, 3).fillStyle(0xce8793).fillRect(358, y + 23, 564 * e.health / max, 3);
-      const skill = e.windup ? ` · 蓄力 ${e.windup.remaining.toFixed(1)}s，离开地面预警圈` : e.kind === 'queen' ? ' · 织网 / 蜘蛛随从' : e.kind === 'knight' ? ' · 护甲 / 亡灵召唤' : e.kind === 'bird' ? ' · 飞行 / 腐羽风暴' : ' · 蓄力重斧';
+      const skill = e.windup ? ` · 蓄力 ${e.windup.remaining.toFixed(1)}s，离开预警圈` : ` · ${BOSS_ABILITIES[e.kind as BossKind]}`;
       label.setText(`${INFECTED[e.kind].name}　${Math.ceil(e.health)}/${max}${skill}`);
     });
     const b = w.plan.buildings.find(b => b.id === buildingId);
@@ -90,7 +91,8 @@ export class NightHud {
     this.ready = !w.commanding; this.overlay.setVisible(paused || this.ready); this.exit.setVisible(this.ready);
     if (paused || this.ready) {
       this.title.setText(!this.ready ? '指挥暂停' : w.status === 'victory' ? '天亮了，最后一盏灯仍在。' : '灯塔熄灭，防线失守。');
-      this.body.setText(this.ready ? `守夜 ${Math.floor(w.elapsed)} 秒 · 击杀 ${w.kills} · Boss 击败 ${w.bossKills}/4\n灯塔剩余耐久 ${w.lampHealth} / ${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? '探索、布防、守夜已完成一轮。' : '分散驻守躲技能，机枪/箭塔对空，再试一次。'}\n按 Enter 使用原阵地再次守夜` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
+      const firstClear = w.stage > (w.checkpoint.clearedStage ?? 0), reward = STAGES[w.stage].reward;
+      this.body.setText(this.ready ? `阶段 ${w.stage}/3 · ${STAGES[w.stage].name} · 守夜 ${Math.floor(w.elapsed)}秒\n击杀 ${w.kills} · Boss 击败 ${w.bossKills}/${w.bossCount} · 灯塔 ${w.lampHealth}/${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? firstClear ? `首次守住：建材+${reward.materials} / 电力+${reward.energy}\n${STAGES[w.stage].unlock}` : '本阶段已通关，重复守夜不重复发放补给。' : '分散驻守躲技能，搭配控场与对空火力。'}\nEnter 重试本阶段；返回城市探索 → 下一阶段布防` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
       if (this.saveWarning) this.body.setText(this.body.text + '\n' + this.saveWarning);
       this.primary.setText(this.ready ? '再次守夜 [Enter]' : '继续指挥 [P]');
     }
