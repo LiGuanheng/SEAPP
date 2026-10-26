@@ -118,7 +118,7 @@ export class Hud {
     const mx = 1100, my = 111, mw = 150, mh = 113;
     g.fillStyle(0x213430).fillRect(mx, my, mw, mh);
     if (expedition) for (let i = 0; i < expedition.vision.seen.length; i++) if (expedition.vision.seen[i]) g.fillStyle(0x3b4c40).fillRect(mx + i % expedition.vision.cols * 32 / WORLD_WIDTH * mw, my + Math.floor(i / expedition.vision.cols) * 32 / WORLD_HEIGHT * mh, 32 / WORLD_WIDTH * mw + 0.5, 32 / WORLD_HEIGHT * mh + 0.5);
-    for (const b of BUILDINGS) if (!expedition || [0, 1].some(i => expedition.vision.wasSeen({ x: (b.x + b.width * i) * 32, y: (b.y + b.height) * 32 - 20 }))) g.fillStyle(0x4a5c50).fillRect(mx + b.x * 32 / WORLD_WIDTH * mw, my + b.y * 32 / WORLD_HEIGHT * mh, b.width * 32 / WORLD_WIDTH * mw, b.height * 32 / WORLD_HEIGHT * mh);
+    for (const b of expedition?.layout.buildings ?? BUILDINGS) if (!expedition || [0, 1].some(i => expedition.vision.wasSeen({ x: (b.x + b.width * i) * 32, y: (b.y + b.height) * 32 - 20 }))) g.fillStyle(0x4a5c50).fillRect(mx + b.x * 32 / WORLD_WIDTH * mw, my + b.y * 32 / WORLD_HEIGHT * mh, b.width * 32 / WORLD_WIDTH * mw, b.height * 32 / WORLD_HEIGHT * mh);
     for (const zombie of world.zombies) if (!expedition || expedition.canSee(zombie)) g.fillStyle(0xba8d70).fillRect(mx + zombie.x / WORLD_WIDTH * mw - 1, my + zombie.y / WORLD_HEIGHT * mh - 1, 2, 2);
     if (expedition) {
       for (const c of expedition.caches) if (!c.opened && expedition.vision.wasSeen(c)) g.fillStyle(c.lampLevel ? 0xe1c284 : 0xa5c6a0).fillRect(mx + c.x / WORLD_WIDTH * mw - 1.5, my + c.y / WORLD_HEIGHT * mh - 1.5, 3, 3);

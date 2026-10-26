@@ -22,6 +22,7 @@ export function siegeFixture(name) {
     // Guard the core from four angles; neither teleport nor grant combat health.
     b.plan.soldiers.forEach((s, i) => { const points = [[688, 592], [848, 592], [688, 432], [848, 432], [656, 512], [880, 512], [768, 640], [768, 400]], p = { x: points[i][0], y: points[i][1] }; if (canOccupy(p, 13, b.obstacles, 2048, 1408)) Object.assign(s, p); });
   }
+  if (!ordinary) for (const kind of ['turret', 'cannon']) { const tower = b.plan.buildings.find(b => b.kind === kind); if (tower) b.refit(tower.id); }
   b.finish(); decodeCampaign(JSON.stringify(b.campaign)); return b.campaign;
 }
 if (process.argv[1]?.replaceAll('\\', '/').endsWith('/validate-siege.mjs')) {

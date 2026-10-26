@@ -1,11 +1,11 @@
 import { BALANCE as B } from '../config/balance.ts';
-import { BUILDINGS, OBSTACLES, PLAYER_SPAWN, WORLD_HEIGHT, WORLD_WIDTH, roomAt, roomDoor, roomRect } from '../config/map.ts';
+import { PLAYER_SPAWN, WORLD_HEIGHT, WORLD_WIDTH, roomAt, roomDoor, roomRect } from '../config/map.ts';
 import { WEAPONS, type WeaponId } from '../config/weapons.ts';
 import { cloneCampaign, emptyCargo, newCampaign, type Campaign, type Cargo, type ExpeditionSummary } from './campaign.ts';
 import { canOccupy, distance, firstWall, moveWithCollision } from './geometry.ts';
 import type { InputState, Vec } from './types.ts';
 import { CombatWorld } from './world.ts';
-import { explorationLayout, type ExplorationLayout } from './exploration-layout.ts';
+import { explorationLayout, freeLayoutPoint, type ExplorationLayout } from './exploration-layout.ts';
 import { ExplorationVision, LIGHT_RADII } from './exploration-vision.ts';
 import { SURVIVOR_PROFILES, type SurvivorId } from '../config/survivors.ts';
 import { nextStage } from '../config/progression.ts';
@@ -47,27 +47,35 @@ export class ExpeditionWorld extends CombatWorld {
   readonly vision: ExplorationVision;
   lanternLevel = 0;
   private visionTimer = 0;
+  private eventTriggered = false;
   get lightRadius(): number { return LIGHT_RADII[this.lanternLevel]; }
   canSee(p: Vec): boolean { return this.vision.canSee(p); }
-  get currentRoom(): number { return roomAt(this.player); }
+  get currentRoom(): number { return roomAt(this.player, this.layout.buildings); }
   constructor(campaign = newCampaign(), enemies = true, seed = 20261023 + campaign.expeditions * 7919) {
     const layout = explorationLayout(seed);
-    super(seed, [...OBSTACLES, ...layout.debris], WORLD_WIDTH, WORLD_HEIGHT, PLAYER_SPAWN, false);
+    super(seed, layout.obstacles, WORLD_WIDTH, WORLD_HEIGHT, PLAYER_SPAWN, false);
     this.layout = layout;
     this.campaign = cloneCampaign(campaign); this.enemiesEnabled = enemies;
     this.survivors[1].x += layout.medicOffset; this.survivors[2].x += layout.captainOffset;
+    for (const [id, room] of [['electrician', 2], ['gunner', 5]] as const) {
+      const s = this.survivors.find(s => s.id === id)!, door = roomDoor(layout.buildings[room]);
+      s.x = door.x; s.y = door.y - 80;
+    }
     const stage = nextStage(campaign.clearedStage);
     for (let i = this.survivors.length - 1; i >= 0; i--) {
       const s = this.survivors[i], p = SURVIVOR_PROFILES[s.id];
       if (p.stage > stage || p.hero && campaign.survivors.includes(s.id)) this.survivors.splice(i, 1);
     }
-    for (let i = 0; i < BUILDINGS.length; i++) {
-      const d = roomDoor(BUILDINGS[i]);
-      this.caches.push({ id: `room-${i}`, name: `${BUILDINGS[i].label} 储藏箱`, x: d.x + layout.roomSides[i] * 48, y: d.y - 80, cargo: { materials: 4, energy: i % 2 ? 2 : 0, medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, lampLevel: i === 1 ? 2 : undefined, opened: false });
+    for (let i = 0; i < layout.buildings.length; i++) {
+      const d = roomDoor(layout.buildings[i]);
+      this.caches.push({ id: `room-${i}`, name: `${layout.buildings[i].label} 储藏箱`, x: d.x + layout.roomSides[i] * (i === 1 ? 48 : 40), y: d.y - 80, cargo: { materials: i === 1 ? 4 : 3 + ((seed >>> (i * 3)) % 5), energy: i % 2 ? 2 : ((seed >>> i) % 3), medkits: i === 1 ? 1 : 0 }, weapon: i === 1 ? 'bow' : undefined, lampLevel: i === 1 ? 2 : undefined, opened: false });
     }
     layout.stashes.forEach((p, i) => this.caches.push({ ...p, id: `scout-${i}`, name: '游荡商队遗留补给', cargo: { materials: 3 + i % 2, energy: i % 2, medkits: 0 }, opened: false }));
     this.caches.push({ id: 'lantern-lens', name: '聚光镜片 · 提灯升级', x: 1152, y: 688, cargo: emptyCargo(), lampLevel: 1, opened: false });
     if (stage >= 2) this.caches.push({ id: 'relief', name: '高危区域 · 工程储备', x: 352, y: 400, cargo: { materials: 6, energy: 4, medkits: 0 }, opened: false });
+    this.caches.push({ id: 'event', name: layout.event.kind === 'supply' ? '危险货仓' : layout.event.kind === 'clinic' ? '感染救护点' : '受困车队', ...layout.event.point, cargo: { ...layout.event.reward }, opened: false });
+    if (layout.event.kind === 'rescue') { const s = this.survivors.find(s => s.id === 'captain'); if (s) { s.x = layout.event.point.x + 32; s.y = layout.event.point.y; } }
+    for (const p of [...this.caches, ...this.survivors]) if (!canOccupy(p, 12, this.obstacles, this.width, this.height)) Object.assign(p, freeLayoutPoint(p, this.obstacles));
     this.lanternLevel = campaign.lanternLevel ?? 0;
     this.vision = new ExplorationVision(this.width, this.height, this.obstacles); this.vision.update(this.player, this.lightRadius);
     if (enemies) for (const point of [{ x: 1450, y: 680 }, { x: 720, y: 520 }, { x: 1440, y: 970 }]) {
@@ -99,7 +107,7 @@ export class ExpeditionWorld extends CombatWorld {
     const item = this.nearby();
     if (item) return 'cargo' in item ? `[E] 搜刮 ${item.name}` : `[E] 营救 ${SURVIVOR_PROFILES[item.id].role} ${SURVIVOR_PROFILES[item.id].name}`;
     if (distance(this.player, CAMP) <= CAMP.radius) return this.hasFinds ? '[E] 提前回营 / 结算本次探索' : '回营信标 · 先带回一些物资或幸存者';
-    const entrance = BUILDINGS.find(b => distance(this.player, roomDoor(b)) < 72);
+    const entrance = this.layout.buildings.find(b => distance(this.player, roomDoor(b)) < 72);
     if (entrance) return `${entrance.label} · 从门口直接走入，屋顶自动隐藏`;
     return '';
   }
@@ -145,7 +153,7 @@ export class ExpeditionWorld extends CombatWorld {
     const rescued = this.followers.filter(s => distance(this.player, s) <= 150);
     const engineerBonus = rescued.some(s => s.id === 'engineer') ? 4 : 0;
     this.summary = { reason, duration: Math.min(EXPEDITION_SECONDS, this.elapsed), kills: this.kills,
-      caches: this.caches.filter(c => c.opened).length, rescued: rescued.map(s => s.id), cargo: { ...this.inventory }, engineerBonus };
+      caches: this.caches.filter(c => c.opened).length, rescued: rescued.map(s => s.id), cargo: { ...this.inventory }, engineerBonus, seed: this.layout.seed };
     this.campaign.expeditions++;
     for (const key of ['materials', 'energy', 'medkits'] as const) this.campaign.depot[key] += this.inventory[key];
     this.campaign.depot.materials += engineerBonus;
@@ -169,8 +177,16 @@ export class ExpeditionWorld extends CombatWorld {
     if (room >= 0 && !this.exploredRooms.has(room)) {
       this.exploredRooms.add(room);
       if (this.enemiesEnabled) {
-        const r = roomRect(BUILDINGS[room]);
+        const r = roomRect(this.layout.buildings[room]);
         for (const offset of [128, 192]) { const p = { x: r.x + offset, y: r.y + 144 }; if (this.zombies.length < 16 && canOccupy(p, 11, this.obstacles, this.width, this.height)) this.addZombie(p); }
+      }
+    }
+    const event = this.layout.event;
+    if (this.enemiesEnabled && !this.eventTriggered && distance(this.player, event.point) < 190) {
+      this.eventTriggered = true;
+      for (const offset of [{ x: -80, y: 40 }, { x: 80, y: 40 }, { x: 0, y: 100 }]) {
+        const p = { x: event.point.x + offset.x, y: event.point.y + offset.y };
+        if (this.zombies.length < 16 && canOccupy(p, 11, this.obstacles, this.width, this.height)) this.addZombie(p);
       }
     }
     this.followers.forEach((s, i) => {
@@ -189,7 +205,7 @@ export class ExpeditionWorld extends CombatWorld {
   override snapshot() {
     return { ...super.snapshot(), expedition: { remaining: this.remaining, capacity: CAPACITY, weight: this.weight, inventory: { ...this.inventory },
       caches: structuredClone(this.caches), survivors: structuredClone(this.survivors), camp: { ...CAMP }, objective: structuredClone(this.objective()),
-      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms], layout: structuredClone(this.layout),
+      summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms], layout: structuredClone(this.layout), eventTriggered: this.eventTriggered,
       lanternLevel: this.lanternLevel, lightRadius: this.lightRadius, vision: { explored: this.vision.explored, revision: this.vision.revision, visibleEnemies: this.zombies.filter(z => this.canSee(z)).map(z => z.id), visibleCaches: this.caches.filter(c => this.canSee(c)).map(c => c.id), visibleSurvivors: this.survivors.filter(s => this.canSee(s)).map(s => s.id) } } };
   }
 }

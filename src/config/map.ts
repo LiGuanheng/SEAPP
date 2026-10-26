@@ -3,7 +3,7 @@ import type { Rect, Vec } from '../core/types.ts';
 export const TILE = 32, COLS = 64, ROWS = 44;
 export const WORLD_WIDTH = COLS * TILE, WORLD_HEIGHT = ROWS * TILE;
 export const PLAYER_SPAWN: Vec = { x: 30.5 * TILE, y: 22.5 * TILE };
-export interface Building { x: number; y: number; width: number; height: number; theme: number; label: string }
+export interface Building { x: number; y: number; width: number; height: number; theme: number; label: string; doorColumn?: number }
 export const BUILDINGS: Building[] = [
   { x: 3, y: 4, width: 10, height: 11, theme: 8, label: '北境维修站' },
   { x: 28, y: 5, width: 11, height: 11, theme: 0, label: '旧城药房' },
@@ -18,8 +18,8 @@ export const CARS = [
   { x: 52, y: 23, style: 'gray' }, { x: 7, y: 24, style: 'green' },
 ] as const;
 export function roomRect(b: Building): Rect { return { x: b.x * TILE, y: b.y * TILE, width: b.width * TILE, height: b.height * TILE }; }
-export function roomDoor(b: Building): Vec { return { x: (b.x + Math.floor(b.width / 2) + 0.5) * TILE, y: (b.y + b.height) * TILE }; }
-export function roomAt(p: Vec): number { return BUILDINGS.findIndex(b => { const r = roomRect(b); return p.x > r.x + 16 && p.x < r.x + r.width - 16 && p.y > r.y + 16 && p.y < r.y + r.height; }); }
+export function roomDoor(b: Building): Vec { return { x: (b.x + (b.doorColumn ?? Math.floor(b.width / 2)) + 0.5) * TILE, y: (b.y + b.height) * TILE }; }
+export function roomAt(p: Vec, buildings = BUILDINGS): number { return buildings.findIndex(b => { const r = roomRect(b); return p.x > r.x + 16 && p.x < r.x + r.width - 16 && p.y > r.y + 16 && p.y < r.y + r.height; }); }
 export function roomFurniture(b: Building): Rect[] { const r = roomRect(b); return [{ x: r.x + 48, y: r.y + 64, width: 64, height: 32 }, { x: r.x + r.width - 80, y: r.y + 64, width: 32, height: 64 }]; }
 export function roomWalls(b: Building): Rect[] {
   const r = roomRect(b), d = roomDoor(b);

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BUILDINGS, type BuildingKind } from '../config/base.ts';
+import { buildingStats, type BuildingKind } from '../config/base.ts';
 import { BOSS_ABILITIES, INFECTED, LAMP_HEALTH, NIGHT_SECONDS, type BossKind } from '../config/night.ts';
 import { STAGES } from '../config/progression.ts';
 import type { BaseWorld } from '../core/base-world.ts';
@@ -93,7 +93,7 @@ export class NightHud {
       label.setText(`${INFECTED[e.kind].name}　${Math.ceil(e.health)}/${max}${skill}`);
     });
     const b = w.plan.buildings.find(b => b.id === buildingId);
-    this.selection.setText(this.support ? '火力支援：左键选择视野内落点，0.65 秒后爆炸；右键 / Esc 取消，不伤己方' : b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · 夜战中不能施工或出售` : `守备 ${w.livingSoldiers.length}/${w.plan.soldiers.length} 人　/　已选 ${ids.size} 人　/　尸群 ${w.enemies.length}（空军 ${w.enemies.filter(e => INFECTED[e.kind].flying).length}）　/　自动射击，注意交叉火力`);
+    this.selection.setText(this.support ? '火力支援：左键选择视野内落点，0.65 秒后爆炸；右键 / Esc 取消，不伤己方' : b ? `${buildingStats(b).name} · 耐久 ${b.health}/${buildingStats(b).health} · 夜战中不能施工、改装或出售` : `守备 ${w.livingSoldiers.length}/${w.plan.soldiers.length} 人　/　已选 ${ids.size} 人　/　尸群 ${w.enemies.length}（空军 ${w.enemies.filter(e => INFECTED[e.kind].flying).length}）　/　自动射击，注意交叉火力`);
     this.charges.setText(`炮火支援 [F]　${w.charges} 次${w.supportCooldown > 0 ? ` / ${Math.ceil(w.supportCooldown)}s` : ''}`);
     this.sound.setText(this.muted ? '静音 [M]' : '声音 [M]');
     this.toastTime = Math.max(0, this.toastTime - dt); this.toast.setVisible(this.toastTime > 0);

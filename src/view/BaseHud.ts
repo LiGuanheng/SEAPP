@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BUILDINGS, BUILDING_KEYS, saleRefund, type BuildingKind } from '../config/base.ts';
+import { BUILDINGS, BUILDING_KEYS, saleRefund, buildingStats, refitFor, REFITS, type BuildingKind } from '../config/base.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { STAGES } from '../config/progression.ts';
 
@@ -21,7 +21,9 @@ export class BaseHud {
   private buttonLabel: Phaser.GameObjects.Text;
   private sale: Phaser.GameObjects.Container;
   private saleLabel: Phaser.GameObjects.Text;
-  constructor(scene: Phaser.Scene, build: (kind: BuildingKind) => void, hold: () => void, finish: () => void, pause: () => void, resume: () => void, explore: () => void, sell: () => void) {
+  private refit: Phaser.GameObjects.Container;
+  private refitLabel: Phaser.GameObjects.Text;
+  constructor(scene: Phaser.Scene, build: (kind: BuildingKind) => void, hold: () => void, finish: () => void, pause: () => void, resume: () => void, explore: () => void, sell: () => void, upgrade: () => void) {
     this.root = scene.add.container(0, 0).setDepth(100000);
     const text = (x: number, y: number, value: string, size = 13, color = '#c3d0ba') => {
       const t = scene.add.text(x, y, value, { fontFamily: font, fontSize: `${size}px`, color }); this.root.add(t); return t;
@@ -46,6 +48,10 @@ export class BaseHud {
     sellBg.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); sell(); });
     this.saleLabel = scene.add.text(0, 0, '', { fontFamily: font, fontSize: '12px', color: '#f0d9ab' }).setOrigin(0.5);
     this.sale = scene.add.container(1128, 610, [sellBg, this.saleLabel]).setVisible(false); this.root.add(this.sale);
+    const refitBg = scene.add.rectangle(0, 0, 200, 25, 0x384c46).setStrokeStyle(1, 0x98ab8d).setInteractive({ useHandCursor: true });
+    refitBg.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); upgrade(); });
+    this.refitLabel = scene.add.text(0, 0, '', { fontFamily: font, fontSize: '11px', color: '#e0d4a8' }).setOrigin(0.5);
+    this.refit = scene.add.container(880, 610, [refitBg, this.refitLabel]).setVisible(false); this.root.add(this.refit);
     BUILDING_KEYS.forEach((kind, i) => {
       const x = 65 + i * 112;
       button(x, 665, 106, `[${i + 1}] ${BUILDINGS[kind].name}`, () => build(kind));
@@ -75,7 +81,10 @@ export class BaseHud {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);
     this.info.setText(`营地库存　建材 ${c.depot.materials}　电力 ${c.depot.energy}　急救包 ${c.depot.medkits}`);
     this.timer.setText(`阶段 ${world.stage}/3 ${STAGES[world.stage].name} · 布防 ${Math.ceil(world.remaining)}s · 设施 ${world.plan.buildings.length} · 守备 ${world.plan.soldiers.length}`);
-    this.selection.setText(b ? `${BUILDINGS[b.kind].name} · 耐久 ${Math.ceil(b.health)}/${BUILDINGS[b.kind].health} · 射程 ${BUILDINGS[b.kind].range} · 出售返建材50%（最低1），电力不返` : buildKind ? `${BUILDINGS[buildKind].name} · ${BUILDINGS[buildKind].description} · 耐久${BUILDINGS[buildKind].health} / 射程${BUILDINGS[buildKind].range}` : ids.size ? `已选 ${ids.size} 名士兵 · 右键移动 / G驻守 · 英雄：重炮手慢速对地，医师180范围治疗` : '5 城墙可按住左键拖建 · 左键选中设施后可出售 [X/Del] · 空地混合尸潮，注意对空火力');
+    this.selection.setText(b ? `${buildingStats(b).name} · 耐久 ${Math.ceil(b.health)}/${buildingStats(b).health} · 射程 ${buildingStats(b).range}${b.upgrade ? ' · ' + REFITS[b.upgrade].description : ' · 出售返建材50%，电力不返'}` : buildKind ? `${BUILDINGS[buildKind].name} · ${BUILDINGS[buildKind].description} · 耐久${BUILDINGS[buildKind].health} / 射程${BUILDINGS[buildKind].range}` : ids.size ? `已选 ${ids.size} 名士兵 · 右键移动 / G驻守 · 英雄：重炮手慢速对地，医师180范围治疗` : '5拖建城墙 · 选中机枪/加农炮按U改装（阶段2/3） · X出售 · 留出对空火力');
+    const refit = b && refitFor(b.kind);
+    this.refit.setVisible(!!refit && !b?.upgrade && !paused && world.commanding);
+    if (refit) { const u = REFITS[refit]; this.refitLabel.setText(world.stage < u.stage ? `[U] 阶段${u.stage}解锁` : `[U] ${u.name} ${u.materials - Number(c.survivors.includes('engineer'))}/${u.energy}`); }
     this.sale.setVisible(!!b && !paused && world.commanding);
     if (b) this.saleLabel.setText(`出售 +${saleRefund(b)}建材 [X/Del]`);
     this.mode.setText(buildKind ? `${buildKind === 'wall' ? '按住左键拖动连续铺墙 · ' : buildKind === 'barricade' ? 'R 旋转 · 左键放置 · ' : '左键放置 · '}Esc/右键取消` : `本阶段 ${world.buildArea.width / 32}×${world.buildArea.height / 32} 格 · ${STAGES[world.stage].description}`);

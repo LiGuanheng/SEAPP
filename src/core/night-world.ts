@@ -1,4 +1,4 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, FIELD_SYSTEMS, GRID, LIGHTHOUSE, LIGHTHOUSE_FOOT, TOWER_ATTACKS, buildingRect, type BaseBuilding, type Soldier } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, FIELD_SYSTEMS, GRID, LIGHTHOUSE, LIGHTHOUSE_FOOT, TOWER_ATTACKS, buildingRect, buildingStats, type BaseBuilding, type Soldier } from '../config/base.ts';
 import { BOSS_SKILLS, INFECTED, LAMP_HEALTH, NIGHT_LIMITS, NIGHT_SECONDS, gatesForStage, wavesForStage, levelStats, type InfectedKind } from '../config/night.ts';
 import { ASSAULT_TUNING, assaultPlan, type AssaultOrder, type Difficulty } from './assault.ts';
 import { SpatialIndex } from './spatial.ts';
@@ -13,8 +13,8 @@ import type { ActionResult } from './expedition.ts';
 export interface Windup { kind: 'slam' | 'web' | 'storm' | 'poison' | 'detonate'; point: Vec; remaining: number; duration: number; radius: number }
 export interface NightEnemy extends Vec { id: number; kind: InfectedKind; health: number; aim: number; moving: boolean; cooldown: number; hurt: number; maxHealth?: number; level?: number; skillCooldown?: number; summonCooldown?: number; windup?: Windup; slowed?: number; gate?: number; stalled?: number }
 export interface Hazard extends Vec { id: number; kind: 'web' | 'storm' | 'poison'; radius: number; remaining: number; tick: number; damage: number }
-export interface NightBullet extends Vec { id: number; vx: number; vy: number; damage: number; life: number; splash?: number; projectile?: 'bullet' | 'arrow' | 'shell' }
-export type NightEvent = { type: 'fire' | 'flame' | 'shock' | 'swing' | 'hit' | 'kill' | 'attack' | 'unit-death' | 'structure-death' | 'lamp-hit' | 'explosion' | 'heal' | 'wave' | 'victory' | 'defeat' | 'boss' | 'boss-defeated' | 'cast' | 'summon'; x: number; y: number; angle?: number; kind?: InfectedKind; id?: number; projectile?: 'bullet' | 'arrow' | 'shell' };
+export interface NightBullet extends Vec { id: number; vx: number; vy: number; damage: number; life: number; splash?: number; projectile?: 'bullet' | 'arrow' | 'shell' | 'flak' }
+export type NightEvent = { type: 'fire' | 'flame' | 'shock' | 'swing' | 'hit' | 'kill' | 'attack' | 'unit-death' | 'structure-death' | 'lamp-hit' | 'explosion' | 'heal' | 'wave' | 'victory' | 'defeat' | 'boss' | 'boss-defeated' | 'cast' | 'summon'; x: number; y: number; angle?: number; kind?: InfectedKind; id?: number; projectile?: 'bullet' | 'arrow' | 'shell' | 'flak' };
 export interface NightResult { stage?: StageId; outcome: 'victory' | 'defeat'; duration: number; kills: number; lampHealth: number; soldiers: number; buildings: number; strikes: number; bossKills?: number }
 interface Fighter { health: number; cooldown: number; hurt: number }
 const edgePoint = (p: Vec, r: Rect): Vec => ({ x: Math.max(r.x, Math.min(p.x, r.x + r.width)), y: Math.max(r.y, Math.min(p.y, r.y + r.height)) });
@@ -25,7 +25,7 @@ export class NightWorld extends BaseWorld {
   elapsed = 0; kills = 0; lampHealth = LAMP_HEALTH; lampHurt = 0; wave = 0;
   enemies: NightEnemy[] = []; bullets: NightBullet[] = []; events: NightEvent[] = [];
   readonly fighters = new Map<number, Fighter>();
-  readonly turrets = new Map<number, { cooldown: number; aim: number }>();
+  readonly turrets = new Map<number, { cooldown: number; aim: number; recoil?: number }>();
   readonly strikes: { x: number; y: number; delay: number }[] = [];
   charges: number; supportCooldown = 0; strikesUsed = 0;
   bossKills = 0;
@@ -41,6 +41,7 @@ export class NightWorld extends BaseWorld {
   readonly pressure = [0, 0, 0, 0];
   readonly spawnedByGate = [0, 0, 0, 0];
   peakEnemies = 0;
+  readonly shotsFired = { bullet: 0, arrow: 0, shell: 0, flak: 0 };
   private nextHazardId = 1;
   private spawnTimer = 0;
   private nextEnemyId = 1; private nextBulletId = 1; private healTimer = 8;
@@ -63,6 +64,7 @@ export class NightWorld extends BaseWorld {
   override get livingSoldiers() { return this.plan.soldiers.filter(s => (this.fighters.get(s.id)?.health ?? 0) > 0); }
   override get remaining(): number { return Math.max(0, NIGHT_SECONDS - this.elapsed); }
   override turretAim(id: number): number { return this.turrets.get(id)?.aim ?? -Math.PI / 2; }
+  override turretRecoil(id: number): number { return this.turrets.get(id)?.recoil ?? 0; }
   private makeEnemyNavigation(): Navigation {
     const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, this.obstacles, 11); nav.rebuild({ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 }); return nav;
   }
@@ -76,12 +78,13 @@ export class NightWorld extends BaseWorld {
     this.charges--; this.strikesUsed++; this.supportCooldown = 8; this.strikes.push({ ...p, delay: 0.65 });
     return { ok: true, message: '信号确认，0.65 秒后炮火覆盖；不会伤及己方' };
   }
-  private fire(from: Vec, target: NightEnemy, damage: number, speed = 850, splash = 0, projectile: 'bullet' | 'arrow' | 'shell' = 'bullet'): void {
+  private fire(from: Vec, target: NightEnemy, damage: number, speed = 850, splash = 0, projectile: 'bullet' | 'arrow' | 'shell' | 'flak' = 'bullet'): void {
     if (this.bullets.length >= NIGHT_LIMITS.bullets) return;
     const aim = Math.atan2(target.y - 16 - from.y, target.x - from.x);
     const muzzle = { x: from.x + Math.cos(aim) * 19, y: from.y + Math.sin(aim) * 19 };
     if (firstWall(from, muzzle, BASE_OBSTACLES) !== null) return;
-    this.bullets.push({ ...muzzle, id: this.nextBulletId++, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, damage, life: projectile === 'shell' ? 1.3 : 0.8, splash, projectile });
+    this.bullets.push({ ...muzzle, id: this.nextBulletId++, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, damage, life: projectile === 'shell' ? 2 : 0.8, splash, projectile });
+    this.shotsFired[projectile]++;
     this.events.push({ type: 'fire', ...muzzle, angle: aim, projectile });
   }
   private target(from: Vec, range: number, groundOnly = false): NightEnemy | undefined {
@@ -228,20 +231,21 @@ export class NightWorld extends BaseWorld {
       } }
     }
     for (const b of this.plan.buildings) if (b.kind === 'turret' || b.kind === 'cannon' || b.kind === 'arrowtower' || b.kind === 'sniper') {
-      const config = TOWER_ATTACKS[b.kind];
+      const config = b.upgrade === 'flak' ? { damage: 28, interval: 0.65, speed: 1000, splash: 56, projectile: 'flak' as const } : b.upgrade === 'howitzer' ? { damage: 110, interval: 3.2, speed: 340, splash: 100, projectile: 'shell' as const } : TOWER_ATTACKS[b.kind];
       const turret = this.turrets.get(b.id)!, origin = { x: b.x + 32, y: b.y + 12 };
       const priority = b.kind === 'sniper' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].boss && distance(e, origin) <= BUILDINGS[b.kind].range && firstWall(origin, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null) : undefined;
-      const target = priority ?? this.target(origin, BUILDINGS[b.kind].range, b.kind === 'cannon');
+      const target = b.upgrade === 'flak' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].flying && distance(e, origin) <= buildingStats(b).range && firstWall(origin, e, BASE_OBSTACLES) === null) : priority ?? this.target(origin, buildingStats(b).range, b.kind === 'cannon');
       turret.cooldown = Math.max(0, turret.cooldown - dt);
-      if (target) { turret.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (turret.cooldown === 0) { this.fire(origin, target, config.damage, config.speed, config.splash, config.projectile); turret.cooldown = config.interval; } }
+      turret.recoil = Math.max(0, (turret.recoil ?? 0) - dt * 8);
+      if (target) { turret.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (turret.cooldown === 0) { this.fire(origin, target, config.damage, config.speed, config.splash, config.projectile); turret.cooldown = config.interval; turret.recoil = 1; } }
     }
     for (const b of this.plan.buildings) if (b.kind === 'flame' || b.kind === 'grid' || b.kind === 'repair') {
       const state = this.turrets.get(b.id)!; state.cooldown = Math.max(0, state.cooldown - dt);
       if (state.cooldown > 0) continue;
       const origin = { x: b.x + 32, y: b.y + 32 }, range = BUILDINGS[b.kind].range;
       if (b.kind === 'repair') {
-        for (const other of this.plan.buildings) if (other.id !== b.id && other.health > 0 && other.health < BUILDINGS[other.kind].health && distance(origin, { x: other.x + BUILDINGS[other.kind].width / 2, y: other.y + BUILDINGS[other.kind].height / 2 }) <= range) {
-          other.health = Math.min(BUILDINGS[other.kind].health, other.health + FIELD_SYSTEMS.repair.heal); this.events.push({ type: 'heal', x: other.x + 32, y: other.y + 16 });
+        for (const other of this.plan.buildings) if (other.id !== b.id && other.health > 0 && other.health < buildingStats(other).health && distance(origin, { x: other.x + BUILDINGS[other.kind].width / 2, y: other.y + BUILDINGS[other.kind].height / 2 }) <= range) {
+          other.health = Math.min(buildingStats(other).health, other.health + FIELD_SYSTEMS.repair.heal); this.events.push({ type: 'heal', x: other.x + 32, y: other.y + 16 });
         }
       } else {
         const victims = this.enemies.filter(e => e.health > 0 && !INFECTED[e.kind].flying && distance(e, origin) <= range && firstWall(origin, e, BASE_OBSTACLES) === null);
@@ -258,10 +262,10 @@ export class NightWorld extends BaseWorld {
     for (const bullet of this.bullets) {
       const end = { x: bullet.x + bullet.vx * dt, y: bullet.y + bullet.vy * dt };
       let closest = firstWall(bullet, end, BASE_OBSTACLES) ?? Infinity, victim: NightEnemy | undefined;
-      for (const e of this.enemyIndex.near(bullet, 50 + Math.hypot(bullet.vx, bullet.vy) * dt)) if (e.health > 0 && (bullet.projectile !== 'shell' || !INFECTED[e.kind].flying)) { const t = segmentCircle(bullet, end, { x: e.x, y: e.y - 16 }, INFECTED[e.kind].boss ? 24 : e.kind === 'brute' ? 20 : 14); if (t !== null && t < closest) { closest = t; victim = e; } }
+      for (const e of this.enemyIndex.near(bullet, 50 + Math.hypot(bullet.vx, bullet.vy) * dt)) if (e.health > 0 && (bullet.projectile !== 'shell' || !INFECTED[e.kind].flying) && (bullet.projectile !== 'flak' || INFECTED[e.kind].flying)) { const t = segmentCircle(bullet, end, { x: e.x, y: e.y - 16 }, INFECTED[e.kind].boss ? 24 : e.kind === 'brute' ? 20 : 14); if (t !== null && t < closest) { closest = t; victim = e; } }
       if (closest !== Infinity) {
         bullet.x += (end.x - bullet.x) * closest; bullet.y += (end.y - bullet.y) * closest; bullet.life = 0;
-        if (bullet.splash) { for (const e of this.enemies) if (!INFECTED[e.kind].flying && distance({ x: e.x, y: e.y - 16 }, bullet) <= bullet.splash && firstWall(bullet, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null) this.damageEnemy(e, bullet.damage); this.events.push({ type: 'explosion', x: bullet.x, y: bullet.y }); }
+        if (bullet.splash) { for (const e of this.enemies) if ((bullet.projectile === 'flak' ? INFECTED[e.kind].flying : !INFECTED[e.kind].flying) && distance({ x: e.x, y: e.y - 16 }, bullet) <= bullet.splash && firstWall(bullet, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null) this.damageEnemy(e, bullet.damage); this.events.push({ type: 'explosion', x: bullet.x, y: bullet.y, projectile: bullet.projectile }); }
         else if (victim) this.damageEnemy(victim, bullet.damage);
       }
       else { bullet.x = end.x; bullet.y = end.y; bullet.life -= dt; }
@@ -333,5 +337,5 @@ export class NightWorld extends BaseWorld {
   }
   nightSnapshot() { return { ...super.snapshot(), stage: this.stage, phase: 'night' as const, status: this.status, elapsed: this.elapsed, remaining: this.remaining, lampHealth: this.lampHealth, wave: this.wave,
     kills: this.kills, enemies: structuredClone(this.enemies), bullets: structuredClone(this.bullets), fighters: [...this.fighters].map(([id, f]) => ({ id, ...f })),
-    charges: this.charges, supportCooldown: this.supportCooldown, pendingStrikes: structuredClone(this.strikes), hazards: structuredClone(this.hazards), bossesSeen: [...this.bossesSeen], bossKills: this.bossKills, pressure: [...this.pressure], spawnedByGate: [...this.spawnedByGate], peakEnemies: this.peakEnemies, pendingEnemies: this.queue.length, difficulty: this.difficulty, summary: this.status === 'playing' ? null : this.summary() }; }
+    charges: this.charges, supportCooldown: this.supportCooldown, pendingStrikes: structuredClone(this.strikes), hazards: structuredClone(this.hazards), bossesSeen: [...this.bossesSeen], bossKills: this.bossKills, pressure: [...this.pressure], spawnedByGate: [...this.spawnedByGate], peakEnemies: this.peakEnemies, shotsFired: { ...this.shotsFired }, pendingEnemies: this.queue.length, difficulty: this.difficulty, summary: this.status === 'playing' ? null : this.summary() }; }
 }

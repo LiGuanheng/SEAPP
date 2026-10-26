@@ -43,7 +43,8 @@ export class CombatScene extends Phaser.Scene {
       try { const loaded = loadCampaign(window.localStorage); campaign = loaded.campaign; warning = loaded.warning; }
       catch { warning = '浏览器不允许存档，本次探索仍可正常进行。'; }
     }
-    this.world = training ? new CombatWorld() : new ExpeditionWorld(campaign, true, crypto.getRandomValues(new Uint32Array(1))[0]);
+    const seedParam = new URLSearchParams(location.search).get('seed'), seed = seedParam !== null && /^\d{1,10}$/.test(seedParam) && Number(seedParam) <= 4294967295 ? Number(seedParam) : crypto.getRandomValues(new Uint32Array(1))[0];
+    this.world = training ? new CombatWorld() : new ExpeditionWorld(campaign, true, seed);
     this.held.clear(); this.firing = false; this.paused = false; this.pointerActive = false; this.accumulator = 0; this.bag = false; this.persisted = false;
     this.mapView = new MapView(this, this.world instanceof ExpeditionWorld ? this.world.layout : undefined);
     this.fog = this.world instanceof ExpeditionWorld ? new ExplorationFog(this, this.world) : null;

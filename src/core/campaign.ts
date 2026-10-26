@@ -8,6 +8,7 @@ export interface Cargo { materials: number; energy: number; medkits: number }
 export interface ExpeditionSummary {
   reason: 'return' | 'sunset'; duration: number; kills: number; caches: number;
   rescued: string[]; cargo: Cargo; engineerBonus: number; specialistBonus?: number;
+  seed?: number;
 }
 export interface Campaign {
   version: 2; expeditions: number; depot: Cargo; survivors: string[]; weapons: WeaponId[];
@@ -33,7 +34,7 @@ export function decodeCampaign(raw: string | null): Campaign {
       !idsValid(c.survivors, SURVIVOR_IDS) || !idsValid(c.weapons, ['pistol', 'rifle', 'axe', 'bow']) || !c.weapons.includes('pistol')) throw new Error('存档结构不匹配');
   const s = c.lastSummary;
   if (s !== null && (!s || !['return', 'sunset'].includes(s.reason) || !Number.isFinite(s.duration) || s.duration < 0 || s.duration > 90.1 ||
-    !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || (s.specialistBonus !== undefined && s.specialistBonus !== 3) || !cargoValid(s.cargo) || !idsValid(s.rescued, SURVIVOR_IDS))) throw new Error('结算记录无效');
+    !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || (s.seed !== undefined && (!Number.isInteger(s.seed) || s.seed < 0 || s.seed > 4294967295)) || (s.specialistBonus !== undefined && s.specialistBonus !== 3) || !cargoValid(s.cargo) || !idsValid(s.rescued, SURVIVOR_IDS))) throw new Error('结算记录无效');
   if (c.base !== undefined && c.base !== null && !validBasePlan(c.base)) throw new Error('基地布防存档无效');
   if (c.nightsWon !== undefined && !count(c.nightsWon)) throw new Error('守夜次数无效');
   if (c.clearedStage !== undefined && (!count(c.clearedStage) || c.clearedStage > 3)) throw new Error('战役阶段无效');

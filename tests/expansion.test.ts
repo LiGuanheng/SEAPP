@@ -17,7 +17,7 @@ function enemy(w: NightWorld, x: number, y: number): NightEnemy { const e: Night
 
 test('六处房间门洞真实可通过，侧墙阻挡，室内奖励和人物可从外部到达', () => {
   const w = new ExpeditionWorld(newCampaign(), false); w.navigation.rebuild(CAMP);
-  for (const b of BUILDINGS) {
+  for (const b of w.layout.buildings) {
     const door = roomDoor(b); assert.ok(canOccupy(door, 10, w.obstacles, w.width, w.height));
     assert.equal(firstWall({ x: door.x, y: door.y + 32 }, { x: door.x, y: door.y - 48 }, roomWalls(b)), null);
     assert.notEqual(firstWall({ x: b.x * 32 - 20, y: b.y * 32 + 144 }, { x: b.x * 32 + 80, y: b.y * 32 + 144 }, w.obstacles), null);

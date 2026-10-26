@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, LIGHTHOUSE, RESERVED_ROUTES, buildingRect, type BuildingKind } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, LIGHTHOUSE, RESERVED_ROUTES, buildingRect, buildingStats, type BuildingKind } from '../config/base.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import type { Rect, Vec } from '../core/types.ts';
 import { facing } from './ActorView.ts';
@@ -13,6 +13,7 @@ export class BaseView {
   private buildings = new Map<number, Phaser.GameObjects.Container>();
   private previewImage: Phaser.GameObjects.Image;
   private hint: Phaser.GameObjects.Text;
+  private refits = new Map<number, { kind: string; until: number }>();
   constructor(private scene: Phaser.Scene) {
     this.root = scene.add.container(0, 0);
     const add = <T extends Phaser.GameObjects.GameObject>(object: T): T => { this.root.add(object); return object; };
@@ -97,7 +98,24 @@ export class BaseView {
       }
       const barrel = this.buildings.get(b.id)!.getByName('barrel') as Phaser.GameObjects.Image | null;
       barrel?.setRotation(world.turretAim(b.id));
-      const health = b.health / BUILDINGS[b.kind].health;
+      if (barrel) {
+        const recoil = world.turretRecoil(b.id) * 4, a = world.turretAim(b.id), y = b.kind === 'sniper' ? -39 : b.kind === 'arrowtower' ? -43 : b.kind === 'cannon' ? -15 : -19;
+        barrel.setVisible(!b.upgrade).setPosition(-Math.cos(a) * recoil, y - Math.sin(a) * recoil);
+      }
+      if (b.upgrade) {
+        const a = world.turretAim(b.id), x = r.x + 32, y = r.y + 12, recoil = world.turretRecoil(b.id) * 6;
+        if (this.refits.get(b.id)?.kind !== b.upgrade) this.refits.set(b.id, { kind: b.upgrade, until: this.scene.time.now + 700 });
+        g.fillStyle(0x293733).fillEllipse(x, y + 7, 46, 25).lineStyle(2, buildingStats(b).tint).strokeEllipse(x, y + 7, 44, 23);
+        for (const offset of b.upgrade === 'flak' ? [-7, 7] : [0]) {
+          const sx = x - Math.sin(a) * offset, sy = y + Math.cos(a) * offset, length = (b.upgrade === 'flak' ? 30 : 47) - recoil;
+          g.lineStyle(b.upgrade === 'flak' ? 7 : 13, 0x192626).lineBetween(sx, sy, sx + Math.cos(a) * length, sy + Math.sin(a) * length);
+          g.lineStyle(b.upgrade === 'flak' ? 3 : 7, buildingStats(b).tint).lineBetween(sx, sy - 2, sx + Math.cos(a) * (length - 5), sy - 2 + Math.sin(a) * (length - 5));
+        }
+        if (b.upgrade === 'flak') g.lineStyle(2, 0x98ad9c).lineBetween(x - 19, y - 7, x - 19, y - 37).strokeRect(x - 25, y - 40, 12, 7);
+        const pulse = Math.max(0, (this.refits.get(b.id)!.until - this.scene.time.now) / 700);
+        if (pulse > 0) g.lineStyle(2, 0xe5cd91, pulse).strokeEllipse(x, y + 7, 48 + (1 - pulse) * 24, 28 + (1 - pulse) * 14);
+      }
+      const health = b.health / buildingStats(b).health;
       const body = this.buildings.get(b.id)!.list.find(o => o instanceof Phaser.GameObjects.Image && o.name !== 'barrel') as Phaser.GameObjects.Image | undefined;
       body?.setTint(health < 0.35 ? 0x8d7263 : health < 0.7 ? 0xb4a68d : 0xffffff);
       if (health < 0.7) {
@@ -106,7 +124,7 @@ export class BaseView {
       }
       if (buildingId === b.id) {
         g.lineStyle(2, 0xe4c98f).strokeRect(r.x - 2, r.y - 2, r.width + 4, r.height + 4);
-        const range = BUILDINGS[b.kind].range;
+        const range = buildingStats(b).range;
         if (range) g.lineStyle(1, 0xc9c590, 0.3).strokeCircle(r.x + r.width / 2, r.y + r.height / 2, range);
       }
     }

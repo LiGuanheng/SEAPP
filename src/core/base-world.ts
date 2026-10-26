@@ -1,4 +1,4 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, saleRefund, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, REFITS, refitFor, buildingRect, overlaps, saleRefund, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
 import { canOccupy, circleOverlapsRect, distance, moveWithCollision, normalized } from './geometry.ts';
 import { Navigation } from './navigation.ts';
@@ -41,6 +41,7 @@ export class BaseWorld {
   get commanding(): boolean { return this.plan.status === 'preparing'; }
   get livingSoldiers(): Soldier[] { return this.plan.soldiers; }
   turretAim(_id: number): number { return -Math.PI / 2; }
+  turretRecoil(_id: number): number { return 0; }
   get obstacles(): Rect[] { return [...BASE_OBSTACLES, ...this.plan.buildings.map(buildingRect)]; }
   cost(kind: BuildingKind) {
     const config = BUILDINGS[kind];
@@ -79,6 +80,17 @@ export class BaseWorld {
     const building = this.plan.buildings[index], refund = saleRefund(building);
     this.campaign.depot.materials += refund; this.plan.buildings.splice(index, 1); this.rebuildNavigation();
     return { ok: true, message: `已出售，返还 ${refund} 建材；电力不返还` };
+  }
+  refit(id: number): ActionResult {
+    if (this.plan.status !== 'preparing') return { ok: false, message: '只能在黄昏布防时改装' };
+    const b = this.plan.buildings.find(b => b.id === id), kind = b && refitFor(b.kind);
+    if (!b || !kind || b.upgrade) return { ok: false, message: '选择尚未改装的机枪塔或加农炮' };
+    const config = REFITS[kind], materials = config.materials - Number(this.campaign.survivors.includes('engineer'));
+    if (this.stage < config.stage) return { ok: false, message: `${config.name} · 阶段${config.stage}解锁` };
+    if (this.campaign.depot.materials < materials || this.campaign.depot.energy < config.energy) return { ok: false, message: `改装需要建材${materials} / 电力${config.energy}` };
+    this.campaign.depot.materials -= materials; this.campaign.depot.energy -= config.energy;
+    b.upgrade = kind; b.upgradePaid = { materials, energy: config.energy }; b.health += config.health - BUILDINGS[b.kind].health;
+    return { ok: true, message: `${config.name} 改装完成 · ${config.description}` };
   }
   buildWalls(points: readonly Vec[]): ActionResult & { built: number } {
     let built = 0, blocked = '';

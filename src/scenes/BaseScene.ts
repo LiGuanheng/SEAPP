@@ -60,7 +60,7 @@ export class BaseScene extends Phaser.Scene {
     this.view = new BaseView(this);
     this.nightView = this.world instanceof NightWorld ? new NightView(this, this.view.root) : null;
     this.hud = data.battle ? new NightHud(this, () => this.action(this.world.hold([...this.selected])), () => this.toggleSupport(), () => this.audio?.toggle(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore()) :
-      new BaseHud(this, k => this.setKind(k), () => this.action(this.world.hold([...this.selected])), () => this.finish(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore(), () => this.sellSelected());
+      new BaseHud(this, k => this.setKind(k), () => this.action(this.world.hold([...this.selected])), () => this.finish(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore(), () => this.sellSelected(), () => this.refitSelected());
     this.radar = new TacticalRadar(this, this.hud.root, (x, y) => { if (!this.paused && this.world.commanding) { this.transition?.skip(); camera.centerOn(x, y); this.drag = null; this.wallStroke = null; } });
     const home = this.add.text(1040, 70, '回灯塔 [C]', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e4ca91', backgroundColor: '#263d3b', padding: { x: 10, y: 8 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     home.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.home(); }); this.hud.root.add(home);
@@ -98,6 +98,7 @@ export class BaseScene extends Phaser.Scene {
       if (e.code === 'KeyF') this.toggleSupport();
       if (e.code === 'KeyG') this.action(this.world.hold([...this.selected]));
       if (e.code === 'Delete' || e.code === 'KeyX') this.sellSelected();
+      if (e.code === 'KeyU') this.refitSelected();
       this.held.add(e.code);
     };
     const keyUp = (e: KeyboardEvent) => this.held.delete(e.code);
@@ -186,6 +187,10 @@ export class BaseScene extends Phaser.Scene {
     this.wallStroke = null;
     const result = this.world.demolish(this.selectedBuilding); this.action(result);
     if (result.ok) this.selectedBuilding = null;
+  }
+  private refitSelected(): void {
+    if (this.paused || this.world instanceof NightWorld || this.selectedBuilding === null) return;
+    this.action(this.world.refit(this.selectedBuilding));
   }
   private persist(): void {
     if (this.world instanceof NightWorld && this.world.commanding) return;

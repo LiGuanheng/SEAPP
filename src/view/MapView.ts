@@ -1,19 +1,28 @@
 import Phaser from 'phaser';
-import { BUILDINGS, CARS, COLS, DECORATIONS, ROWS, TILE, groundTile, roomAt, roomDoor, roomFurniture, roomWalls } from '../config/map.ts';
+import { BUILDINGS, CARS, COLS, DECORATIONS, ROWS, TILE, groundTile, roomAt, roomDoor, roomFurniture, roomWalls, type Building } from '../config/map.ts';
 import type { Vec } from '../core/types.ts';
 import type { ExplorationLayout } from '../core/exploration-layout.ts';
 
 export class MapView {
   private roofs: Phaser.GameObjects.Container[] = [];
+  private buildings: Building[];
   constructor(scene: Phaser.Scene, layout?: ExplorationLayout) {
+    this.buildings = layout?.buildings ?? BUILDINGS;
     const map = scene.make.tilemap({ data: Array.from({ length: ROWS }, (_, y) => Array.from({ length: COLS }, (_, x) => groundTile(x, y))), tileWidth: 16, tileHeight: 16 });
     const tiles = map.addTilesetImage('city', 'city', 16, 16, 0, 0)!;
     map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(layout?.tint ?? 0x87938e).setDepth(-100);
     for (const d of layout?.debris ?? []) scene.add.image(d.x, d.y, 'city', d.frame).setOrigin(0).setScale(2).setTint(0x8c947e).setDepth(d.y + 32);
+    for (const r of layout?.barricades ?? []) {
+      const g = scene.add.graphics().setDepth(r.y + r.height);
+      g.fillStyle(0x0b181c, 0.55).fillRect(r.x + 6, r.y + 8, r.width, r.height);
+      for (let y = r.y; y < r.y + r.height; y += 32) for (let x = r.x; x < r.x + r.width; x += 32) {
+        g.fillStyle(0x4b5550).fillRect(x, y - 8, 30, 32).fillStyle(0x7c7960).fillRect(x + 2, y - 8, 26, 4).lineStyle(3, 0x242d2b).lineBetween(x + 6, y - 2, x + 23, y + 18);
+      }
+    }
     const shadows = scene.add.graphics().setDepth(-1).fillStyle(0x101719, 0.4);
     let roof: Phaser.GameObjects.Container | null = null;
     const tile = (x: number, y: number, frame: number, depth: number, tint = 0x9ca49a) => { const image = scene.add.image(x * TILE, y * TILE, 'city', frame).setOrigin(0).setScale(2).setDepth(depth).setTint(tint); roof?.add(image); return image; };
-    for (const building of BUILDINGS) {
+    for (const building of this.buildings) {
       const { x, y, width, height, theme, label } = building, roofHeight = height - 2, depth = (y + height) * TILE - 1;
       const door = roomDoor(building);
       for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) tile(x + col, y + row, (row + col) % 5 ? 704 : 777, -2, 0x96968c);
@@ -28,7 +37,7 @@ export class MapView {
       }
       for (let col = 0; col < width; col++) {
         tile(x + col, y + roofHeight, col === 0 || col === width - 1 ? 190 : col % 3 === 0 ? 622 : 618, depth);
-        tile(x + col, y + height - 1, col === Math.floor(width / 2) ? 641 : 190, depth, 0x858e87);
+        tile(x + col, y + height - 1, col === (building.doorColumn ?? Math.floor(width / 2)) ? 641 : 190, depth, 0x858e87);
       }
       for (let i = 2; i < width - 1; i += 4) tile(x + i, y + 2, 541, depth + 1, 0x8c9b95);
       tile(x + width - 3, y + roofHeight - 2, 545, depth + 1);
@@ -55,5 +64,5 @@ export class MapView {
     scene.add.text(29 * TILE, 24.5 * TILE, 'NORTH DISTRICT  /  07', { fontFamily: 'monospace', fontSize: '11px', color: '#b7ad85', letterSpacing: 3 }).setAlpha(0.35).setDepth(0);
     scene.add.text(24.5 * TILE, 17 * TILE, '隔离区', { fontFamily: 'Microsoft YaHei, sans-serif', fontSize: '20px', color: '#a78e6a', letterSpacing: 5 }).setAlpha(0.5).setDepth(0);
   }
-  update(player: Vec): void { const inside = roomAt(player); this.roofs.forEach((roof, i) => { const door = roomDoor(BUILDINGS[i]); roof.setVisible(i !== inside && Math.hypot(player.x - door.x, player.y - door.y) > 75); }); }
+  update(player: Vec): void { const inside = roomAt(player, this.buildings); this.roofs.forEach((roof, i) => { const door = roomDoor(this.buildings[i]); roof.setVisible(i !== inside && Math.hypot(player.x - door.x, player.y - door.y) > 75); }); }
 }

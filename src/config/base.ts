@@ -31,8 +31,15 @@ export const TOWER_ATTACKS = {
 } as const;
 export const FIELD_SYSTEMS = { grid: { interval: 0.6, damage: 4, slow: 0.9 }, flame: { interval: 0.3, damage: 12 }, repair: { interval: 3, heal: 8 } } as const;
 export const BUILDING_KEYS = ['barricade', 'turret', 'cannon', 'arrowtower', 'wall', 'grid', 'repair', 'flame', 'sniper'] as const;
-export interface BaseBuilding { id: number; kind: BuildingKind; x: number; y: number; rotation: 0 | 1; health: number; paid: { materials: number; energy: number } }
-export const saleRefund = (b: Pick<BaseBuilding, 'paid'>): number => Math.max(1, Math.floor(b.paid.materials / 2));
+export const REFITS = {
+  flak: { kind: 'turret', name: '双联高射炮', stage: 2, materials: 6, energy: 2, health: 125, range: 340, tint: 0xa8bfa9, description: '仅对空 · 28伤害/0.65秒 · 56范围破片' },
+  howitzer: { kind: 'cannon', name: '重型榴弹炮', stage: 3, materials: 10, energy: 4, health: 145, range: 460, tint: 0xc9ae82, description: '仅对地 · 110伤害/3.2秒 · 100范围爆炸' },
+} as const;
+export type RefitKind = keyof typeof REFITS;
+export interface BaseBuilding { id: number; kind: BuildingKind; x: number; y: number; rotation: 0 | 1; health: number; paid: { materials: number; energy: number }; upgrade?: RefitKind; upgradePaid?: { materials: number; energy: number } }
+export const refitFor = (kind: BuildingKind): RefitKind | undefined => kind === 'turret' ? 'flak' : kind === 'cannon' ? 'howitzer' : undefined;
+export const buildingStats = (b: Pick<BaseBuilding, 'kind' | 'upgrade'>) => b.upgrade ? { ...BUILDINGS[b.kind], ...REFITS[b.upgrade] } : BUILDINGS[b.kind];
+export const saleRefund = (b: Pick<BaseBuilding, 'paid' | 'upgradePaid'>): number => Math.max(1, Math.floor((b.paid.materials + (b.upgradePaid?.materials ?? 0)) / 2));
 export interface Soldier extends Vec { id: number; destination: Vec | null; stance: 'move' | 'hold'; moving: boolean; aim: number; role?: 'rifle' | 'archer' | 'vanguard' | 'guardian' | 'gunner' }
 export interface BasePlan { version: 1; stage?: StageId; status: 'preparing' | 'ready'; elapsed: number; buildings: BaseBuilding[]; soldiers: Soldier[] }
 export function buildingRect(b: Pick<BaseBuilding, 'kind' | 'x' | 'y' | 'rotation'>): Rect {
@@ -52,8 +59,11 @@ export function validBasePlan(value: unknown): value is BasePlan {
   for (const b of p.buildings) {
     if (!b || !Object.hasOwn(BUILDINGS, b.kind) || !Number.isSafeInteger(b.id) || b.id <= 0 || b.id > 1_000_000 || ids.has(b.id) ||
       !Number.isFinite(b.x) || !Number.isFinite(b.y) || b.x % GRID || b.y % GRID || ![0, 1].includes(b.rotation)) return false;
+    if (b.upgrade !== undefined && (!Object.hasOwn(REFITS, b.upgrade) || REFITS[b.upgrade].kind !== b.kind || !b.upgradePaid || !Number.isInteger(b.upgradePaid.materials) || b.upgradePaid.materials < REFITS[b.upgrade].materials - 1 || b.upgradePaid.materials > REFITS[b.upgrade].materials || b.upgradePaid.energy !== REFITS[b.upgrade].energy)) return false;
+    if (b.upgrade === undefined && b.upgradePaid !== undefined) return false;
+    if (b.upgrade && p.stage !== undefined && REFITS[b.upgrade].stage > p.stage) return false;
     const c = BUILDINGS[b.kind], r = buildingRect(b);
-    if (!Number.isFinite(b.health) || b.health <= 0 || b.health > c.health || !b.paid || !Number.isInteger(b.paid.materials) ||
+    if (!Number.isFinite(b.health) || b.health <= 0 || b.health > buildingStats(b).health || !b.paid || !Number.isInteger(b.paid.materials) ||
       b.paid.materials < Math.max(1, c.materials - 1) || b.paid.materials > c.materials || b.paid.energy !== c.energy ||
       r.x < BUILD_AREA.x || r.y < BUILD_AREA.y || r.x + r.width > BUILD_AREA.x + BUILD_AREA.width || r.y + r.height > BUILD_AREA.y + BUILD_AREA.height ||
       [...BASE_OBSTACLES, ...RESERVED_ROUTES, ...p.buildings.filter(other => !!other && other !== b && Object.hasOwn(BUILDINGS, other.kind)).map(buildingRect)].some(o => overlaps(r, o))) return false;
