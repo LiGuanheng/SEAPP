@@ -1,5 +1,7 @@
 # v0.10 三阶段守灯战役
 
+本文记录v0.10基线；v0.10.1已调整尸潮密度/空军、拖墙与出售，现行数值和验收见[17-assault-and-building.md](17-assault-and-building.md)。
+
 ## 审查与范围
 
 已阅读 README、架构/设计/测试及 v0.7–v0.9 交接资料，核对 campaign、expedition、base-world、night-world、地图、视图、输入和规则/浏览器测试。修改前 `npm test` 62/62 通过。现有问题是同一夜固定四 Boss 全出，胜场只作统计；五种设施全部开局开放；既有扩大基地没有内容解锁联系，人物仅五种，建筑资产外形与底座缺少统一标识。

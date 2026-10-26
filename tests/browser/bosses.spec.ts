@@ -18,10 +18,11 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   expect((await state(page)).plan.soldiers).toHaveLength(8);
   await page.screenshot({ path: 'artifacts/progression-late-base.png' });
   await key(page, 'Enter'); await key(page, 'KeyN'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await key(page, 'KeyT'); await key(page, 'KeyT');
-  const kinds = new Set<string>(); let skill = false, checkedPause = false, capturedNewBoss = false;
+  const kinds = new Set<string>(); let skill = false, checkedPause = false, capturedNewBoss = false, capturedHorde = false;
   for (let i = 0; i < 260 && (await state(page)).status === 'playing'; i++) {
     await page.clock.runFor(180); const s = await state(page);
     for (const e of s.enemies) kinds.add(e.kind);
+    if (!capturedHorde && s.enemies.length >= 40) { await page.screenshot({ path: 'artifacts/assault-horde.png' }); capturedHorde = true; }
     if (s.hazards.length || s.enemies.some((e: any) => e.windup)) {
       skill = true;
       if (!checkedPause) {
@@ -37,7 +38,7 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   const end = await state(page); expect(end.status).toBe('victory'); expect(end.elapsed).toBe(120); expect(end.stage).toBe(3);
   expect([...end.bossesSeen].sort()).toEqual(['bird', 'blighter', 'bomber', 'knight', 'queen']);
   for (const kind of ['spiderling', 'undead', 'crow']) expect(kinds.has(kind)).toBe(true);
-  expect(skill).toBe(true); expect(capturedNewBoss).toBe(true);
+  expect(skill).toBe(true); expect(capturedNewBoss).toBe(true); expect(capturedHorde).toBe(true);
   expect(end.view.particles).toBeLessThanOrEqual(240); expect(end.view.corpses).toBeLessThanOrEqual(40); expect(end.view.objects).toBeLessThan(800);
   await page.screenshot({ path: 'artifacts/progression-final-victory.png' }); await page.clock.runFor(1000); expect(await state(page)).toEqual(end); expect(errors).toEqual([]);
 });

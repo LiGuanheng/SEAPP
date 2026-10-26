@@ -1,4 +1,4 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, buildingRect, overlaps, saleRefund, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
 import { canOccupy, circleOverlapsRect, distance, moveWithCollision, normalized } from './geometry.ts';
 import { Navigation } from './navigation.ts';
@@ -76,9 +76,14 @@ export class BaseWorld {
     if (this.plan.status !== 'preparing') return { ok: false, message: '请先继续调整阵地' };
     const index = this.plan.buildings.findIndex(b => b.id === id);
     if (index < 0) return { ok: false, message: '请先选择设施' };
-    const building = this.plan.buildings[index], refund = Math.floor(building.paid.materials / 2);
+    const building = this.plan.buildings[index], refund = saleRefund(building);
     this.campaign.depot.materials += refund; this.plan.buildings.splice(index, 1); this.rebuildNavigation();
-    return { ok: true, message: `已拆除，返还 ${refund} 建材；电力不返还` };
+    return { ok: true, message: `已出售，返还 ${refund} 建材；电力不返还` };
+  }
+  buildWalls(points: readonly Vec[]): ActionResult & { built: number } {
+    let built = 0, blocked = '';
+    for (const point of points) { const result = this.build('wall', point); if (result.ok) built++; else blocked = result.message; }
+    return { ok: built > 0, built, message: built ? `连续建墙 ${built} 段${blocked ? ' · 不合法或已占用的格子已跳过' : ''}` : blocked || '请拖动到新的网格' };
   }
   protected rebuildNavigation(): void {
     this.navigation.clear();

@@ -74,7 +74,7 @@ export class NightHud {
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
     this.status.setText(`阶段${w.stage}/3 · 天亮 ${Math.ceil(w.remaining)}s · ${w.wave}/${w.waves.length}波 · 击杀${w.kills}`);
     const next = w.waves[w.wave];
-    this.forecast.setText(next ? `${STAGES[w.stage].name} · 下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s · ${next.bosses.length ? next.bosses.map(k => INFECTED[k].name).join(' + ') : '感染者集群'}` : '最终尸潮已出动 · 守到天亮，无需全歼');
+    this.forecast.setText(next ? `${STAGES[w.stage].name} · 下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s · ${next.bosses.length ? next.bosses.map(k => INFECTED[k].name).join(' + ') : '感染者集群'}${next.crow ? ` · 腐鸦空袭 ${next.crow}` : ''}` : '最终尸潮已出动 · 守到天亮，无需全歼');
     const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 5); this.bossRows = bosses.length;
     this.bosses.forEach((label, i) => {
       const e = bosses[i]; label.setVisible(!!e && !paused && w.commanding); if (!e) return;
@@ -84,7 +84,7 @@ export class NightHud {
       label.setText(`${INFECTED[e.kind].name}　${Math.ceil(e.health)}/${max}${skill}`);
     });
     const b = w.plan.buildings.find(b => b.id === buildingId);
-    this.selection.setText(this.support ? '火力支援：左键选择视野内落点，0.65 秒后爆炸；右键 / Esc 取消，不伤己方' : b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · 夜战中不能施工或拆除` : `守备 ${w.livingSoldiers.length}/${w.plan.soldiers.length} 人　/　已选 ${ids.size} 人　/　在场感染者 ${w.enemies.length}　/　自动射击，移动调整交叉火力`);
+    this.selection.setText(this.support ? '火力支援：左键选择视野内落点，0.65 秒后爆炸；右键 / Esc 取消，不伤己方' : b ? `${BUILDINGS[b.kind].name} · 耐久 ${b.health}/${BUILDINGS[b.kind].health} · 夜战中不能施工或出售` : `守备 ${w.livingSoldiers.length}/${w.plan.soldiers.length} 人　/　已选 ${ids.size} 人　/　尸群 ${w.enemies.length}（空军 ${w.enemies.filter(e => INFECTED[e.kind].flying).length}）　/　自动射击，注意交叉火力`);
     this.charges.setText(`炮火支援 [F]　${w.charges} 次${w.supportCooldown > 0 ? ` / ${Math.ceil(w.supportCooldown)}s` : ''}`);
     this.sound.setText(this.muted ? '静音 [M]' : '声音 [M]');
     this.toastTime = Math.max(0, this.toastTime - dt); this.toast.setVisible(this.toastTime > 0);

@@ -59,7 +59,8 @@ test('真实探索回营后进入基地，资源建设、选兵右键移动、�
   await page.screenshot({ path: 'artifacts/phase3-command.png' });
   await page.keyboard.press('KeyP'); await page.clock.runFor(80); const paused = await state(page);
   await page.clock.runFor(5000); expect(await state(page)).toEqual(paused);
-  await page.keyboard.press('KeyP'); await page.keyboard.press('Enter'); await page.clock.runFor(100);
+  await page.keyboard.press('KeyP'); await page.clock.runFor(70); expect((await state(page)).paused).toBe(false);
+  await page.keyboard.press('Enter'); await page.clock.runFor(100);
   expect((await state(page)).plan.status).toBe('ready');
   await page.screenshot({ path: 'artifacts/phase3-ready.png' });
   await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);

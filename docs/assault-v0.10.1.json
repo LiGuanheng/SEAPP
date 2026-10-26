@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-26",
+  "version": "0.10.1",
+  "plannedEnemies": [
+    100,
+    162,
+    230
+  ],
+  "enemyLimit": 72,
+  "referenceNights": [
+    {
+      "stage": 1,
+      "summary": {
+        "stage": 1,
+        "outcome": "victory",
+        "duration": 120,
+        "kills": 100,
+        "lampHealth": 380,
+        "soldiers": 3,
+        "buildings": 4,
+        "strikes": 2,
+        "bossKills": 1
+      },
+      "peak": {
+        "enemies": 20,
+        "bullets": 8,
+        "zones": 0
+      }
+    },
+    {
+      "stage": 2,
+      "summary": {
+        "stage": 2,
+        "outcome": "victory",
+        "duration": 120,
+        "kills": 164,
+        "lampHealth": 380,
+        "soldiers": 2,
+        "buildings": 7,
+        "strikes": 2,
+        "bossKills": 2
+      },
+      "peak": {
+        "enemies": 33,
+        "bullets": 10,
+        "zones": 1
+      }
+    },
+    {
+      "stage": 3,
+      "summary": {
+        "stage": 3,
+        "outcome": "victory",
+        "duration": 120,
+        "kills": 234,
+        "lampHealth": 324,
+        "soldiers": 4,
+        "buildings": 9,
+        "strikes": 2,
+        "bossKills": 4
+      },
+      "peak": {
+        "enemies": 55,
+        "bullets": 9,
+        "zones": 1
+      }
+    }
+  ],
+  "validation": {
+    "rules": "82/82",
+    "productionChrome": "35/35",
+    "browserDuration": "3.9m",
+    "bundle": "index-DQ7UCneV.js",
+    "build": "passed"
+  },
+  "note": "模型参考阵地与真实键鼠自动化，不宣称人工难度认可。"
+}

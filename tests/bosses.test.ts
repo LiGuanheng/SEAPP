@@ -19,7 +19,7 @@ function run(w: NightWorld, seconds: number) { for (let i = 0; i < Math.ceil(sec
 
 test('首阶段五波编成递增，仅最终巨汉；波次提升耐久/伤害/速度且等级封顶', () => {
   const sizes = WAVES.map(w => MOB_KINDS.reduce((n, k) => n + w[k], w.bosses.length));
-  assert.deepEqual(sizes, [6, 9, 12, 14, 18]); assert.equal(sizes.reduce((a, b) => a + b), 59);
+  assert.deepEqual(sizes, [9, 16, 21, 25, 29]); assert.equal(sizes.reduce((a, b) => a + b), 100);
   assert.deepEqual(WAVES.flatMap(w => w.bosses), ['axeman']);
   for (const k of Object.keys(INFECTED) as InfectedKind[]) {
     const a = levelStats(k), b = levelStats(k, 5); assert.ok(b.health > a.health && b.damage > a.damage && b.speed > a.speed); assert.deepEqual(levelStats(k, 50), b);

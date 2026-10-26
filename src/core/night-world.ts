@@ -1,5 +1,5 @@
 import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, FIELD_SYSTEMS, GRID, LIGHTHOUSE, LIGHTHOUSE_FOOT, TOWER_ATTACKS, buildingRect, type BaseBuilding, type Soldier } from '../config/base.ts';
-import { BOSS_SKILLS, GATES, INFECTED, LAMP_HEALTH, MOB_KINDS, NIGHT_LIMITS, NIGHT_SECONDS, gatesForStage, wavesForStage, levelStats, type InfectedKind } from '../config/night.ts';
+import { ASSAULT_CADENCE, BOSS_SKILLS, GATES, INFECTED, LAMP_HEALTH, MOB_KINDS, NIGHT_LIMITS, NIGHT_SECONDS, gatesForStage, wavesForStage, levelStats, type InfectedKind } from '../config/night.ts';
 import { STAGES, type StageId } from '../config/progression.ts';
 import { BaseWorld } from './base-world.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
@@ -178,15 +178,21 @@ export class NightWorld extends BaseWorld {
     while (this.wave < this.waves.length && this.elapsed >= this.waves[this.wave].at) {
       const w = this.waves[this.wave++];
       w.bosses.forEach((kind, i) => this.queue.unshift({ kind, gate: (this.wave + i) % GATES.length, level: this.wave }));
-      for (const kind of MOB_KINDS) for (let i = 0; i < w[kind]; i++) this.queue.push({ kind, gate: (i + this.wave + (kind === 'runner' ? 1 : 0)) % GATES.length, level: this.wave });
+      // 混编穿插，避免飞行/重装单位排在几十名步兵后面、到黎明仍未进场。
+      for (let i = 0; i < Math.max(...MOB_KINDS.map(k => w[k])); i++) MOB_KINDS.forEach((kind, column) => {
+        if (i < w[kind]) this.queue.push({ kind, gate: (i + this.wave + column) % GATES.length, level: this.wave });
+      });
       this.events.push({ type: 'wave', ...LIGHTHOUSE });
     }
     this.spawnTimer -= dt;
-    if (this.queue.length && this.spawnTimer <= 0 && this.enemies.length < NIGHT_LIMITS.enemies) {
-      const next = this.queue.shift()!, gate = gatesForStage(this.stage)[next.gate], offset = ((this.nextEnemyId % 3) - 1) * 24;
-      const point = { x: gate.x + (next.gate % 2 === 0 ? offset : 0), y: gate.y + (next.gate % 2 ? offset : 0) };
-      this.spawnEnemy(next.kind, point, next.level);
-      this.spawnTimer = Math.max(0.22, 0.4 - this.wave * 0.035);
+    if (this.queue.length && this.spawnTimer <= 0) {
+      const cadence = ASSAULT_CADENCE[this.stage];
+      for (let i = 0; i < cadence.batch && this.queue.length && this.enemies.length < NIGHT_LIMITS.enemies; i++) {
+        const next = this.queue.shift()!, gate = gatesForStage(this.stage)[next.gate], offset = ((this.nextEnemyId % 3) - 1) * 24;
+        const point = { x: gate.x + (next.gate % 2 === 0 ? offset : 0), y: gate.y + (next.gate % 2 ? offset : 0) };
+        this.spawnEnemy(next.kind, point, next.level);
+      }
+      this.spawnTimer = cadence.interval;
     }
     this.stepSoldiers(dt);
     for (const s of this.livingSoldiers) {

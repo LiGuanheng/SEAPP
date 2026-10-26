@@ -29,6 +29,7 @@ for (let stage = 1; stage <= 3; stage++) {
   times.sort((a, b) => a - b);
   console.log(JSON.stringify({ stage, summary: night.summary(), bosses: [...night.bossesSeen], peak, modelStepMs: { mean: times.reduce((a, b) => a + b, 0) / times.length, p95: times[Math.floor(times.length * 0.95)], max: times.at(-1) }, depot: base.campaign.depot }));
   if (night.status !== 'victory') throw new Error(`阶段${stage}参考阵地失守，需调整布防或数值`);
+  if (stage === 3 && peak.enemies < 40) throw new Error('后期尸潮密度不足：参考阵地应观察到至少40名敌人同时逼近');
   campaign = night.resultCampaign();
 }
 

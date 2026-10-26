@@ -32,6 +32,7 @@ export const TOWER_ATTACKS = {
 export const FIELD_SYSTEMS = { grid: { interval: 0.6, damage: 4, slow: 0.9 }, flame: { interval: 0.3, damage: 12 }, repair: { interval: 3, heal: 8 } } as const;
 export const BUILDING_KEYS = ['barricade', 'turret', 'cannon', 'arrowtower', 'wall', 'grid', 'repair', 'flame', 'sniper'] as const;
 export interface BaseBuilding { id: number; kind: BuildingKind; x: number; y: number; rotation: 0 | 1; health: number; paid: { materials: number; energy: number } }
+export const saleRefund = (b: Pick<BaseBuilding, 'paid'>): number => Math.max(1, Math.floor(b.paid.materials / 2));
 export interface Soldier extends Vec { id: number; destination: Vec | null; stance: 'move' | 'hold'; moving: boolean; aim: number; role?: 'rifle' | 'archer' | 'vanguard' | 'guardian' | 'gunner' }
 export interface BasePlan { version: 1; stage?: StageId; status: 'preparing' | 'ready'; elapsed: number; buildings: BaseBuilding[]; soldiers: Soldier[] }
 export function buildingRect(b: Pick<BaseBuilding, 'kind' | 'x' | 'y' | 'rotation'>): Rect {
