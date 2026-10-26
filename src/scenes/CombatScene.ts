@@ -12,7 +12,7 @@ import { ExpeditionView } from '../view/ExpeditionView.ts';
 import { SoundBus } from '../view/SoundBus.ts';
 import { FieldGuide } from '../view/FieldGuide.ts';
 import { ExplorationFog } from '../view/ExplorationFog.ts';
-import { SceneTransition } from '../view/SceneTransition.ts';
+import { SceneTransition, effects, toggleEffects } from '../view/SceneTransition.ts';
 
 export class CombatScene extends Phaser.Scene {
   private world!: CombatWorld;
@@ -53,12 +53,12 @@ export class CombatScene extends Phaser.Scene {
     this.hud = new Hud(this, () => this.togglePause(), () => this.advance(), () => this.audio.toggle());
     this.guide = new FieldGuide(this, this.hud.root, training ? 'combat' : 'city', () => this.toggleGuide());
     this.transition = new SceneTransition(this, this.hud.root);
-    if (!training) this.transition.play('提灯出发', '深入黑雾寻找补给 · 入夜前回到灯塔');
     this.musicLabel = this.add.text(1030, 107, '', { fontFamily: 'Microsoft YaHei', fontSize: '11px', color: '#d8c796', backgroundColor: '#193030', padding: { x: 7, y: 6 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.musicLabel.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.audio.toggleMusic(); }); this.hud.root.add(this.musicLabel);
     if (warning) this.hud.notify(warning);
     this.crosshair = this.add.graphics().setDepth(99999);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT).centerOn(this.world.player.x, this.world.player.y - 60).setRoundPixels(true);
+    if (!training) this.transition.play('提灯出发', '深入黑雾寻找补给 · 入夜前回到灯塔', 'departure', { x: this.world.player.x, y: this.world.player.y - 55 }, this.audio);
     // 固定 HUD 使用独立相机，让嵌套浮层的显示坐标与命中坐标一致。
     this.cameras.main.ignore(this.hud.root);
     const ui = this.cameras.add(0, 0, 1280, 720).setName('CombatUI');
@@ -70,6 +70,9 @@ export class CombatScene extends Phaser.Scene {
       this.audio.unlock();
       if (['F1', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(event.code)) event.preventDefault();
       if (event.repeat) return;
+      if (!this.paused && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) this.transition.skip();
+      if (event.code === 'KeyV') { this.hud.notify(toggleEffects() ? '已减少镜头与粒子动态' : '已恢复完整动态'); this.cameras.main.shakeEffect.reset(); return; }
+      if (event.code === 'Space' && this.transition.active && !this.paused) { this.transition.skip(); this.held.clear(); this.firing = false; return; }
       if (event.code === 'F1') { this.toggleGuide(); return; }
       if (event.code === 'KeyM') { this.audio.toggle(); return; }
       if (event.code === 'KeyL') { this.audio.toggleMusic(); return; }
@@ -104,6 +107,7 @@ export class CombatScene extends Phaser.Scene {
     const move = () => { this.pointerActive = true; };
     const wheel = (p: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
       if (this.paused || this.world.status !== 'playing' || this.hud.blocksInput(p.x, p.y)) return;
+      this.transition.skip();
       const camera = this.cameras.main; camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.65, 1.5)).centerOn(this.world.player.x, this.world.player.y - 55);
     };
     this.input.keyboard!.on('keydown', keyDown); this.input.keyboard!.on('keyup', keyUp);
@@ -146,7 +150,7 @@ export class CombatScene extends Phaser.Scene {
   private persistResult(): void {
     if (!(this.world instanceof ExpeditionWorld) || this.world.status !== 'complete' || this.persisted) return;
     this.persisted = true;
-    this.transition.play('灯火接应，队伍归来', '战利品已送入仓库 · 接下来守护家园');
+    this.transition.play('灯火接应，队伍归来', '黄昏降临 · 战利品已送入仓库', 'return', this.world.player, this.audio);
     try { if (saveCampaign(window.localStorage, this.world.campaign)) return; } catch { /* 存储被禁用时保留本次结算画面。 */ }
     this.hud.saveWarning = '存档未写入：浏览器禁用了存储，本次结果仅保留在画面中。';
   }
@@ -169,7 +173,7 @@ export class CombatScene extends Phaser.Scene {
         this.world.step(this.inputState(), BALANCE.step); this.accumulator -= BALANCE.step;
         this.actors.handle(this.world.events);
         this.audio.combat(this.world.events);
-        if (this.world.events.some(e => e.type === 'hurt')) { this.hud.flashHurt(); this.cameras.main.shake(75, 0.0017); }
+        if (this.world.events.some(e => e.type === 'hurt')) { this.hud.flashHurt(); if (!effects.reduced) this.cameras.main.shake(75, 0.0017); }
       }
       const p = this.world.player, camera = this.cameras.main;
       const targetX = p.x + Math.cos(p.aim) * 55, targetY = p.y - 55 + Math.sin(p.aim) * 30;
@@ -180,6 +184,7 @@ export class CombatScene extends Phaser.Scene {
     this.persistResult();
     this.actors.update(this.world, visualDt, this.paused);
     if (this.world instanceof ExpeditionWorld) this.expeditionView?.update(this.world, this.paused);
+    this.hud.cinematic = this.transition.ending;
     this.hud.update(this.world, this.paused, visualDt, this.bag);
     this.hud.setMuted(this.audio.muted);
     this.musicLabel.setText(this.audio.musicMuted ? '配乐关闭 [L]' : '配乐开启 [L]');
@@ -187,7 +192,7 @@ export class CombatScene extends Phaser.Scene {
     this.transition.update(this.paused ? 0 : dt, !this.paused && !this.guide.visible);
     if (this.world instanceof ExpeditionWorld) this.fog?.update(this.world);
     this.guide.available(this.world.status === 'playing');
-    if (this.world.status !== 'playing') this.audio.pause(true);
+    if (this.world.status !== 'playing' && !this.transition.active) this.audio.pause(true);
     const input = this.inputState();
     this.crosshair.clear().setVisible(this.pointerActive && active && !this.hud.blocksInput(this.input.activePointer.x, this.input.activePointer.y));
     this.crosshair.lineStyle(1, 0xe8d6a1, 0.9).strokeCircle(input.aim.x, input.aim.y, 7);

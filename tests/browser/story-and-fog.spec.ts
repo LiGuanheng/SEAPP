@@ -46,7 +46,7 @@ test('真实提灯探索揭开迷雾，搜刮镜片即时增亮，安全返营�
   await key(page, 'KeyP'); const paused = await state(page); await page.clock.runFor(1000); expect(await state(page)).toEqual(paused); await key(page, 'KeyP');
   await walk(page, 920, 760); await key(page, 'KeyE'); expect((await state(page)).status).toBe('complete');
   expect(await page.evaluate(() => (window as any).__lastLight.presentation().title)).toContain('归来'); await page.screenshot({ path: 'artifacts/return-transition.png' });
-  await page.clock.runFor(900); expect(await page.evaluate(() => (window as any).__lastLight.presentation().active)).toBe(false);
+  await page.clock.runFor(2300); expect(await page.evaluate(() => (window as any).__lastLight.presentation().active)).toBe(false);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!).lanternLevel)).toBe(1);
   await key(page, 'Enter'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.screenshot({ path: 'artifacts/home-transition.png' });
   await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); expect((await state(page)).expedition.lightRadius).toBe(320); expect(errors).toEqual([]);

@@ -97,6 +97,13 @@ export class BaseView {
       }
       const barrel = this.buildings.get(b.id)!.getByName('barrel') as Phaser.GameObjects.Image | null;
       barrel?.setRotation(world.turretAim(b.id));
+      const health = b.health / BUILDINGS[b.kind].health;
+      const body = this.buildings.get(b.id)!.list.find(o => o instanceof Phaser.GameObjects.Image && o.name !== 'barrel') as Phaser.GameObjects.Image | undefined;
+      body?.setTint(health < 0.35 ? 0x8d7263 : health < 0.7 ? 0xb4a68d : 0xffffff);
+      if (health < 0.7) {
+        g.lineStyle(2, 0x151f22, 0.9).lineBetween(r.x + 8, r.y - 6, r.x + 18, r.y + 5).lineBetween(r.x + 18, r.y + 5, r.x + 12, r.y + 16);
+        if (health < 0.35) g.fillStyle(0x1b2527, 0.6).fillRect(r.x + r.width / 2, r.y - 24, 12, 10).fillRect(r.x + r.width / 2 + 4, r.y - 37, 8, 9);
+      }
       if (buildingId === b.id) {
         g.lineStyle(2, 0xe4c98f).strokeRect(r.x - 2, r.y - 2, r.width + 4, r.height + 4);
         const range = BUILDINGS[b.kind].range;

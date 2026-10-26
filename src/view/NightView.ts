@@ -4,6 +4,7 @@ import { INFECTED, NIGHT_LIMITS } from '../config/night.ts';
 import type { NightEnemy, NightEvent, NightWorld } from '../core/night-world.ts';
 import type { Vec } from '../core/types.ts';
 import { facing } from './ActorView.ts';
+import { effects } from './SceneTransition.ts';
 
 interface EnemyView { sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Ellipse }
 interface Particle { image: Phaser.GameObjects.Image; age: number; life: number; vx: number; vy: number; size: number }
@@ -19,6 +20,9 @@ export class NightView {
   private fogTimer = 1;
   private lastOutcome = '';
   private age = 0;
+  private outcomeAge = 0;
+  private rubble: Vec[] = [];
+  private lightMask: HTMLCanvasElement;
   private blasts: { x: number; y: number; age: number }[] = [];
   private swings: { x: number; y: number; angle: number; age: number }[] = [];
   private pulses: { x: number; y: number; age: number; kind: 'flame' | 'shock' }[] = [];
@@ -26,6 +30,9 @@ export class NightView {
     this.fogKey = `night-fog-${scene.sys.settings.key}`;
     if (scene.textures.exists(this.fogKey)) scene.textures.remove(this.fogKey);
     this.fog = scene.textures.createCanvas(this.fogKey, BASE_WIDTH / 2, BASE_HEIGHT / 2)!;
+    this.lightMask = document.createElement('canvas'); this.lightMask.width = this.lightMask.height = 256;
+    const mask = this.lightMask.getContext('2d')!, gradient = mask.createRadialGradient(128, 128, 19, 128, 128, 128);
+    gradient.addColorStop(0, 'rgba(0,0,0,1)'); gradient.addColorStop(1, 'rgba(0,0,0,0)'); mask.fillStyle = gradient; mask.fillRect(0, 0, 256, 256);
     root.add(scene.add.image(0, 0, this.fogKey).setOrigin(0).setScale(2).setDepth(7000));
     this.graphics = scene.add.graphics().setDepth(8500); root.add(this.graphics);
     scene.events.once('shutdown', () => scene.textures.remove(this.fogKey));
@@ -49,8 +56,9 @@ export class NightView {
         this.root.add(image); this.corpses.push({ image, age: 0 });
         while (this.corpses.length > NIGHT_LIMITS.corpses) this.corpses.shift()!.image.destroy();
       } else if (e.type === 'explosion' || e.type === 'structure-death') {
+        if (e.type === 'structure-death') { this.rubble.push({ x: e.x, y: e.y }); if (this.rubble.length > 64) this.rubble.shift(); }
         this.blasts.push({ x: e.x, y: e.y, age: 0 }); if (this.blasts.length > 8) this.blasts.shift();
-        for (let i = 0; i < 32; i++) { const a = i * Math.PI * 2 / 32, speed = 40 + Math.random() * 210; this.addParticle(e.x, e.y, i % 3 ? 0xd89c59 : 0x89918a, 3 + Math.random() * 7, 0.3 + Math.random() * 0.45, Math.cos(a) * speed, Math.sin(a) * speed); }
+        for (let i = 0; i < (effects.reduced ? 8 : 20); i++) { const a = i * Math.PI * 2 / 20, speed = 40 + Math.random() * 160; this.addParticle(e.x, e.y, i % 3 ? 0xd89c59 : 0x89918a, 3 + Math.random() * 5, 0.3 + Math.random() * 0.45, Math.cos(a) * speed, Math.sin(a) * speed); }
       } else if (e.type === 'hit' || e.type === 'attack') {
         for (let i = 0; i < 3; i++) this.addParticle(e.x, e.y, e.type === 'hit' ? 0xb69971 : 0xd27f67, 3, 0.2, (Math.random() - 0.5) * 90, (Math.random() - 0.5) * 90);
       } else if (e.type === 'heal') this.addParticle(e.x, e.y - 24, 0x9de1bb, 10, 0.6, 0, -22);
@@ -65,25 +73,38 @@ export class NightView {
     else { v.sprite.anims.resume(); if (e.moving || config.flying) v.sprite.play(`${config.texture}-walk-${facing(e.aim)}`, true); else { v.sprite.anims.stop(); v.sprite.setFrame(config.texture === 'zombie' || config.texture === 'zombie-alt' ? facing(e.aim) * 3 + 1 : 1); } }
   }
   update(world: NightWorld, dt: number, paused: boolean, support: Vec | null): void {
-    (this.root.getByName('lighthouse') as Phaser.GameObjects.Image).setTint(world.status === 'defeat' ? 0x334550 : 0xffffff);
+    if (world.status !== 'playing' && this.lastOutcome === 'playing') {
+      for (const p of this.particles) p.image.destroy(); this.particles = []; this.blasts = []; this.pulses = []; this.swings = [];
+    }
+    if (world.status !== 'playing') this.outcomeAge = Math.min(1, this.outcomeAge + dt / 2.5);
+    const dusk = Math.min(1, world.elapsed / 2.7), dawn = world.status === 'victory' ? this.outcomeAge : 0;
+    (this.root.getByName('lighthouse') as Phaser.GameObjects.Image).setTint(world.status === 'defeat' ? Phaser.Display.Color.GetColor(255 - this.outcomeAge * 204, 255 - this.outcomeAge * 186, 255 - this.outcomeAge * 175) : 0xffffff);
     this.age += dt; this.fogTimer += dt;
     if (this.fogTimer >= 0.1 || this.lastOutcome !== world.status) {
       this.fogTimer = 0;
       this.lastOutcome = world.status;
-      const c = this.fog.context; c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, BASE_WIDTH / 2, BASE_HEIGHT / 2); c.fillStyle = '#071421'; c.globalAlpha = world.status === 'victory' ? 0.12 : 0.87; c.fillRect(0, 0, BASE_WIDTH / 2, BASE_HEIGHT / 2); c.globalAlpha = 1;
+      const c = this.fog.context; c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, BASE_WIDTH / 2, BASE_HEIGHT / 2); c.fillStyle = '#071421'; c.globalAlpha = (0.22 + dusk * 0.58) * (1 - dawn * 0.84); c.fillRect(0, 0, BASE_WIDTH / 2, BASE_HEIGHT / 2); c.globalAlpha = 1;
       c.globalCompositeOperation = 'destination-out';
       const light = (p: Vec, radius: number, power: number) => {
-        const x = p.x / 2, y = p.y / 2, r = radius / 2, gradient = c.createRadialGradient(x, y, r * 0.15, x, y, r);
-        gradient.addColorStop(0, `rgba(0,0,0,${power})`); gradient.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gradient; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+        const x = p.x / 2, y = p.y / 2, r = radius / 2;
+        c.globalAlpha = power; c.drawImage(this.lightMask, x - r, y - r, radius, radius);
       };
-      light(LIGHTHOUSE, 450, world.status === 'defeat' ? 0.1 : 0.92);
+      light(LIGHTHOUSE, 450, world.status === 'defeat' ? 0.92 * (1 - this.outcomeAge) : 0.92);
       for (const s of world.livingSoldiers) light(s, 290, 0.78);
-      for (const b of world.plan.buildings) if (BUILDINGS[b.kind].range) light({ x: b.x + 32, y: b.y + 32 }, 300, 0.7);
-      c.globalCompositeOperation = 'source-over'; this.fog.refresh();
+      const litCells = new Set<string>();
+      for (const b of world.plan.buildings) if (BUILDINGS[b.kind].range) {
+        const key = `${Math.floor((b.x + 32) / 128)},${Math.floor((b.y + 32) / 128)}`;
+        if (!litCells.has(key)) { light({ x: b.x + 32, y: b.y + 32 }, 300, 0.7); litCells.add(key); }
+      }
+      c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; this.fog.refresh();
     }
     const live = new Set(world.enemies.map(e => e.id));
     for (const [id, v] of this.enemies) if (!live.has(id)) { v.sprite.destroy(); v.shadow.destroy(); this.enemies.delete(id); }
     const g = this.graphics.clear();
+    for (const r of this.rubble) {
+      g.fillStyle(0x111c20, 0.85).fillEllipse(r.x, r.y + 5, 58, 24);
+      for (let i = 0; i < 7; i++) g.fillStyle(i % 2 ? 0x645e50 : 0x343f3e, 0.85).fillRect(r.x - 24 + i * 7, r.y - i % 3 * 7, 9, 5);
+    }
     // 暖光与缓慢旋转的灯束，所有效果均在实际世界坐标中。
     if (world.status !== 'defeat') {
       g.fillStyle(0xf1c77a, 0.035).fillCircle(LIGHTHOUSE.x, LIGHTHOUSE.y, 160);
@@ -97,7 +118,10 @@ export class NightView {
         this.root.add([v.sprite, v.shadow]); this.enemies.set(e.id, v);
       }
       this.syncEnemy(v, e, paused || !world.commanding);
-      const visible = world.canSee(e); v.sprite.setVisible(visible); v.shadow.setVisible(visible);
+      const visible = world.canSee(e); v.shadow.setVisible(visible);
+      // Distant silhouettes remain real enemies: no decorative fake horde or target reveal.
+      v.sprite.setVisible(true);
+      if (!visible) v.sprite.setDepth(7100 + e.y / BASE_HEIGHT).setTintFill(0x596360).setAlpha(world.status === 'victory' ? 0.2 * (1 - dawn) : 0.48);
       const max = e.maxHealth ?? INFECTED[e.kind].health, boss = INFECTED[e.kind].boss, width = boss ? 70 : 32, y = e.y - (boss ? 108 : 60);
       if (visible && boss) g.lineStyle(2, 0xd6a776, 0.7).strokeEllipse(e.x, e.y + 2, 72, 26);
       if (visible && (e.slowed ?? 0) > 0) g.lineStyle(2, 0x80c9d0, 0.8).strokeEllipse(e.x, e.y + 3, 32, 12);
@@ -136,7 +160,7 @@ export class NightView {
     for (const p of this.particles) { p.age += dt; p.image.x += p.vx * dt; p.image.y += p.vy * dt; p.image.setAlpha(Math.max(0, 1 - p.age / p.life)); if (p.age >= p.life) p.image.destroy(); }
     this.particles = this.particles.filter(p => p.age < p.life);
     while (this.particles.length > NIGHT_LIMITS.particles) this.particles.shift()!.image.destroy();
-    for (const corpse of this.corpses) { corpse.age += dt; corpse.image.setAlpha(Math.max(0, 0.6 * (1 - corpse.age / 25))); if (corpse.age > 25) corpse.image.destroy(); }
+    for (const corpse of this.corpses) { corpse.age += world.commanding ? dt : 0; corpse.image.setAlpha(Math.max(0, 0.6 * (1 - corpse.age / 25))); if (corpse.age > 25) corpse.image.destroy(); }
     this.corpses = this.corpses.filter(c => c.age <= 25);
     this.root.sort('depth');
   }

@@ -2,9 +2,9 @@ import { test, expect, type Page } from './fixtures.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => ((window as any).__nightLight ?? (window as any).__baseLight ?? (window as any).__lastLight).snapshot());
 async function key(page: Page, code: string) { await page.keyboard.press(code); await page.clock.runFor(60); }
-async function clickWorld(page: Page, x: number, y: number) {
+async function clickWorld(page: Page, x: number, y: number, button: 'left' | 'right' = 'left') {
   const s = await state(page), b = (await page.locator('canvas').boundingBox())!;
-  await page.mouse.click(b.x + (x - s.camera.x) * s.camera.zoom / 1280 * b.width, b.y + (y - s.camera.y) * s.camera.zoom / 720 * b.height); await page.clock.runFor(80);
+  await page.mouse.click(b.x + (x - s.camera.x) * s.camera.zoom / 1280 * b.width, b.y + (y - s.camera.y) * s.camera.zoom / 720 * b.height, { button }); await page.clock.runFor(80);
 }
 
 test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无缺帧，终局冻结', async ({ page }) => {
@@ -14,14 +14,34 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   await page.addInitScript(() => localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 2, expeditions: 4, depot: { materials: 100, energy: 40, medkits: 0 }, survivors: ['engineer', 'medic', 'captain', 'ranger', 'brawler', 'guardian', 'gunner'], weapons: ['pistol', 'rifle', 'axe', 'bow'], lastSummary: null, base: null })));
   await page.clock.install(); await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
   for (const [code, x, y] of [['Digit2', 832, 352], ['Digit3', 960, 352], ['Digit4', 608, 640], ['Digit4', 864, 640], ['Digit4', 608, 352], ['Digit6', 1024, 576], ['Digit7', 928, 736], ['Digit8', 576, 416], ['Digit9', 1056, 352], ['Digit2', 832, 800]] as const) { await key(page, code); if (y >= 800) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); } await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); if (y >= 800) await key(page, 'KeyC'); }
-  expect((await state(page)).plan.buildings).toHaveLength(10);
+  for (const [code, x, y] of [['Digit3', 448, 352], ['Digit8', 576, 736], ['Digit8', 960, 800], ['Digit6', 544, 640]] as const) {
+    await key(page, code); if (y >= 736) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); }
+    await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); await key(page, 'KeyC');
+  }
+  for (const y of [256, 864]) {
+    if (y === 864) { await page.keyboard.down('KeyS'); await page.clock.runFor(500); await page.keyboard.up('KeyS'); }
+    await key(page, 'Digit5');
+    for (const x of [416, 448, 480, 512, 544, 576, 608, 640, 672]) await clickWorld(page, x + 4, y + 4);
+    await key(page, 'Escape'); await key(page, 'KeyC');
+  }
+  expect((await state(page)).plan.buildings).toHaveLength(32);
   expect((await state(page)).plan.soldiers).toHaveLength(8);
+  for (let i = 0; i < 8; i++) {
+    const s = (await state(page)).plan.soldiers[i], points = [[688, 592], [848, 592], [688, 432], [848, 432], [656, 512], [880, 512], [768, 640], [768, 400]];
+    const p = s.role === 'gunner' ? [768, 400] : s.role === 'guardian' ? [768, 608] : points[i];
+    await clickWorld(page, s.x, s.y - 16); await clickWorld(page, p[0], p[1], 'right');
+  }
+  await page.clock.runFor(10000);
   await page.screenshot({ path: 'artifacts/progression-late-base.png' });
   await key(page, 'Enter'); await key(page, 'KeyN'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await key(page, 'KeyT'); await key(page, 'KeyT');
   const kinds = new Set<string>(); let skill = false, checkedPause = false, capturedNewBoss = false, capturedHorde = false;
   for (let i = 0; i < 260 && (await state(page)).status === 'playing'; i++) {
     await page.clock.runFor(180); const s = await state(page);
     for (const e of s.enemies) kinds.add(e.kind);
+    if (s.charges && s.supportCooldown === 0) {
+      const target = s.enemies.find((e: any) => ['bomber', 'blighter'].includes(e.kind) && e.health < 220 && Math.hypot(e.x - 768, e.y - 512) < 350);
+      if (target) { await key(page, 'KeyF'); await clickWorld(page, target.x, target.y); }
+    }
     if (!capturedHorde && s.enemies.length >= 40) { await page.screenshot({ path: 'artifacts/assault-horde.png' }); capturedHorde = true; }
     if (s.hazards.length || s.enemies.some((e: any) => e.windup)) {
       skill = true;
@@ -33,7 +53,7 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
     if (!capturedNewBoss && s.enemies.some((e: any) => ['bomber', 'blighter'].includes(e.kind) && Math.hypot(e.x - 768, e.y - 512) < 390)) {
       await page.screenshot({ path: 'artifacts/progression-new-boss.png' }); capturedNewBoss = true;
     }
-    expect(s.enemies.length).toBeLessThanOrEqual(72); expect(s.hazards.length).toBeLessThanOrEqual(8);
+    expect(s.enemies.length).toBeLessThanOrEqual(96); expect(s.hazards.length).toBeLessThanOrEqual(8);
   }
   const end = await state(page); expect(end.status).toBe('victory'); expect(end.elapsed).toBe(120); expect(end.stage).toBe(3);
   expect([...end.bossesSeen].sort()).toEqual(['bird', 'blighter', 'bomber', 'knight', 'queen']);

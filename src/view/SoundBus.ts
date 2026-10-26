@@ -18,6 +18,8 @@ export class SoundBus {
   private lastShot = -1;
   private paused = false;
   private ambient: boolean;
+  private cueNodes: AudioScheduledSourceNode[] = [];
+  private lastCrowd = 0;
   constructor(ambient = true) {
     this.ambient = ambient;
     if (!SoundBus.initialized) {
@@ -75,5 +77,22 @@ export class SoundBus {
     else if (e.type === 'reload' || e.type === 'reloaded') this.sound('reload');
   }
   pickup(): void { this.sound('pickup'); }
-  destroy(): void { this.music?.destroy(); this.music = null; this.drone?.stop(); if (this.context) void this.context.close().catch(() => {}); this.context = null; }
+  cue(kind: string): void {
+    const c = this.context; if (!c || c.state !== 'running' || !this.master || this.muted || this.paused) return;
+    const oscillator = c.createOscillator(), gain = c.createGain();
+    const calm = ['dawn', 'return', 'camp'].includes(kind), duration = kind === 'night' ? 1.5 : 0.9;
+    oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(calm ? 180 : kind === 'boss' ? 68 : 100, c.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(calm ? 270 : 32, c.currentTime + duration);
+    gain.gain.setValueAtTime(0.001, c.currentTime); gain.gain.linearRampToValueAtTime(calm ? 0.12 : 0.25, c.currentTime + 0.18); gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
+    oscillator.connect(gain).connect(this.master); oscillator.start(); oscillator.stop(c.currentTime + duration);
+    this.cueNodes.push(oscillator); oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); this.cueNodes = this.cueNodes.filter(n => n !== oscillator); };
+    if (!calm) this.sound('wave');
+  }
+  endCue(): void { for (const n of this.cueNodes) { try { n.stop(); } catch { /* Already ended. */ } } this.cueNodes = []; }
+  crowd(enemies: number): void {
+    const c = this.context;
+    if (!c || enemies < 10 || c.currentTime - this.lastCrowd < (enemies > 45 ? 0.6 : 1.1)) return;
+    this.lastCrowd = c.currentTime; this.sound(enemies > 35 ? 'wave' : 'hit');
+  }
+  destroy(): void { this.endCue(); this.music?.destroy(); this.music = null; this.drone?.stop(); if (this.context) void this.context.close().catch(() => {}); this.context = null; }
 }

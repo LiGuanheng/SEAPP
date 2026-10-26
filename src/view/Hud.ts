@@ -8,6 +8,7 @@ import { WEAPONS } from '../config/weapons.ts';
 
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class Hud {
+  cinematic = false;
   saveWarning = '';
   readonly root: Phaser.GameObjects.Container;
   private navigation: Phaser.GameObjects.Graphics;
@@ -130,7 +131,7 @@ export class Hud {
     if (this.hurt > 0) {
       g.lineStyle(20, 0xc45e43, this.hurt * 1.4).strokeRect(0, 0, 1280, 720);
     }
-    const overlay = paused || world.status !== 'playing';
+    const overlay = paused || world.status !== 'playing' && !this.cinematic;
     this.isOverlay = overlay; this.overlay.setVisible(overlay);
     this.pauseLabel.setText(paused ? '▶ 继续' : 'Ⅱ 暂停');
     if (overlay) {

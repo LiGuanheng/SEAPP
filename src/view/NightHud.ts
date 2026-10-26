@@ -4,9 +4,11 @@ import { BOSS_ABILITIES, INFECTED, LAMP_HEALTH, NIGHT_SECONDS, type BossKind } f
 import { STAGES } from '../config/progression.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { NightWorld } from '../core/night-world.ts';
+import { ASSAULT_NAMES } from '../core/assault.ts';
 
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class NightHud {
+  cinematic = false;
   readonly root: Phaser.GameObjects.Container;
   saveWarning = '';
   private graphics: Phaser.GameObjects.Graphics;
@@ -71,10 +73,17 @@ export class NightHud {
     g.fillStyle(w.lampHealth > 95 ? 0xdac28d : 0xd58b77).fillRect(26, 73, 305 * w.lampHealth / LAMP_HEALTH, 6);
     g.fillStyle(0xb6bfa0).fillRect(425, 79, 560 * Math.min(1, w.elapsed / NIGHT_SECONDS), 3);
     if (w.lampHurt > 0) g.lineStyle(16, 0xd07761, w.lampHurt).strokeRect(0, 0, 1280, 720);
+    const alerts = [[640, 113], [1260, 346], [640, 580], [20, 346]];
+    w.pressure.forEach((count, i) => {
+      if (count < 3 || !w.commanding || paused) return;
+      const [x, y] = alerts[i], hot = count >= 14, color = hot ? 0xd17359 : 0xb9a077, pulse = 0.55 + Math.sin(w.elapsed * 4) * 0.15;
+      g.fillStyle(color, pulse).fillTriangle(x, y + (i === 0 ? -8 : i === 2 ? 8 : 0), x + (i % 2 ? (i === 1 ? -8 : 8) : -7), y + (i === 0 ? 5 : i === 2 ? -5 : -7), x + (i % 2 ? (i === 1 ? -8 : 8) : 7), y + (i === 0 ? 5 : i === 2 ? -5 : 7));
+      g.lineStyle(2, color, pulse * 0.4).strokeCircle(x, y, 14 + Math.min(count, 30) / 5);
+    });
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
     this.status.setText(`阶段${w.stage}/3 · 天亮 ${Math.ceil(w.remaining)}s · ${w.wave}/${w.waves.length}波 · 击杀${w.kills}`);
     const next = w.waves[w.wave];
-    this.forecast.setText(next ? `${STAGES[w.stage].name} · 下一波 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s · ${next.bosses.length ? next.bosses.map(k => INFECTED[k].name).join(' + ') : '感染者集群'}${next.crow ? ` · 腐鸦空袭 ${next.crow}` : ''}` : '最终尸潮已出动 · 守到天亮，无需全歼');
+    this.forecast.setText(`${ASSAULT_NAMES[Math.max(0, w.wave - 1)]} · ${w.pressure.filter(n => n >= 3).length}向受压${w.pressure.filter(n => n >= 14).length >= 3 ? ' · 多线告急' : ''} · ${w.difficulty === 'hard' ? '困难' : '普通'} · ${next ? `下一轮 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s` : '末段高潮，坚守至黎明'}`);
     const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 5); this.bossRows = bosses.length;
     this.bosses.forEach((label, i) => {
       const e = bosses[i]; label.setVisible(!!e && !paused && w.commanding); if (!e) return;
@@ -88,7 +97,7 @@ export class NightHud {
     this.charges.setText(`炮火支援 [F]　${w.charges} 次${w.supportCooldown > 0 ? ` / ${Math.ceil(w.supportCooldown)}s` : ''}`);
     this.sound.setText(this.muted ? '静音 [M]' : '声音 [M]');
     this.toastTime = Math.max(0, this.toastTime - dt); this.toast.setVisible(this.toastTime > 0);
-    this.ready = !w.commanding; this.overlay.setVisible(paused || this.ready); this.exit.setVisible(this.ready);
+    this.ready = !w.commanding; this.overlay.setVisible(paused || this.ready && !this.cinematic); this.exit.setVisible(this.ready);
     if (paused || this.ready) {
       this.title.setText(!this.ready ? '指挥暂停' : w.status === 'victory' ? '天亮了，最后一盏灯仍在。' : '灯塔熄灭，防线失守。');
       const firstClear = w.stage > (w.checkpoint.clearedStage ?? 0), reward = STAGES[w.stage].reward;

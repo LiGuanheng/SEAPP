@@ -24,7 +24,7 @@ test('首阶段锁定设施、胜利保存成长、原阵地重试，再真实�
   await page.clock.install(); await page.goto('/?test=1&mode=base'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
   const before = (await state(page)).campaign.depot; await key(page, 'Digit6'); expect((await state(page)).placement).toBe(null); expect((await state(page)).campaign.depot).toEqual(before);
   await page.screenshot({ path: 'artifacts/progression-stage-one.png' });
-  for (const [code, x, y] of [['Digit2', 832, 352], ['Digit4', 608, 640], ['Digit4', 864, 640]] as const) { await key(page, code); await click(page, x + 4, y + 4, true); await key(page, 'Escape'); }
+  for (const [code, x, y] of [['Digit2', 832, 352], ['Digit4', 608, 640], ['Digit4', 864, 640], ['Digit1', 960, 640]] as const) { await key(page, code); await click(page, x + 4, y + 4, true); await key(page, 'Escape'); }
   await key(page, 'Enter'); await key(page, 'KeyN'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await key(page, 'KeyT'); await key(page, 'KeyT');
   for (let i = 0; i < 13 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(3500);
   const win = await state(page); expect(win.status).toBe('victory'); expect(win.bossesSeen).toEqual(['axeman']);

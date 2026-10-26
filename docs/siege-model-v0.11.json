@@ -1,0 +1,119 @@
+[
+  {
+    "name": "ordinary",
+    "stage": 1,
+    "initialBuildings": 4,
+    "summary": {
+      "stage": 1,
+      "outcome": "victory",
+      "duration": 120,
+      "kills": 119,
+      "lampHealth": 340,
+      "soldiers": 0,
+      "buildings": 3,
+      "strikes": 2,
+      "bossKills": 1
+    },
+    "buildingLosses": 1,
+    "peakEnemies": 36,
+    "coverage": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "maxDirections": 2,
+    "fourWaySeconds": 0,
+    "spawnedByGate": [
+      24,
+      38,
+      26,
+      32
+    ],
+    "pending": 0,
+    "simulatedMs": 348.5978,
+    "stepMs": {
+      "mean": 0.04761861111111128,
+      "p95": 0.14029999999999632,
+      "max": 1.4927999999999884
+    }
+  },
+  {
+    "name": "fortified",
+    "stage": 3,
+    "initialBuildings": 120,
+    "summary": {
+      "stage": 3,
+      "outcome": "victory",
+      "duration": 120,
+      "kills": 349,
+      "lampHealth": 380,
+      "soldiers": 8,
+      "buildings": 109,
+      "strikes": 2,
+      "bossKills": 5
+    },
+    "buildingLosses": 11,
+    "peakEnemies": 70,
+    "coverage": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "maxDirections": 4,
+    "fourWaySeconds": 6.016666666666651,
+    "spawnedByGate": [
+      85,
+      61,
+      95,
+      104
+    ],
+    "pending": 0,
+    "simulatedMs": 1604.4590999999998,
+    "stepMs": {
+      "mean": 0.22171388888888985,
+      "p95": 0.6053999999999178,
+      "max": 4.0441999999999325
+    }
+  },
+  {
+    "name": "encirclement",
+    "stage": 3,
+    "initialBuildings": 56,
+    "summary": {
+      "stage": 3,
+      "outcome": "victory",
+      "duration": 120,
+      "kills": 350,
+      "lampHealth": 335,
+      "soldiers": 6,
+      "buildings": 41,
+      "strikes": 2,
+      "bossKills": 4
+    },
+    "buildingLosses": 15,
+    "peakEnemies": 85,
+    "coverage": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "maxDirections": 4,
+    "fourWaySeconds": 13.683333333333593,
+    "spawnedByGate": [
+      85,
+      61,
+      95,
+      104
+    ],
+    "pending": 0,
+    "simulatedMs": 2828.0131,
+    "stepMs": {
+      "mean": 0.3915841111111107,
+      "p95": 1.4401000000007116,
+      "max": 10.44380000000001
+    }
+  }
+]

@@ -84,7 +84,7 @@ test('实际射击防守至 90 秒，黄昏自动收队并只入库一次', asyn
   await walk(page, 1056, 736); await page.keyboard.press('KeyE');
   await walk(page, 1200, 780); await page.keyboard.press('KeyE');
   await walk(page, 1024, 736);
-  for (let i = 0; i < 190; i++) {
+  for (let i = 0; i < 230; i++) {
     const s = await state(page);
     if (s.status !== 'playing') break;
     const enemy = s.zombies.slice().sort((a: any, b: any) => Math.hypot(a.x - s.player.x, a.y - s.player.y) - Math.hypot(b.x - s.player.x, b.y - s.player.y))[0];

@@ -15,7 +15,7 @@ import { SoundBus } from '../view/SoundBus.ts';
 import { FieldGuide } from '../view/FieldGuide.ts';
 import { TacticalRadar } from '../view/TacticalRadar.ts';
 import { INFECTED } from '../config/night.ts';
-import { SceneTransition } from '../view/SceneTransition.ts';
+import { SceneTransition, effects, toggleEffects } from '../view/SceneTransition.ts';
 import { wallLine } from '../core/wall-stroke.ts';
 
 const contains = (r: Rect, p: Vec): boolean => p.x >= r.x && p.y >= r.y && p.x <= r.x + r.width && p.y <= r.y + r.height;
@@ -50,7 +50,7 @@ export class BaseScene extends Phaser.Scene {
   create(data: { campaign?: Campaign; fresh?: boolean; battle?: boolean } = {}): void {
     let campaign = data.campaign ?? newCampaign(), warning = '';
     if (!data.campaign) try { const loaded = loadCampaign(localStorage); campaign = loaded.campaign; warning = loaded.warning; } catch { warning = '存储不可用，基地仍可操作。'; }
-    this.world = data.battle ? new NightWorld(campaign) : new BaseWorld(campaign); if (data.fresh && !data.battle) this.world.resume();
+    this.world = data.battle ? new NightWorld(campaign, new URLSearchParams(location.search).get('difficulty') === 'hard' ? 'hard' : 'normal') : new BaseWorld(campaign); if (data.fresh && !data.battle) this.world.resume();
     const params = new URLSearchParams(location.search); this.practice = params.get('mode') === 'base' || params.get('practice') === 'base';
     this.support = false; this.audio = new SoundBus(!!data.battle); this.speed = 1;
     this.selected.clear(); this.held.clear(); this.kind = null; this.rotation = 0; this.selectedBuilding = null;
@@ -61,14 +61,14 @@ export class BaseScene extends Phaser.Scene {
     this.nightView = this.world instanceof NightWorld ? new NightView(this, this.view.root) : null;
     this.hud = data.battle ? new NightHud(this, () => this.action(this.world.hold([...this.selected])), () => this.toggleSupport(), () => this.audio?.toggle(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore()) :
       new BaseHud(this, k => this.setKind(k), () => this.action(this.world.hold([...this.selected])), () => this.finish(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore(), () => this.sellSelected());
-    this.radar = new TacticalRadar(this, this.hud.root, (x, y) => { if (!this.paused && this.world.commanding) { camera.centerOn(x, y); this.drag = null; this.wallStroke = null; } });
+    this.radar = new TacticalRadar(this, this.hud.root, (x, y) => { if (!this.paused && this.world.commanding) { this.transition?.skip(); camera.centerOn(x, y); this.drag = null; this.wallStroke = null; } });
     const home = this.add.text(1040, 70, '回灯塔 [C]', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e4ca91', backgroundColor: '#263d3b', padding: { x: 10, y: 8 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     home.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.home(); }); this.hud.root.add(home);
     const control = (y: number, action: () => void) => { const t = this.add.text(930, y, '', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e4ca91', backgroundColor: '#263d3b', padding: { x: 7, y: 8 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }); t.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); action(); }); this.hud.root.add(t); return t; };
     this.speedLabel = control(27, () => this.cycleSpeed()); this.musicLabel = control(70, () => this.audio?.toggleMusic());
     this.guide = new FieldGuide(this, this.hud.root, data.battle ? 'night' : 'base', () => this.toggleGuide());
-    this.transition = new SceneTransition(this, this.hud.root);
-    this.transition.play(`阶段 ${this.world.stage}/3 · ${STAGES[this.world.stage].name}`, STAGES[this.world.stage].description);
+    this.transition = new SceneTransition(this, this.hud.root, this.view.root);
+    this.transition.play(data.battle ? '夜幕压境' : `阶段 ${this.world.stage}/3 · ${STAGES[this.world.stage].name}`, STAGES[this.world.stage].description, data.battle ? 'night' : 'camp', LIGHTHOUSE, this.audio);
     camera.ignore(this.hud.root);
     const ui = this.cameras.add(0, 0, 1280, 720).setName('BaseUI'); ui.ignore(this.view.root);
     if (warning) this.hud.notify(warning);
@@ -77,6 +77,8 @@ export class BaseScene extends Phaser.Scene {
       this.audio?.unlock();
       if (['F1', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Tab'].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
+      if (e.code === 'KeyV') { this.hud.notify(toggleEffects() ? '已减少镜头与粒子动态' : '已恢复完整动态'); this.cameras.main.shakeEffect.reset(); return; }
+      if (!this.paused && (['Space', 'KeyC', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || /^Digit[1-9]$/.test(e.code))) this.transition.skip();
       if (e.code === 'F1') { this.toggleGuide(); return; }
       if (this.guide.visible) { if (['Escape', 'KeyP'].includes(e.code)) this.toggleGuide(); return; }
       if (e.code === 'KeyP') { this.setPaused(!this.paused); return; }
@@ -136,6 +138,7 @@ export class BaseScene extends Phaser.Scene {
     };
     const wheel = (p: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
       if (this.paused || !this.world.commanding || this.hud.blocks(p.x, p.y)) return;
+      this.transition.skip();
       const center = { x: camera.midPoint.x, y: camera.midPoint.y };
       camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.5, 1.3)).centerOn(center.x, center.y);
       this.drag = null; this.wallStroke = null;
@@ -153,7 +156,7 @@ export class BaseScene extends Phaser.Scene {
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', hidden); this.game.canvas.removeEventListener('pointerleave', leave); delete window.__baseLight; delete window.__nightLight; this.audio?.destroy();
     });
     if (params.get('test') === '1') {
-      if (this.world instanceof NightWorld) window.__nightLight = Object.freeze({ snapshot: () => ({ ...(this.world as NightWorld).nightSnapshot(), selected: [...this.selected], paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, support: this.support, muted: this.audio?.muted ?? true, view: { ...this.view.counts(), ...this.nightView!.counts() }, camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
+      if (this.world instanceof NightWorld) window.__nightLight = Object.freeze({ presentation: () => this.transition.snapshot(), snapshot: () => ({ ...(this.world as NightWorld).nightSnapshot(), selected: [...this.selected], paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, support: this.support, muted: this.audio?.muted ?? true, view: { ...this.view.counts(), ...this.nightView!.counts() }, camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
       else window.__baseLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), selected: [...this.selected], selectedBuilding: this.selectedBuilding, placement: this.kind, rotation: this.rotation, paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, view: this.view.counts(), camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
     }
     document.getElementById('loading')?.remove();
@@ -221,10 +224,11 @@ export class BaseScene extends Phaser.Scene {
         this.world.step(); this.accumulator -= 1 / 60; simulated += 1 / 60;
         if (this.world instanceof NightWorld) {
           this.nightView!.handle(this.world.events); this.audio?.handle(this.world.events);
-          if (this.world.events.some(e => e.type === 'explosion')) this.cameras.main.shake(150, 0.0025);
+          if (!effects.reduced && this.world.events.some(e => e.type === 'explosion' || e.type === 'structure-death')) this.cameras.main.shake(100, 0.0018);
           if (this.world.events.some(e => e.type === 'wave')) { const air = this.world.waves[this.world.wave - 1].crow; this.hud.notify(`第 ${this.world.wave} 波尸潮来袭${air ? ` · 腐鸦空袭 ${air} 只，准备对空火力` : ' · 多路感染者正在逼近'}`); }
           const boss = this.world.events.find(e => e.type === 'boss' || e.type === 'boss-defeated');
           if (boss?.kind) this.hud.notify(`${boss.type === 'boss' ? '警报' : '击败'} · ${INFECTED[boss.kind].name}${boss.type === 'boss' ? '，留意地面预警与随从' : ''}`);
+          if (boss?.type === 'boss' && boss.kind) this.transition.play(INFECTED[boss.kind].name, boss.kind === 'bird' ? '腐羽遮天 · 飞越防线' : boss.kind === 'bomber' ? '熔囊膨胀 · 集火打断自爆' : boss.kind === 'blighter' ? '蚀雾扩散 · 立即离开毒池' : '重型威胁已进入战场', 'boss', boss, this.audio, INFECTED[boss.kind].texture);
         }
       }
       const camera = this.cameras.main;
@@ -234,22 +238,26 @@ export class BaseScene extends Phaser.Scene {
     }
     if ((this.world instanceof NightWorld ? !this.world.commanding : this.world.plan.status === 'ready') && !this.savedReady) {
       this.kind = null; this.drag = null; this.wallStroke = null; this.held.clear(); this.support = false; this.persist(); this.savedReady = true;
-      if (this.world instanceof NightWorld) this.audio?.pause(true); else if (!this.practice) { this.startNight(); return; }
+      if (this.world instanceof NightWorld) this.transition.play(this.world.status === 'victory' ? '天亮了，灯还在。' : '最后一盏灯，熄灭了。', this.world.status === 'victory' ? '雾潮退去 · 守备队清点战损' : '黑雾越过了最后的防线', this.world.status === 'victory' ? 'dawn' : 'defeat', LIGHTHOUSE, this.audio);
+      else if (!this.practice) { this.startNight(); return; }
     }
     const living = new Set(this.world.livingSoldiers.map(s => s.id)); this.selected = new Set([...this.selected].filter(id => living.has(id)));
     const marquee = this.drag && distance(this.drag.screen, this.input.activePointer) > 7 ? this.rectangle(this.drag.world, this.point()) : null;
     this.view.update(this.world, this.selected, this.selectedBuilding, this.placement(), marquee, this.paused);
-    if (this.world instanceof NightWorld) this.nightView!.update(this.world, simulated, this.paused, this.support && this.pointerActive ? this.point() : null);
+    if (this.world instanceof NightWorld) { this.nightView!.update(this.world, this.paused ? 0 : dt, this.paused, this.support && this.pointerActive ? this.point() : null); this.audio?.crowd(this.world.commanding ? this.world.enemies.length : 0); }
+    if (this.hud instanceof NightHud) this.hud.cinematic = this.transition.ending;
     if (this.hud instanceof NightHud) this.hud.setModes(this.support, this.audio?.muted ?? true);
     this.hud.update(this.world, this.selected, this.selectedBuilding, this.kind, this.paused, active ? dt : 0);
     this.radar.update(this.world, this.cameras.main, this.paused);
     this.guide.available(this.world.commanding);
     this.transition.update(this.paused ? 0 : dt, !this.paused && !this.guide.visible);
+    if (this.world instanceof NightWorld && !this.world.commanding && !this.transition.active) this.audio?.pause(true);
     this.speedLabel.setText(`×${this.speed} 倍速 [T]`); this.musicLabel.setText(this.audio?.musicMuted ? '配乐关 [L]' : '配乐开 [L]');
   }
 }
 
 declare global { interface Window {
   __baseLight?: { snapshot: () => ReturnType<BaseWorld['snapshot']> & { selected: number[]; selectedBuilding: number | null; placement: BuildingKind | null; rotation: number; paused: boolean; guide: boolean; speed: number; musicMuted: boolean; ready: boolean; camera: { x: number; y: number; zoom: number }; view: { soldiers: number; buildings: number; objects: number } } };
-  __nightLight?: { snapshot: () => ReturnType<NightWorld['nightSnapshot']> & { selected: number[]; paused: boolean; guide: boolean; speed: number; musicMuted: boolean; ready: boolean; support: boolean; muted: boolean; camera: { x: number; y: number; zoom: number }; view: { soldiers: number; buildings: number; objects: number; enemies: number; bullets: number; particles: number; corpses: number } } };
+  __nightLight?: { presentation: () => ReturnType<SceneTransition['snapshot']>; snapshot: () => ReturnType<NightWorld['nightSnapshot']> & { selected: number[]; paused: boolean; guide: boolean; speed: number; musicMuted: boolean; ready: boolean; support: boolean; muted: boolean; camera: { x: number; y: number; zoom: number }; view: { soldiers: number; buildings: number; objects: number; enemies: number; bullets: number; particles: number; corpses: number } } };
 } }
+
