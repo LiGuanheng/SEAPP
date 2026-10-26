@@ -15,6 +15,8 @@ test('300种子城市有三种真实房间/街垒结构，所有门、奖励、�
     const seed = Math.imul(i + 7, 2654435761) >>> 0, c = newCampaign(); c.clearedStage = 2;
     const w = new ExpeditionWorld(c, false, seed); w.navigation.rebuild(CAMP);
     shapes.add(JSON.stringify(w.layout.buildings)); events.add(w.layout.event.kind);
+    const reward = w.caches.find(c => c.id === 'event')!;
+    assert.equal(reward.rifle, w.layout.event.kind === 'supply'); assert.equal(reward.weapon, w.layout.event.kind === 'clinic' ? 'bow' : undefined);
     for (const p of [...w.caches, ...w.survivors, ...w.layout.buildings.map(roomDoor)]) {
       assert.ok(canOccupy(p, 10, w.obstacles, w.width, w.height), `${seed}: ${JSON.stringify(p)}`);
       assert.ok(w.navigation.field[Math.floor(p.y / 32) * w.navigation.cols + Math.floor(p.x / 32)] >= 0, `${seed}: 无法到达 ${JSON.stringify(p)}`);
@@ -31,6 +33,20 @@ test('可选危险事件最多触发一次、最多16感染者；原短路线仍
     for (let i = 0; i < 5; i++) w.step(idle); assert.equal(w.zombies.length, count); assert.ok(count <= 16);
     assert.deepEqual(w.caches[0].cargo, { materials: 8, energy: 2, medkits: 0 }); assert.equal(w.snapshot().expedition.capacity, 48);
   }
+});
+
+test('危险地点的随机武器须真实互动取得，超重不吞奖励，返营后随原存档保存', () => {
+  const seen = new Set<string>();
+  for (let seed = 1000; seed < 1100 && seen.size < 2; seed++) {
+    const w = new ExpeditionWorld(newCampaign(), false, seed), cache = w.caches.find(c => c.id === 'event')!;
+    const weapon = cache.rifle ? 'rifle' : cache.weapon;
+    if (!weapon || seen.has(weapon)) continue;
+    Object.assign(w.player, cache); w.inventory.materials = 48;
+    assert.equal(w.interact().ok, false); assert.equal(cache.opened, false); assert.ok(!w.ownedWeapons.includes(weapon));
+    w.inventory.materials = 0; assert.ok(w.interact().ok); assert.ok(w.ownedWeapons.includes(weapon)); assert.ok(cache.opened);
+    Object.assign(w.player, CAMP); w.finish('return'); assert.ok(decodeCampaign(JSON.stringify(w.campaign)).weapons.includes(weapon)); seen.add(weapon);
+  }
+  assert.equal(seen.size, 2);
 });
 
 function base(stage = 3) { const c = newCampaign(); c.clearedStage = stage - 1; c.depot = { materials: 100, energy: 30, medkits: 0 }; c.survivors = ['engineer']; return new BaseWorld(c); }

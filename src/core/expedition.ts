@@ -73,7 +73,7 @@ export class ExpeditionWorld extends CombatWorld {
     layout.stashes.forEach((p, i) => this.caches.push({ ...p, id: `scout-${i}`, name: '游荡商队遗留补给', cargo: { materials: 3 + i % 2, energy: i % 2, medkits: 0 }, opened: false }));
     this.caches.push({ id: 'lantern-lens', name: '聚光镜片 · 提灯升级', x: 1152, y: 688, cargo: emptyCargo(), lampLevel: 1, opened: false });
     if (stage >= 2) this.caches.push({ id: 'relief', name: '高危区域 · 工程储备', x: 352, y: 400, cargo: { materials: 6, energy: 4, medkits: 0 }, opened: false });
-    this.caches.push({ id: 'event', name: layout.event.kind === 'supply' ? '危险货仓' : layout.event.kind === 'clinic' ? '感染救护点' : '受困车队', ...layout.event.point, cargo: { ...layout.event.reward }, opened: false });
+    this.caches.push({ id: 'event', name: layout.event.kind === 'supply' ? '危险货仓' : layout.event.kind === 'clinic' ? '感染救护点' : '受困车队', ...layout.event.point, cargo: { ...layout.event.reward }, rifle: layout.event.kind === 'supply', weapon: layout.event.kind === 'clinic' ? 'bow' : undefined, opened: false });
     if (layout.event.kind === 'rescue') { const s = this.survivors.find(s => s.id === 'captain'); if (s) { s.x = layout.event.point.x + 32; s.y = layout.event.point.y; } }
     for (const p of [...this.caches, ...this.survivors]) if (!canOccupy(p, 12, this.obstacles, this.width, this.height)) Object.assign(p, freeLayoutPoint(p, this.obstacles));
     this.lanternLevel = campaign.lanternLevel ?? 0;
