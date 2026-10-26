@@ -42,7 +42,7 @@ test('设施阶段锁在模型中生效，扩建保留旧阵地且新增区域�
 
 test('胜利解锁及补给只发一次，重试锁原阶段，失败不推进，旧v2不按历史胜次跳关', () => {
   const old = decodeCampaign(JSON.stringify({ ...newCampaign(), nightsWon: 99 })); assert.equal(new BaseWorld(old).stage, 1);
-  const b = new BaseWorld(campaign(1)); for (const [kind, x, y] of [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640]] as const) assert.ok(b.build(kind, { x, y }).ok); b.finish();
+  const b = new BaseWorld(campaign(1)); for (const [kind, x, y] of [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640], ['barricade', 960, 640]] as const) assert.ok(b.build(kind, { x, y }).ok); b.finish();
   const w = new NightWorld(b.campaign), before = { ...w.checkpoint.depot }; run(w, 120.1); assert.equal(w.status, 'victory');
   const result = w.resultCampaign(); assert.equal(result.clearedStage, 1); assert.equal(result.depot.materials, before.materials + 12); assert.equal(result.depot.energy, before.energy + 4);
   assert.deepEqual(w.resultCampaign(), result); assert.deepEqual(decodeCampaign(JSON.stringify(result)), result);
@@ -146,5 +146,5 @@ test('非法阶段/结算字段拒绝，旧灯级/库存/坐标不丢失，终�
   for (const invalid of [-1, 4, 1.5, '2', null]) assert.throws(() => decodeCampaign(JSON.stringify({ ...newCampaign(), clearedStage: invalid })));
   const b = new BaseWorld(campaign()); b.build('flame', { x: 1728, y: 1056 }); b.finish(); const raw = JSON.stringify(b.campaign); assert.deepEqual(decodeCampaign(raw), b.campaign);
   const bad = JSON.parse(raw); bad.base.stage = 4; assert.throws(() => decodeCampaign(JSON.stringify(bad)));
-  assert.ok(BASE_WIDTH >= 2048 && BASE_HEIGHT >= 1408); assert.ok(NIGHT_LIMITS.enemies <= 72 && BUILDINGS.sniper.energy > BUILDINGS.arrowtower.energy);
+  assert.ok(BASE_WIDTH >= 2048 && BASE_HEIGHT >= 1408); assert.ok(NIGHT_LIMITS.enemies <= 96 && BUILDINGS.sniper.energy > BUILDINGS.arrowtower.energy);
 });

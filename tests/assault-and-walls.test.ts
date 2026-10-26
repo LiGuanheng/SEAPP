@@ -5,7 +5,8 @@ import { BaseWorld } from '../src/core/base-world.ts';
 import { NightWorld } from '../src/core/night-world.ts';
 import { decodeCampaign, newCampaign } from '../src/core/campaign.ts';
 import { GRID, validBasePlan } from '../src/config/base.ts';
-import { ASSAULT_CADENCE, MOB_KINDS, NIGHT_LIMITS, wavesForStage } from '../src/config/night.ts';
+import { MOB_KINDS, NIGHT_LIMITS, wavesForStage } from '../src/config/night.ts';
+import { ASSAULT_TUNING } from '../src/core/assault.ts';
 
 test('快速笔划补齐水平/竖直/斜线网格，四方向连通且无重复，非法坐标不迭代', () => {
   for (const [a, b] of [[{ x: 352, y: 320 }, { x: 672, y: 320 }], [{ x: 672, y: 416 }, { x: 352, y: 224 }], [{ x: 352, y: 320 }, { x: 352, y: 416 }]]) {
@@ -47,19 +48,19 @@ test('夜战禁铺墙和出售，正常出售按实际支付回收且不可重�
   assert.equal(b.demolish(id).ok, false); assert.equal(b.campaign.depot.materials, 17);
 });
 
-test('三阶段兵力增加，首夜第二波有空军；成批混编进场而非先出完步兵', () => {
+test('三阶段兵力增加，首夜第二波有空军；同批集中在同一方向推进', () => {
   const totals = ([1, 2, 3] as const).map(s => wavesForStage(s).reduce((n, w) => n + w.bosses.length + MOB_KINDS.reduce((m, k) => m + w[k], 0), 0));
-  assert.deepEqual(totals, [100, 162, 230]); assert.ok(wavesForStage(1)[1].crow > 0);
+  assert.deepEqual(totals, [139, 250, 345]); assert.ok(wavesForStage(1)[1].crow > 0);
   for (const stage of [1, 2, 3] as const) {
     const c = newCampaign(); c.clearedStage = stage - 1; const w = new NightWorld(c);
-    w.elapsed = 3; w.step(); assert.equal(w.enemies.length, ASSAULT_CADENCE[stage].batch);
-    assert.ok(new Set(w.enemies.map(e => e.kind)).size >= 2);
+    w.elapsed = 3; w.step(); assert.equal(w.enemies.length, ASSAULT_TUNING[stage].batch);
+    assert.equal(new Set(w.enemies.map(e => e.gate)).size, 1);
   }
   const first = new NightWorld(newCampaign());
   for (let i = 0; i < 25 * 60; i++) first.step(); assert.ok(first.enemies.some(e => e.kind === 'crow'));
 });
 
-test('密集刷新仍遵守72敌人上限，留待刷新队列不会无限挤入场', () => {
+test('密集刷新仍遵守96敌人上限，留待刷新队列不会无限挤入场', () => {
   const c = newCampaign(); c.clearedStage = 2; const w = new NightWorld(c); w.elapsed = 3;
   for (let i = 0; i < NIGHT_LIMITS.enemies - 1; i++) w.enemies.push({ id: 10000 + i, kind: 'walker', x: 1900, y: 900 + i, health: 10000, aim: 0, moving: false, cooldown: 999, hurt: 0 });
   w.step(); assert.equal(w.enemies.length, NIGHT_LIMITS.enemies);

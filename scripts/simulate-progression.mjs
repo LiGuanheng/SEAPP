@@ -11,14 +11,32 @@ mkdirSync('artifacts', { recursive: true });
 let campaign = newCampaign(); campaign.survivors = ['engineer']; campaign.weapons.push('rifle');
 const builds = [
   [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640], ['barricade', 960, 640]],
-  [['grid', 1024, 576], ['repair', 928, 736], ['cannon', 960, 352], ['arrowtower', 608, 352]],
-  [['flame', 576, 416], ['sniper', 1056, 352], ['turret', 832, 800], ['wall', 576, 256], ['wall', 608, 256], ['wall', 640, 256]],
+  [['grid', 1024, 576], ['repair', 928, 736], ['cannon', 960, 352], ['arrowtower', 608, 352], ['cannon', 448, 352], ['arrowtower', 480, 640]],
+  [['flame', 576, 416], ['sniper', 1056, 352], ['turret', 832, 800], ['wall', 576, 256], ['wall', 608, 256], ['wall', 640, 256], ['flame', 576, 736], ['flame', 960, 800], ['grid', 544, 640]],
 ];
 for (let stage = 1; stage <= 3; stage++) {
-  campaign.depot.materials += stage === 1 ? 16 : 24; campaign.depot.energy += stage === 1 ? 2 : 10;
+  campaign.depot.materials += stage === 1 ? 16 : stage === 3 ? 36 : 24; campaign.depot.energy += stage === 1 ? 2 : stage === 3 ? 12 : 10;
   if (stage === 2) campaign.survivors.push('guardian', 'medic'); if (stage === 3) campaign.survivors.push('gunner', 'captain', 'ranger', 'brawler');
   const base = new BaseWorld(campaign); base.resume();
   for (const [kind, x, y] of builds[stage - 1]) { const r = base.build(kind, { x, y }, kind === 'barricade' ? 1 : 0); if (!r.ok) throw new Error(`${kind}: ${r.message}`); }
+  if (stage === 3) {
+    // 最终围城前再出发一次，带回24建材；单趟仍受48负重限制，没有免费施工。
+    base.campaign.depot.materials += 24;
+    base.build('turret', { x: 1056, y: 640 });
+    for (const x of [512, 544, 576, 608, 640, 672]) base.build('wall', { x, y: 864 });
+    for (const x of [896, 928, 960, 992]) base.build('wall', { x, y: 256 });
+    for (const x of [416, 1152]) for (let y = 288; y <= 448; y += 32) base.build('wall', { x, y });
+    for (const x of [896, 928, 960, 992, 1024, 1056]) base.build('wall', { x, y: 864 });
+    for (const x of [352, 384, 416, 448, 1056, 1088]) base.build('wall', { x, y: 256 });
+  }
+  if (stage >= 2) {
+    base.plan.soldiers.forEach((s, i) => {
+      const points = [[688, 592], [848, 592], [688, 432], [848, 432], [656, 512], [880, 512], [768, 640], [768, 400]];
+      const p = s.role === 'gunner' ? [768, 400] : s.role === 'guardian' ? [768, 608] : points[i];
+      base.move([s.id], { x: p[0], y: p[1] });
+    });
+    for (let i = 0; i < 600; i++) base.step();
+  }
   base.finish(); const night = new NightWorld(base.campaign), times = [], peak = { enemies: 0, bullets: 0, zones: 0 };
   for (let i = 0; i < 7201 && night.commanding; i++) {
     if (night.charges && night.supportCooldown === 0 && night.elapsed > 55) { const target = night.enemies.find(e => night.canSee(e) && ['bomber', 'blighter', 'brute'].includes(e.kind)); if (target) night.callStrike(target); }
