@@ -1,0 +1,110 @@
+[
+  {
+    "expeditions": 0,
+    "budget": {
+      "materials": 145,
+      "energy": 44,
+      "medkits": 0
+    },
+    "unspent": {
+      "materials": 25,
+      "energy": 12,
+      "medkits": 0
+    },
+    "buildings": 56,
+    "peak": 91,
+    "summary": {
+      "stage": 3,
+      "outcome": "victory",
+      "duration": 120,
+      "kills": 350,
+      "lampHealth": 335,
+      "soldiers": 8,
+      "buildings": 44,
+      "strikes": 0,
+      "bossKills": 4
+    },
+    "losses": 12
+  },
+  {
+    "expeditions": 1,
+    "budget": {
+      "materials": 145,
+      "energy": 44,
+      "medkits": 0
+    },
+    "unspent": {
+      "materials": 25,
+      "energy": 12,
+      "medkits": 0
+    },
+    "buildings": 56,
+    "peak": 93,
+    "summary": {
+      "stage": 3,
+      "outcome": "victory",
+      "duration": 120,
+      "kills": 349,
+      "lampHealth": 380,
+      "soldiers": 8,
+      "buildings": 45,
+      "strikes": 0,
+      "bossKills": 4
+    },
+    "losses": 11
+  },
+  {
+    "expeditions": 2,
+    "budget": {
+      "materials": 145,
+      "energy": 44,
+      "medkits": 0
+    },
+    "unspent": {
+      "materials": 25,
+      "energy": 12,
+      "medkits": 0
+    },
+    "buildings": 56,
+    "peak": 93,
+    "summary": {
+      "stage": 3,
+      "outcome": "victory",
+      "duration": 120,
+      "kills": 347,
+      "lampHealth": 380,
+      "soldiers": 8,
+      "buildings": 45,
+      "strikes": 0,
+      "bossKills": 4
+    },
+    "losses": 11
+  },
+  {
+    "expeditions": 3,
+    "budget": {
+      "materials": 145,
+      "energy": 44,
+      "medkits": 0
+    },
+    "unspent": {
+      "materials": 25,
+      "energy": 12,
+      "medkits": 0
+    },
+    "buildings": 56,
+    "peak": 87,
+    "summary": {
+      "stage": 3,
+      "outcome": "victory",
+      "duration": 120,
+      "kills": 348,
+      "lampHealth": 335,
+      "soldiers": 8,
+      "buildings": 45,
+      "strikes": 0,
+      "bossKills": 4
+    },
+    "losses": 11
+  }
+]

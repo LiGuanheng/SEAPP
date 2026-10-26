@@ -1,0 +1,92 @@
+[
+  {
+    "name": "ordinary",
+    "frames": 1320,
+    "meanFrameMs": 6.061666666680214,
+    "p95FrameMs": 6.200000000000728,
+    "maxFrameMs": 12.100000000000364,
+    "peaks": {
+      "enemies": 27,
+      "directions": 2,
+      "particles": 33
+    },
+    "elapsed": 53.74999999999823,
+    "status": "playing",
+    "lampHealth": 380,
+    "buildings": 4,
+    "view": {
+      "soldiers": 3,
+      "buildings": 4,
+      "objects": 243,
+      "enemies": 16,
+      "bullets": 2,
+      "particles": 33,
+      "corpses": 37
+    },
+    "scriptSeconds": 4.485966,
+    "taskSeconds": 5.0431740000000005,
+    "heapMB": 17.839290618896484,
+    "errors": [],
+    "note": "Production headless Chrome, real requestAnimationFrame, 3x fixed-step simulation, 8 wall-clock seconds. No virtual clock."
+  },
+  {
+    "name": "fortified",
+    "frames": 940,
+    "meanFrameMs": 8.521489361714812,
+    "p95FrameMs": 18.19999999999709,
+    "maxFrameMs": 30.399999999997817,
+    "peaks": {
+      "enemies": 55,
+      "directions": 4,
+      "particles": 200
+    },
+    "elapsed": 83.46666666666322,
+    "status": "playing",
+    "lampHealth": 380,
+    "buildings": 108,
+    "view": {
+      "soldiers": 8,
+      "buildings": 108,
+      "objects": 495,
+      "enemies": 39,
+      "bullets": 5,
+      "particles": 109,
+      "corpses": 40
+    },
+    "scriptSeconds": 7.633227,
+    "taskSeconds": 7.969274,
+    "heapMB": 17.90216064453125,
+    "errors": [],
+    "note": "Production headless Chrome, real requestAnimationFrame, 3x fixed-step simulation, 8 wall-clock seconds. No virtual clock."
+  },
+  {
+    "name": "encirclement",
+    "frames": 1294,
+    "meanFrameMs": 6.183384853154651,
+    "p95FrameMs": 6.200000000000728,
+    "maxFrameMs": 18.399999999997817,
+    "peaks": {
+      "enemies": 73,
+      "directions": 4,
+      "particles": 200
+    },
+    "elapsed": 83.53333333332988,
+    "status": "playing",
+    "lampHealth": 380,
+    "buildings": 41,
+    "view": {
+      "soldiers": 7,
+      "buildings": 41,
+      "objects": 384,
+      "enemies": 50,
+      "bullets": 8,
+      "particles": 44,
+      "corpses": 40
+    },
+    "scriptSeconds": 3.996607,
+    "taskSeconds": 4.313512,
+    "heapMB": 30.859249114990234,
+    "errors": [],
+    "note": "Production headless Chrome, real requestAnimationFrame, 3x fixed-step simulation, 8 wall-clock seconds. No virtual clock."
+  }
+]

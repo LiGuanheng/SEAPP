@@ -1,0 +1,53 @@
+{
+  "version": "0.11.0",
+  "baselineHead": "3278b6b88a92820a58ce2e7e86dfc9d5231fd1c3",
+  "branch": "codex/story-lantern-and-fog",
+  "testedSource": {
+    "fullBrowserSuite": "cdeb73f",
+    "finalBuildAndTargeted": "a85a90e"
+  },
+  "checks": {
+    "rules": {
+      "passed": 90,
+      "failed": 0
+    },
+    "legacy": {
+      "passed": 22,
+      "failed": 0
+    },
+    "productionChrome": {
+      "passed": 40,
+      "failed": 0,
+      "minutes": 7.4
+    },
+    "finalChromeTargeted": {
+      "passed": 3,
+      "failed": 0,
+      "seconds": 57.8
+    },
+    "citySeeds": 300,
+    "build": "passed",
+    "bundle": "index-Dr-HRap1.js"
+  },
+  "logs": [
+    "artifacts/v011-final-rules.log",
+    "artifacts/v011-managed-e2e.log",
+    "artifacts/v011-last-loot-e2e.log",
+    "artifacts/v011-final-model.log",
+    "artifacts/v011-final-progression.log",
+    "artifacts/v011-browser-final2.log"
+  ],
+  "benchmarks": {
+    "model": "siege-model-v0.11-final.json",
+    "browser": "siege-browser-v0.11-final.json",
+    "monoTurret": "mono-turret-v0.11.json"
+  },
+  "recording": {
+    "path": "artifacts/v011/night-real-browser.webm",
+    "source": "actual canvas captureStream + MediaRecorder, normal browser time, no audio track"
+  },
+  "limits": [
+    "High-resource mono-turret plus walls plus eight heroes won 4/4 seeds; single-tower balance is not fully resolved.",
+    "Only desktop Chrome validated; no human fun or sound-quality claim."
+  ]
+}

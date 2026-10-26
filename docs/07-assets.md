@@ -39,3 +39,5 @@ v0.9（2026-10-25）：新增 weapons/lantern.svg 为本项目原创像素网格
 
 
 v0.10（2026-10-25）：新增原创网格矢量weapons/grid、repair、flame、sniper.svg与enemies/blighter、bomber.svg（三帧96×96）。复用青灰轮廓/锈黄结构/功能色，无新第三方图片和音频。scripts/generate-progression-art.mjs可复现，project-art.txt的CC0声明、manifest字节数/SHA-256随新增同步，public/assets字节保留规则不变。统一地台、范围环、减速/火焰脉冲、毒池与Boss死亡效果为运行时图形。
+
+v0.11：双联高射炮与榴弹炮改装的炮管/支架、建筑裂纹/碎石、隔离街垒、转场雾流/灰烬/警报灯/光束均由Phaser运行时原创绘制；低频提示与群体声响由Web Audio原创合成。复用原有人物、城市、灯塔与Boss资源，未下载或修改第三方图像、未复制商业游戏素材；原静态资源许可与SHA-256清单继续有效。浏览器截图与WebM来自实际canvas，截图不是新增游戏素材。人物的现有头身风格仍沿用旧图集，本轮未重绘全套角色。
