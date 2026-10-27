@@ -39,12 +39,22 @@ test('设施阶段锁在模型中生效，扩建保留旧阵地且新增区域�
   assert.ok(b.plan.soldiers[0].x > 800); assert.ok(validBasePlan(b.plan)); assert.deepEqual(decodeCampaign(JSON.stringify(b.campaign)).base, b.plan);
   assert.ok(STAGES[3].area.width * STAGES[3].area.height > STAGES[1].area.width * STAGES[1].area.height * 1.8);
 });
+test('守夜进度扩大真实灯塔视野与施工许可，未解锁区域不扣费', () => {
+  const first = new NightWorld(campaign(1)), second = new NightWorld(campaign(2)), third = new NightWorld(campaign(3));
+  const p = { x: 288, y: 512 }, far = { x: 148, y: 512 };
+  assert.equal(first.canSee(p), false); assert.equal(second.canSee(p), true);
+  assert.equal(second.canSee(far), false); assert.equal(third.canSee(far), true);
+  const b = new BaseWorld(campaign(1)), before = { ...b.campaign.depot };
+  assert.equal(b.build('turret', { x: 1504, y: 640 }).ok, false); assert.deepEqual(b.campaign.depot, before);
+  b.campaign.clearedStage = 1; b.resume(); assert.equal(b.lightRadius, 530); assert.equal(b.remaining, 30);
+  assert.equal(b.build('turret', { x: 1504, y: 640 }).ok, true);
+});
 
 test('胜利解锁及补给只发一次，重试锁原阶段，失败不推进，旧v2不按历史胜次跳关', () => {
   const old = decodeCampaign(JSON.stringify({ ...newCampaign(), nightsWon: 99 })); assert.equal(new BaseWorld(old).stage, 1);
   const b = new BaseWorld(campaign(1)); for (const [kind, x, y] of [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640], ['barricade', 960, 640]] as const) assert.ok(b.build(kind, { x, y }).ok); b.finish();
   const w = new NightWorld(b.campaign), before = { ...w.checkpoint.depot }; run(w, 120.1); assert.equal(w.status, 'victory');
-  const result = w.resultCampaign(); assert.equal(result.clearedStage, 1); assert.equal(result.depot.materials, before.materials + 12); assert.equal(result.depot.energy, before.energy + 4);
+  const result = w.resultCampaign(); assert.equal(result.clearedStage, 1); assert.equal(result.depot.materials, before.materials + 24); assert.equal(result.depot.energy, before.energy + 10);
   assert.deepEqual(w.resultCampaign(), result); assert.deepEqual(decodeCampaign(JSON.stringify(result)), result);
   const retry = new NightWorld(result); assert.equal(retry.stage, 1); run(retry, 120.1); assert.equal(retry.status, 'victory'); assert.deepEqual(retry.resultCampaign().depot, result.depot);
   const next = new BaseWorld(result); next.resume(); assert.equal(next.stage, 2);

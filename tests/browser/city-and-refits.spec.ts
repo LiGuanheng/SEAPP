@@ -53,7 +53,7 @@ test('真实库存改装两种炮塔、刷新保留、暂停不误扣，夜战�
   expect(flak).toBe(true); expect(shell).toBe(true); await page.screenshot({ path: 'artifacts/v011/refit-live-fire.png' }); expect(errors).toEqual([]);
 });
 
-test('出发、黄昏归来与失守均展示真实地图，跳过失败演出后原阶段可重试', async ({ page }) => {
+test('出发、黄昏归来与失守均展示真实地图，跳过失败演出后进入成绩', async ({ page }) => {
   await page.clock.install(); await page.goto('/?test=1&seed=1000'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready);
   await page.clock.runFor(650); await page.screenshot({ path: 'artifacts/v011/departure.png' });
   await key(page, 'Space'); await walk(page, 1056, 736); await key(page, 'KeyE'); await walk(page, 920, 760); await key(page, 'KeyE');
@@ -63,5 +63,5 @@ test('出发、黄昏归来与失守均展示真实地图，跳过失败演出�
   for (let i = 0; i < 100 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(500);
   expect((await state(page)).status).toBe('defeat'); await page.clock.runFor(400); await page.screenshot({ path: 'artifacts/v011/defeat-extinction.png' });
   await key(page, 'Space'); expect((await state(page)).lampHealth).toBe(0); expect(await page.evaluate(() => (window as any).__nightLight.presentation().active)).toBe(false);
-  await key(page, 'Enter'); expect((await state(page)).status).toBe('playing'); expect((await state(page)).lampHealth).toBe(380);
+  await key(page, 'Enter'); await expect(page.getByRole('dialog')).toBeVisible(); expect((await state(page)).status).toBe('defeat'); expect((await state(page)).lampHealth).toBe(0);
 });

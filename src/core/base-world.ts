@@ -37,6 +37,7 @@ export class BaseWorld {
   get remaining(): number { return Math.max(0, PREPARATION_SECONDS - this.plan.elapsed); }
   get stage(): StageId { return this.plan.stage ?? nextStage(this.campaign.clearedStage); }
   get buildArea(): Rect { return STAGES[this.stage].area; }
+  get lightRadius(): number { return STAGES[this.stage].lightRadius; }
   unlocked(kind: BuildingKind): boolean { return BUILDINGS[kind].stage <= this.stage; }
   get commanding(): boolean { return this.plan.status === 'preparing'; }
   get livingSoldiers(): Soldier[] { return this.plan.soldiers; }
@@ -172,5 +173,5 @@ export class BaseWorld {
     }
   }
   protected soldierSpeed(_s: Soldier): number { return 140; }
-  snapshot() { return { phase: 'base' as const, remaining: this.remaining, plan: structuredClone(this.plan), campaign: cloneCampaign(this.campaign) }; }
+  snapshot() { return { phase: 'base' as const, remaining: this.remaining, lightRadius: this.lightRadius, buildArea: { ...this.buildArea }, plan: structuredClone(this.plan), campaign: cloneCampaign(this.campaign) }; }
 }

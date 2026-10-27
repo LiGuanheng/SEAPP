@@ -33,12 +33,12 @@ export async function buildApp(store: ScoreStore, options: { origins?: string[];
   app.get('/api/health', { config: { rateLimit: false } }, async () => { await store.health(); return { status: 'ok', database: 'ready', scoreVersion: SCORE_VERSION }; });
   app.get('/api/leaderboard', async request => {
     const q = leaderboardQuery.parse(request.query);
-    return { board: q.board, difficulty: q.difficulty, scoreVersion: SCORE_VERSION, entries: await store.leaderboard(q.board, q.difficulty, q.limit) };
+    return { board: q.board, difficulty: q.difficulty, scope: q.scope, scoreVersion: SCORE_VERSION, entries: await store.leaderboard(q.board, q.difficulty, q.limit, q.scope) };
   });
   app.post('/api/scores', { config: { rateLimit: { max: options.submitLimit ?? 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const score = submissionSchema.parse(request.body);
     const result = await store.submit(score);
-    return reply.code(result.created ? 201 : 200).send({ entry: result.entry, duplicate: !result.created });
+    return reply.code(result.created ? 201 : 200).send({ entry: result.entry, duplicate: !result.created, ranks: result.ranks });
   });
   return app;
 }

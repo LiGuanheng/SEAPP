@@ -42,5 +42,5 @@ test('真实第三阶段四向成群进攻、Boss演出与黎明，终局模型�
   await page.clock.runFor(2600); const settled = await state(page);
   expect(settled.summary).toEqual(end.summary); expect(settled.enemies).toEqual(end.enemies); expect((await presentation(page)).active).toBe(false);
   await page.screenshot({ path: 'artifacts/v011/dawn-result.png' }); await key(page, 'Enter');
-  expect((await state(page)).status).toBe('playing'); expect((await state(page)).elapsed).toBeLessThan(1); expect((await presentation(page)).kind).toBe('night'); expect(errors).toEqual([]);
+  await expect(page.getByRole('dialog')).toBeVisible(); expect((await state(page)).status).toBe('victory'); expect((await state(page)).elapsed).toBe(120); expect(errors).toEqual([]);
 });

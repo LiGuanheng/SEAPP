@@ -79,7 +79,9 @@ test('丧尸真实追击、攻击、失败与重试；持续运行无页面异�
   expect((await snapshot(page)).status).toBe('defeat');
   const dead = await snapshot(page); await page.clock.runFor(1200); expect((await snapshot(page)).elapsed).toBe(dead.elapsed);
   await page.screenshot({ path: 'artifacts/phase1-defeat.png' });
-  await page.keyboard.press('Enter'); await page.clock.runFor(200);
+  await page.clock.runFor(2500); await expect(page.getByRole('heading', { name: '灯火熄灭，本局结束。' })).toBeVisible();
+  await page.keyboard.press('Escape'); await page.keyboard.press('Enter'); await page.clock.runFor(200); expect((await snapshot(page)).status).toBe('defeat');
+  await page.goto('/?mode=combat&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(200);
   const fresh = await snapshot(page); expect(fresh.status).toBe('playing'); expect(fresh.player.health).toBe(100); expect(fresh.kills).toBe(0);
   expect(fresh.view.corpses).toBe(0); expect(fresh.view.particles).toBe(0);
   await page.keyboard.down('KeyD'); await page.clock.runFor(300); await page.keyboard.up('KeyD');

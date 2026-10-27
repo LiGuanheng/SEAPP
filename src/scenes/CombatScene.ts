@@ -8,7 +8,7 @@ import { Hud } from '../view/Hud.ts';
 import { MapView } from '../view/MapView.ts';
 import { ExpeditionWorld } from '../core/expedition.ts';
 import { cloneCampaign, newCampaign, type Campaign } from '../core/campaign.ts';
-import { loadGameCampaign, saveGameCampaign, updateRun, rankingSnapshot } from '../services/game-session.ts';
+import { loadGameCampaign, saveGameCampaign, rankedRun, updateRun, rankingSnapshot } from '../services/game-session.ts';
 import { onlinePanel, bindOnlinePanel } from '../view/LeaderboardPanel.ts';
 import { ExpeditionView } from '../view/ExpeditionView.ts';
 import { SoundBus } from '../view/SoundBus.ts';
@@ -36,6 +36,8 @@ export class CombatScene extends Phaser.Scene {
   private musicLabel!: Phaser.GameObjects.Text;
   private fog: ExplorationFog | null = null;
   private transition!: SceneTransition;
+  private scored = false;
+  private rankingShown = false;
   constructor() { super('Combat'); }
   create(data: { campaign?: Campaign } = {}): void {
     const training = new URLSearchParams(location.search).get('mode') === 'combat';
@@ -48,6 +50,7 @@ export class CombatScene extends Phaser.Scene {
     const seedParam = new URLSearchParams(location.search).get('seed'), seed = seedParam !== null && /^\d{1,10}$/.test(seedParam) && Number(seedParam) <= 4294967295 ? Number(seedParam) : crypto.getRandomValues(new Uint32Array(1))[0];
     this.world = training ? new CombatWorld() : new ExpeditionWorld(campaign, true, seed);
     this.held.clear(); this.firing = false; this.paused = false; this.pointerActive = false; this.accumulator = 0; this.bag = false; this.persisted = false;
+    this.scored = false; this.rankingShown = false;
     this.mapView = new MapView(this, this.world instanceof ExpeditionWorld ? this.world.layout : undefined);
     this.fog = this.world instanceof ExpeditionWorld ? new ExplorationFog(this, this.world) : null;
     this.expeditionView = this.world instanceof ExpeditionWorld ? new ExpeditionView(this, this.world) : null;
@@ -71,6 +74,7 @@ export class CombatScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
     const keyDown = (event: KeyboardEvent) => {
       if (onlinePanel.visible) return;
+      if (rankedRun.result) { if (event.code === 'Space') this.transition.skip(); if (event.code === 'Enter') onlinePanel.open('result'); return; }
       this.audio.unlock();
       if (['F1', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(event.code)) event.preventDefault();
       if (event.repeat) return;
@@ -122,10 +126,11 @@ export class CombatScene extends Phaser.Scene {
     const leaveCanvas = () => { this.firing = false; this.pointerActive = false; };
     window.addEventListener('blur', loseFocus); document.addEventListener('visibilitychange', hidden);
     const unbindOnline = bindOnlinePanel(() => this.paused, paused => this.setPaused(paused));
+    onlinePanel.setSessionActions({ end: () => this.endRun() });
     updateRun(!this.paused && !training);
     this.game.canvas.addEventListener('pointerleave', leaveCanvas);
     this.events.once('shutdown', () => {
-      updateRun(false); unbindOnline();
+      updateRun(false); unbindOnline(); onlinePanel.setSessionActions(null);
       this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, added);
       this.input.keyboard?.off('keydown', keyDown); this.input.keyboard?.off('keyup', keyUp);
       this.input.off('pointerdown', down); this.input.off('pointerup', up); this.input.off('pointermove', move);
@@ -142,7 +147,7 @@ export class CombatScene extends Phaser.Scene {
     if (this.world instanceof ExpeditionWorld) this.fog?.update(this.world);
     document.getElementById('loading')?.remove();
   }
-  private setPaused(paused: boolean): void { this.paused = paused; updateRun(!paused && this.world.status === 'playing'); this.held.clear(); this.firing = false; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio.pause(paused); }
+  private setPaused(paused: boolean): void { this.paused = paused || !!rankedRun.result; updateRun(!this.paused && this.world.status === 'playing'); this.held.clear(); this.firing = false; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio.pause(this.paused); }
   private toggleGuide(): void {
     if (this.world.status !== 'playing') return;
     if (this.guide.visible) { this.guide.show(false); this.setPaused(this.guideWasPaused); }
@@ -150,18 +155,35 @@ export class CombatScene extends Phaser.Scene {
   }
   private advance(): void {
     updateRun(false);
+    if (rankedRun.result) { onlinePanel.open('result'); return; }
     if (this.world instanceof ExpeditionWorld && this.world.status === 'complete') this.scene.start('Base', { campaign: this.world.campaign, fresh: true });
-    else if (this.world.status === 'defeat') this.scene.restart(this.world instanceof ExpeditionWorld ? { campaign: this.world.campaign } : undefined);
+    else if (this.world.status === 'defeat') this.endRun();
     else this.togglePause();
   }
   private togglePause(): void { if (this.world.status === 'playing') { this.bag = false; this.setPaused(!this.paused); } }
   private persistResult(): void {
+    if (this.world.status === 'defeat' && !rankedRun.result) {
+      this.recordExploration(); rankedRun.finishRun('defeat', performance.now());
+      if (rankedRun.result) onlinePanel.remember(rankedRun.result);
+      this.transition.play('守灯人倒下，本局结束。', '探索与守夜成绩已记入档案', 'defeat', this.world.player, this.audio);
+    }
     if (!(this.world instanceof ExpeditionWorld) || this.world.status !== 'complete' || this.persisted) return;
     this.persisted = true;
+    this.recordExploration();
     updateRun(false);
     this.transition.play('灯火接应，队伍归来', '黄昏降临 · 战利品已送入仓库', 'return', this.world.player, this.audio);
     try { if (saveGameCampaign(window.localStorage, this.world.campaign)) return; } catch { /* 存储被禁用时保留本次结算画面。 */ }
     this.hud.saveWarning = '存档未写入：浏览器禁用了存储，本次结果仅保留在画面中。';
+  }
+  private recordExploration(): void {
+    if (this.scored) return;
+    this.scored = true;
+    const w = this.world;
+    rankedRun.recordExploration(w.kills, w instanceof ExpeditionWorld ? w.caches.filter(c => c.opened).length : 0, w instanceof ExpeditionWorld ? w.summary?.rescued ?? [] : []);
+  }
+  private endRun(): void {
+    this.setPaused(true); this.recordExploration(); rankedRun.finishRun('retired', performance.now());
+    if (rankedRun.result) { onlinePanel.remember(rankedRun.result); this.rankingShown = true; onlinePanel.open('result'); }
   }
   private inputState(): InputState {
     const p = this.world.player, pointer = this.input.activePointer;
@@ -175,7 +197,7 @@ export class CombatScene extends Phaser.Scene {
     };
   }
   update(_time: number, delta: number): void {
-    const dt = Math.min(delta / 1000, 0.12), active = !this.paused && this.world.status === 'playing';
+    const dt = Math.min(delta / 1000, 0.12), active = !this.paused && this.world.status === 'playing' && !rankedRun.result;
     updateRun(active && this.world instanceof ExpeditionWorld);
     if (active) {
       this.accumulator = Math.min(0.15, this.accumulator + dt);
@@ -200,6 +222,7 @@ export class CombatScene extends Phaser.Scene {
     this.musicLabel.setText(this.audio.musicMuted ? '配乐关闭 [L]' : '配乐开启 [L]');
     this.mapView.update(this.world.player);
     this.transition.update(this.paused ? 0 : dt, !this.paused && !this.guide.visible);
+    if (rankedRun.result && !this.transition.active && !this.rankingShown) { this.rankingShown = true; onlinePanel.open('result'); }
     if (this.world instanceof ExpeditionWorld) this.fog?.update(this.world);
     this.guide.available(this.world.status === 'playing');
     if (this.world.status !== 'playing' && !this.transition.active) this.audio.pause(true);

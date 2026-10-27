@@ -6,10 +6,11 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
 #loading, #load-error { position: fixed; z-index: 10; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 20px; max-width: 90vw; text-align: center; color: #d9c390; background: #122128; border: 1px solid #64705a; line-height: 1.8; }
 #loading { pointer-events: none; font-size: 12px; top: 65%; background: transparent; border: 0; }
 #load-error { color: #efba9e; }
+#game { height: calc(100dvh - 54px); }
 [hidden] { display: none !important; }
 
 .online-ui { font: 14px/1.6 Consolas, 'Microsoft YaHei', sans-serif; }
-.online-dock { position: fixed; z-index: 20; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 5px 8px; background: #0c1a20ed; border: 1px solid #43534d; border-radius: 3px; }
+.online-dock { position: fixed; z-index: 20; bottom: 0; left: 0; right: 0; height: 54px; display: flex; gap: 8px; align-items: center; justify-content: center; padding: 5px 8px; background: #0c1a20; border-top: 1px solid #43534d; white-space: nowrap; overflow-x: auto; }
 .online-dock span { color: #9eafa2; font-size: 11px; white-space: nowrap; padding: 0 5px; }
 .online-ui button, .online-ui a { font: inherit; color: #e4ca91; background: #263d3b; border: 1px solid #667c6a; border-radius: 2px; padding: 8px 15px; cursor: pointer; text-decoration: none; transition: background .15s; }
 .online-ui button:hover, .online-ui a:hover { background: #3a5146; }
@@ -35,6 +36,8 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
 .online-ui td:first-child { color: #d6b879; }
 .online-ui tbody tr:nth-child(-n+3) { background: #d6b87909; }
 .online-ui tbody tr:hover { background: #d6b87915; }
+.online-result-board { margin-top: 20px; border-top: 1px solid #64705a55; color: #b9c8ae; font-size: 12px; }
+.online-result-board li { padding: 5px 0; }
 .online-dialog footer { padding: 15px 36px; color: #8e9e94; font-size: 10px; border-top: 1px solid #64705a44; }
 .online-start { margin-top: 24px; border-top: 1px solid #64705a55; padding-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
 .online-start p { flex-basis: 100%; color: #8eaa9a; font-size: 12px; margin: 4px 0; }
@@ -58,5 +61,7 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
   .online-stats { gap: 7px; }
   .online-stats div { padding: 8px; }
   .online-stats strong { font-size: 18px; }
-  .online-dock { bottom: 5px; }
+  .online-dock { justify-content: flex-start; gap: 5px; }
+  .online-dock button, .online-dock a { font-size: 12px; padding: 7px 9px; }
+  .online-dock span { display: none; }
 }

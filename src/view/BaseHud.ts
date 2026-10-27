@@ -34,7 +34,7 @@ export class BaseHud {
       this.root.add(bg); text(x, y, label, 12, '#e0d4a8').setOrigin(0.5);
     };
     const g = scene.add.graphics(); this.root.add(g);
-    g.fillStyle(0x0b1c24, 0.96).fillRect(0, 0, 1280, 94).fillRect(0, 596, 1280, 124);
+    g.fillStyle(0x0b1c24, 0.96).fillRect(0, 0, 1280, 94).fillRect(0, 596, 1280, 124).fillRect(1080, 94, 200, 502);
     g.lineStyle(1, 0x5b7161, 0.7).lineBetween(20, 94, 1260, 94).lineBetween(20, 596, 1260, 596);
     text(26, 17, 'THE LAST LIGHT / 最后一盏灯', 13, '#dfc68d').setLetterSpacing(2);
     text(26, 44, '北境灯塔 · 黄昏布防', 18, '#e8d59f');
@@ -75,7 +75,7 @@ export class BaseHud {
     back.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); explore(); });
     this.overlay.add([this.title, this.body, bg, this.buttonLabel, back]);
   }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || y < 94 || y >= 596 || x >= 1080 && y < 244; }
+  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x >= 1080 || y < 94 || y >= 596; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);

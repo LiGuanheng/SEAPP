@@ -43,7 +43,8 @@ export class BootScene extends Phaser.Scene {
     const graphics = this.make.graphics({ x: 0, y: 0 });
     graphics.fillStyle(0xffffff).fillRect(0, 0, 3, 3).generateTexture('pixel', 3, 3); graphics.destroy();
     const mode = new URLSearchParams(location.search).get('mode');
-    const intro = mode === null && (!hasSeenStory() || new URLSearchParams(location.search).get('intro') === '1');
-    this.scene.start(intro ? 'Prologue' : mode === 'base' || mode === 'night' ? 'Base' : 'Combat', { battle: mode === 'night' });
+    const params = new URLSearchParams(location.search), demo = params.get('demo') === '1';
+    const intro = !demo && mode === null && params.get('intro') !== '0' && (!hasSeenStory() || params.get('intro') === '1');
+    this.scene.start(intro ? 'Prologue' : demo || mode === 'base' || mode === 'night' ? 'Base' : 'Combat', { battle: mode === 'night' });
   }
 }

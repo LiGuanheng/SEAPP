@@ -1,0 +1,29 @@
+{
+  "gameVersion": "0.13.0",
+  "scoreVersion": 2,
+  "baseCommit": "d60151dbeb6af15dac5c870e8b5ee0e83214042f",
+  "recordDate": "2026-10-27",
+  "gameRuleTests": { "passed": 98, "failed": 0 },
+  "legacyRuleTests": { "passed": 22, "failed": 0 },
+  "apiTests": { "passed": 8, "failed": 0 },
+  "postgresIntegration": { "passedIncludingParent": 9, "failed": 0, "version": 17 },
+  "browserCoverage": {
+    "distinctCases": 49,
+    "initialBatch": { "passed": 46, "failed": 3 },
+    "finalAffectedBatch": { "passed": 19, "failed": 0, "repeatedPassingCases": 16 },
+    "environment": "production Vite preview, compiled API, real temporary PostgreSQL, Chrome"
+  },
+  "frontendBuild": "passed",
+  "backendBuildAndSqlCopy": "passed",
+  "pagesSubpathAndOfflineBuild": "passed",
+  "referenceModel": { "victories": 3, "score": 20955, "usesExplorationResourcesAndCharacters": true },
+  "cloudDeploymentPerformed": false,
+  "changes": [
+    "centered battlefield camera and dedicated sidebar",
+    "stage-based real illumination and construction expansion",
+    "optional city exploration and direct next-stage preparation",
+    "death ends the run and opens results",
+    "manual settlement and exact ranks from PostgreSQL",
+    "separate clear, challenge and demo leaderboards"
+  ]
+}

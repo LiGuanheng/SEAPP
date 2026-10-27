@@ -1,6 +1,6 @@
-import { calculateScore, formatDuration, normalizeNickname, validNickname, type BoardType, type RankDifficulty, type ScoreSubmission } from '../core/scoring.ts';
+import { calculateScore, formatDuration, normalizeNickname, validNickname, SCOPE_NAMES, OUTCOME_NAMES, type BoardType, type RankDifficulty, type ScoreScope, type ScoreSubmission } from '../core/scoring.ts';
 import { ApiError, NICKNAME_KEY, PENDING_KEY, apiConfigured, getLeaderboard, loadPending, readLocal, submitScore, writeLocal, type PendingScore } from '../services/leaderboard.ts';
-import { rankedRun } from '../services/game-session.ts';
+import { rankedRun, rankedMode, demoMode } from '../services/game-session.ts';
 
 /** DOM 只承担表单与滚动表格；打开时通过统一事件暂停 Phaser，关闭后恢复原暂停状态。 */
 export class LeaderboardPanel {
@@ -12,7 +12,10 @@ export class LeaderboardPanel {
   private pending: PendingScore | null = loadPending();
   private board: BoardType = 'speed';
   private difficulty: RankDifficulty = rankedRun?.difficulty ?? 'normal';
-  private page: 'board' | 'result' = 'board';
+  private page: 'board' | 'result' | 'end' = 'board';
+  private scope: ScoreScope = 'clear';
+  private actions: { end: () => void; retry?: () => void } | null = null;
+  private endButton: HTMLButtonElement;
   private generation = 0;
   private sending = false;
   private returnFocus: HTMLElement | null = null;
@@ -20,15 +23,17 @@ export class LeaderboardPanel {
   constructor() {
     const dock = document.createElement('nav'); dock.className = 'online-ui online-dock'; dock.setAttribute('aria-label', '在线排行榜');
     dock.append(this.button('排行榜', () => this.open('board')));
-    this.resultButton = this.button('通关成绩', () => this.open('result')); this.resultButton.hidden = !this.pending; dock.append(this.resultButton);
-    const mode = document.createElement('span'); mode.textContent = rankedRun ? '排名战役 · 三阶段' : '自由营地'; dock.append(mode); document.body.append(dock);
+    this.resultButton = this.button('本局成绩', () => this.open('result')); this.resultButton.hidden = !this.pending; dock.append(this.resultButton);
+    this.endButton = this.button('结束并结算', () => this.open('end')); this.endButton.disabled = true; dock.append(this.endButton);
+    dock.append(this.link('课堂演示', { demo: '1', difficulty: this.difficulty }));
+    const mode = document.createElement('span'); mode.textContent = rankedRun.demo ? '课堂 / 练习演示' : rankedMode ? '排名战役 · 三阶段' : '营地挑战'; dock.append(mode); document.body.append(dock);
     this.overlay.className = 'online-ui online-overlay'; this.overlay.hidden = true;
     const dialog = document.createElement('section'); dialog.className = 'online-dialog'; dialog.role = 'dialog'; dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'online-title');
     const top = document.createElement('header'), kicker = document.createElement('p'); kicker.className = 'online-kicker'; kicker.textContent = 'THE LAST LIGHT / 守灯人档案';
     this.heading.id = 'online-title'; this.heading.tabIndex = -1;
     const close = this.button('返回游戏 ×', () => this.close()); close.className = 'online-close'; top.append(kicker, this.heading, close);
     this.tabs.className = 'online-tabs'; this.content.className = 'online-content';
-    const foot = document.createElement('footer'); foot.textContent = '三阶段完整通关 · 普通 / 困难分榜 · 允许原有倍速并显示标记 · 匿名成绩，客户端可伪造';
+    const foot = document.createElement('footer'); foot.textContent = '普通 / 困难分榜 · 正式通关、挑战、课堂演示分别记录';
     dialog.append(top, this.tabs, this.content, foot); this.overlay.append(dialog); document.body.append(this.overlay);
     // Phaser 会把 DOM 按键排队到下一帧再分发；必须在捕获阶段截住，
     // 否则关闭面板后，同一个 Esc/Enter 会再次触发游戏暂停或重试。
@@ -49,11 +54,18 @@ export class LeaderboardPanel {
   private button(label: string, action: () => void): HTMLButtonElement {
     const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', action); return b;
   }
+  private link(label: string, params: Record<string, string>): HTMLAnchorElement {
+    const a = document.createElement('a'), url = new URL(location.href); a.textContent = label;
+    url.search = new URLSearchParams({ ...params, intro: '0' }).toString(); a.href = url.toString(); return a;
+  }
+  setSessionActions(actions: { end: () => void; retry?: () => void } | null): void {
+    this.actions = actions; this.endButton.disabled = !actions || !!rankedRun.result;
+  }
   remember(result: Omit<ScoreSubmission, 'nickname'>): void {
     if (this.pending?.result.runId !== result.runId) this.pending = { result };
-    writeLocal(PENDING_KEY, JSON.stringify(this.pending)); this.resultButton.hidden = false;
+    writeLocal(PENDING_KEY, JSON.stringify(this.pending)); this.resultButton.hidden = false; this.endButton.disabled = true;
   }
-  open(page: 'board' | 'result' = 'board'): void {
+  open(page: 'board' | 'result' | 'end' = 'board'): void {
     if (!this.visible) {
       this.returnFocus = document.activeElement as HTMLElement | null; this.visible = true; this.overlay.hidden = false;
       window.dispatchEvent(new CustomEvent('last-light:online', { detail: true }));
@@ -70,12 +82,22 @@ export class LeaderboardPanel {
   }
   private render(): void {
     this.generation++; this.content.replaceChildren(); this.tabs.replaceChildren();
+    if (this.page === 'end') {
+      this.heading.textContent = '结束这一局，保留你的成绩。';
+      const note = document.createElement('p'); note.textContent = '立即停止计时与战斗，结算当前探索、击杀和已通关阶段。未完成三阶段进入挑战榜；课堂演示进入演示榜。'; this.content.append(note);
+      const confirm = this.button('确认结束本局', () => this.actions?.end()); confirm.disabled = !this.actions || !!rankedRun.result;
+      this.content.append(confirm, this.button('继续游玩', () => this.close())); return;
+    }
     this.heading.textContent = this.page === 'result' ? '三夜已尽，灯火长明。' : '守灯人排行榜';
     if (this.page === 'result' && this.pending) { this.renderResult(this.pending); return; }
     this.page = 'board';
     for (const [id, name] of [['speed', '极速通关榜'], ['score', '综合得分榜']] as const) {
-      const b = this.button(name, () => { this.board = id; this.render(); }); b.setAttribute('aria-pressed', String(this.board === id)); this.tabs.append(b);
+      const b = this.button(name, () => { this.board = id; this.render(); }); b.disabled = id === 'speed' && this.scope !== 'clear'; b.setAttribute('aria-pressed', String(this.board === id)); this.tabs.append(b);
     }
+    const scopeLabel = document.createElement('label'); scopeLabel.textContent = '榜单范围 ';
+    const scopeSelect = document.createElement('select'); scopeSelect.setAttribute('aria-label', '榜单范围');
+    for (const [id, name] of Object.entries(SCOPE_NAMES)) { const o = document.createElement('option'); o.value = id; o.textContent = name; scopeSelect.append(o); }
+    scopeSelect.value = this.scope; scopeSelect.addEventListener('change', () => { this.scope = scopeSelect.value as ScoreScope; if (this.scope !== 'clear') this.board = 'score'; this.render(); }); scopeLabel.append(scopeSelect); this.tabs.append(scopeLabel);
     const label = document.createElement('label'); label.textContent = '游戏难度 ';
     const select = document.createElement('select'); select.setAttribute('aria-label', '游戏难度');
     for (const [id, name] of [['normal', '普通'], ['hard', '困难']]) { const o = document.createElement('option'); o.value = id; o.textContent = name; select.append(o); }
@@ -88,37 +110,43 @@ export class LeaderboardPanel {
     for (const [id, name] of [['normal', '普通'], ['hard', '困难']]) {
       const a = document.createElement('a'); a.textContent = `开始${name}排名战役 →`; const url = new URL(location.href); url.search = new URLSearchParams({ ranked: '1', difficulty: id, intro: '0' }).toString(); a.href = url.toString(); links.append(a);
     }
-    if (rankedRun) { const a = document.createElement('a'); a.textContent = '返回原营地'; const url = new URL(location.href); url.search = ''; a.href = url.toString(); links.append(a); }
+    links.append(this.link('进入课堂演示 →', { demo: '1', difficulty: this.difficulty }));
+    if (rankedMode || demoMode) links.append(this.link('返回原营地', {}));
     status.before(links);
     const generation = this.generation;
     if (!apiConfigured) { status.textContent = '尚未配置在线服务。可继续单机游玩，管理员配置 API 后即可联网。'; return; }
-    void getLeaderboard(this.board, this.difficulty).then(result => {
+    void getLeaderboard(this.board, this.difficulty, this.scope).then(result => {
       if (generation !== this.generation || !this.visible) return;
       if (!Array.isArray(result.entries)) throw new Error('榜单响应格式错误');
       status.textContent = result.entries.length ? `共展示 ${result.entries.length} 条成绩 · 评分版本 ${result.scoreVersion}` : '档案尚空，期待第一位守灯人。';
       if (!result.entries.length) return;
       const wrap = document.createElement('div'); wrap.className = 'online-table-wrap'; const table = document.createElement('table');
-      const head = table.createTHead().insertRow(); for (const name of ['排名', '守灯人', '通关用时', '综合得分', '难度', '倍速']) { const th = document.createElement('th'); th.scope = 'col'; th.textContent = name; head.append(th); }
+      const head = table.createTHead().insertRow(); for (const name of ['排名', '守灯人', '游玩用时', '综合得分', '难度', '结果', '倍速']) { const th = document.createElement('th'); th.scope = 'col'; th.textContent = name; head.append(th); }
       const body = table.createTBody();
-      result.entries.forEach((entry, i) => { const row = body.insertRow(); for (const value of [String(i + 1).padStart(2, '0'), entry.nickname, formatDuration(entry.durationMs), entry.score.toLocaleString('zh-CN'), entry.difficulty === 'hard' ? '困难' : '普通', `≤×${entry.maxSpeed}`]) row.insertCell().textContent = value; });
+      result.entries.forEach((entry, i) => { const row = body.insertRow(); for (const value of [String(i + 1).padStart(2, '0'), entry.nickname, formatDuration(entry.durationMs), entry.score.toLocaleString('zh-CN'), entry.difficulty === 'hard' ? '困难' : '普通', OUTCOME_NAMES[entry.outcome ?? 'victory'], `≤×${entry.maxSpeed}`]) row.insertCell().textContent = value; });
       wrap.append(table); status.after(wrap);
     }).catch(error => { if (generation === this.generation && this.visible) status.textContent = error instanceof Error ? error.message : '读取失败，请重试。'; });
   }
   private renderResult(pending: PendingScore): void {
-    const r = pending.result, parts = calculateScore(r.stages, r.durationMs);
+    const r = pending.result, parts = calculateScore(r.stages, r.durationMs, r);
+    this.heading.textContent = r.completed ? '三夜已尽，灯火长明。' : r.outcome === 'defeat' ? '灯火熄灭，本局结束。' : '本局已结算，灯火仍在。';
+    const badge = document.createElement('p'); badge.className = 'online-note'; badge.textContent = `${SCOPE_NAMES[r.scope]} · ${OUTCOME_NAMES[r.outcome]} · 已通关 ${r.stages.filter(s => s.cleared !== false).length}/3 阶段`; this.content.append(badge);
     const stats = document.createElement('div'); stats.className = 'online-stats';
-    for (const [label, value] of [['三阶段通关', r.difficulty === 'hard' ? '困难' : '普通'], ['实际用时', formatDuration(r.durationMs)], ['综合得分', r.score.toLocaleString('zh-CN')]]) {
+    for (const [label, value] of [['游戏难度', r.difficulty === 'hard' ? '困难' : '普通'], ['实际用时', formatDuration(r.durationMs)], ['综合得分', r.score.toLocaleString('zh-CN')]]) {
       const item = document.createElement('div'), small = document.createElement('span'), big = document.createElement('strong'); small.textContent = label; big.textContent = value; item.append(small, big); stats.append(item);
     }
     this.content.append(stats);
-    const breakdown = document.createElement('p'); breakdown.className = 'online-breakdown'; breakdown.textContent = `通关 ${parts.victory} + 击杀 ${parts.combat} + Boss ${parts.bosses} + 灯塔 ${parts.lighthouse} + 守卫 ${parts.defenders} + 效率 ${parts.efficiency} · 最高 ×${r.maxSpeed}`; this.content.append(breakdown);
+    const breakdown = document.createElement('p'); breakdown.className = 'online-breakdown'; breakdown.textContent = `阶段/通关 ${parts.victory} + 击杀 ${parts.combat} + Boss ${parts.bosses} + 灯塔 ${parts.lighthouse} + 守卫 ${parts.defenders} + 探索 ${parts.exploration} + 效率 ${parts.efficiency} · 最高 ×${r.maxSpeed}`; this.content.append(breakdown);
     const form = document.createElement('form'), label = document.createElement('label'); label.textContent = '留下你的守灯人昵称';
     const input = document.createElement('input'); input.name = 'nickname'; input.setAttribute('aria-label', '玩家昵称'); input.setAttribute('autocomplete', 'nickname'); input.maxLength = 16; input.placeholder = '2–16个中英文字或数字'; input.value = pending.payload?.nickname ?? readLocal(NICKNAME_KEY); input.disabled = Boolean(pending.payload); label.append(input);
-    const status = document.createElement('p'); status.className = 'online-status'; status.role = 'status'; status.textContent = pending.submitted ? '成绩已收录。可以查看排行榜。' : pending.payload ? '已保留原提交；重试使用同一战役 ID 和内容。' : '昵称可重复，不作为账号。分数仅用于交流展示。';
+    const status = document.createElement('p'); status.className = 'online-status'; status.role = 'status'; status.textContent = pending.submitted ? `成绩已收录${pending.ranks ? ` · ${SCOPE_NAMES[r.scope]}综合得分第 ${pending.ranks.score} 名${pending.ranks.speed ? ` · 极速第 ${pending.ranks.speed} 名` : ''}` : ''}。` : pending.payload ? '已保留原提交；重试使用同一战役 ID 和内容。' : '本局已结束。提交后显示真实名次；昵称可重复，不作为账号。';
     const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = pending.submitted ? '已提交 ✓' : this.sending ? '正在提交…' : pending.payload ? '重试提交' : '提交成绩'; submit.disabled = Boolean(pending.submitted) || this.sending;
     const edit = this.button('修改昵称', () => { input.disabled = false; input.focus(); }); edit.hidden = Boolean(pending.payload);
-    const view = this.button('查看排行榜 →', () => { this.page = 'board'; this.difficulty = r.difficulty; this.render(); });
+    const view = this.button('查看排行榜 →', () => { this.page = 'board'; this.scope = r.scope; this.board = 'score'; this.difficulty = r.difficulty; this.render(); });
     form.append(label, status, submit, edit, view); this.content.append(form);
+    const next = document.createElement('div'); next.className = 'online-start'; next.append(this.link('开始新战役 →', { ranked: '1', difficulty: r.difficulty }), this.link('课堂演示 →', { demo: '1', difficulty: r.difficulty }));
+    if (this.actions?.retry) next.append(this.button('练习：重试本阶段', () => { const retry = this.actions?.retry; this.close(); retry?.(); })); this.content.append(next);
+    this.resultStandings(r);
     form.addEventListener('submit', event => {
       event.preventDefault(); if (this.sending || pending.submitted) return;
       if (!apiConfigured) { status.textContent = '尚未配置在线服务。成绩已保留，请等待管理员配置 API。'; return; }
@@ -129,15 +157,26 @@ export class LeaderboardPanel {
       writeLocal(NICKNAME_KEY, pending.payload.nickname);
       const saved = writeLocal(PENDING_KEY, JSON.stringify(pending));
       this.sending = true; submit.disabled = true; submit.textContent = '正在提交…'; status.textContent = saved ? '正在发送，网络失败后可安全重试。' : '浏览器存储不可用；请保留本页以便重试。';
-      void submitScore(pending.payload).then(() => {
-        pending.submitted = true; writeLocal(PENDING_KEY, JSON.stringify(pending)); status.textContent = '成绩已收录，灯塔记住了你的名字。';
+      void submitScore(pending.payload).then(response => {
+        pending.submitted = true; pending.ranks = response.ranks; writeLocal(PENDING_KEY, JSON.stringify(pending)); status.textContent = `成绩已收录${response.ranks ? ` · 综合得分第 ${response.ranks.score} 名` : ''}。`;
       }).catch(error => {
         status.textContent = error instanceof ApiError ? error.message : '提交失败，请重试。';
       }).finally(() => {
         this.sending = false; submit.disabled = Boolean(pending.submitted); submit.textContent = pending.submitted ? '已提交 ✓' : '重试提交';
-        if (this.visible && this.page === 'result' && !form.isConnected) this.render();
+        if (this.visible && this.page === 'result' && (pending.submitted || !form.isConnected)) this.render();
       });
     });
+  }
+  private resultStandings(result: Omit<ScoreSubmission, 'nickname'>): void {
+    const section = document.createElement('section'), title = document.createElement('p'), list = document.createElement('ol');
+    section.className = 'online-result-board'; title.textContent = `${SCOPE_NAMES[result.scope]} · 当前前 5 名`; section.append(title, list); this.content.append(section);
+    if (!apiConfigured) { list.textContent = '在线服务尚未配置，本局成绩已保留。'; return; }
+    const generation = this.generation;
+    void getLeaderboard('score', result.difficulty, result.scope).then(board => {
+      if (generation !== this.generation || !section.isConnected) return;
+      if (!board.entries.length) { list.textContent = '当前暂无记录，提交后即可获得名次。'; return; }
+      board.entries.slice(0, 5).forEach(entry => { const li = document.createElement('li'); li.textContent = `${entry.nickname} · ${entry.score.toLocaleString('zh-CN')} 分 · ${formatDuration(entry.durationMs)}`; list.append(li); });
+    }).catch(() => { if (section.isConnected) list.textContent = '榜单暂时不可用，可稍后重试。'; });
   }
 }
 export const onlinePanel = new LeaderboardPanel();

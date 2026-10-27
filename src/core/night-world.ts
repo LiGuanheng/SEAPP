@@ -69,7 +69,7 @@ export class NightWorld extends BaseWorld {
     const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, this.obstacles, 11); nav.rebuild({ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 }); return nav;
   }
   canSee(p: Vec): boolean {
-    return distance(p, LIGHTHOUSE) < 390 || this.livingSoldiers.some(s => distance(p, s) < 270) ||
+    return distance(p, LIGHTHOUSE) < this.lightRadius || this.livingSoldiers.some(s => distance(p, s) < 270) ||
       this.plan.buildings.some(b => BUILDINGS[b.kind].range > 0 && distance(p, { x: b.x + 32, y: b.y + 32 }) < 300);
   }
   callStrike(p: Vec): ActionResult {

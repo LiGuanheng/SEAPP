@@ -27,6 +27,15 @@ test('首次201，安全重复200，同ID更改内容409，同昵称允许不同
   assert.equal((await send(s)).statusCode, 201); const replay = await send(s); assert.equal(replay.statusCode, 200); assert.equal(replay.json().duplicate, true);
   assert.equal((await send({ ...s, nickname: '其他昵称' })).statusCode, 409); assert.equal((await send(payload())).statusCode, 201);
 });
+test('失败、零分主动结束与课堂演示可提交，分榜参数与极速榜限制生效', async t => {
+  const app = await buildApp(memoryStore(), { logger: false }); t.after(() => app.close());
+  for (const [scope, outcome] of [['challenge', 'defeat'], ['challenge', 'retired'], ['demo', 'retired']] as const) {
+    const s = payload({ scope, outcome, completed: false, stages: [], durationMs: 0 });
+    assert.equal((await app.inject({ method: 'POST', url: '/api/scores', payload: s })).statusCode, 201);
+    assert.equal((await app.inject(`/api/leaderboard?board=score&scope=${scope}`)).json().scope, scope);
+  }
+  for (const query of ['scope=unknown', 'board=speed&scope=demo', 'scope=challenge']) assert.equal((await app.inject('/api/leaderboard?' + query)).statusCode, 400);
+});
 test('非法昵称、分数、时间、失败、旧版本、重复阶段、额外字段均拒绝', async t => {
   const app = await buildApp(memoryStore(), { logger: false, submitLimit: 100 }); t.after(() => app.close());
   for (const patch of [{ nickname: '<script>' }, { nickname: 'a' }, { nickname: '灯\u202e人' }, { score: 999999 }, { score: 10001 }, { durationMs: 119999 }, { durationMs: 86400001 }, { completed: false }, { maxSpeed: 1, durationMs: 120000 }, { gameVersion: '0.11.0' }, { scoreVersion: 99 }, { stages: [payload().stages[0], payload().stages[0], payload().stages[2]] }, { extra: true }]) {

@@ -18,7 +18,7 @@ async function walk(page: Page, x: number, y: number) {
   throw new Error(`无法步行到 ${x},${y}: ${JSON.stringify((await state(page)).player)}`);
 }
 
-test('首阶段锁定设施、胜利保存成长、原阵地重试，再真实探索进入第二阶段', async ({ page }) => {
+test('首阶段锁定设施、胜利保存成长、直接进入第二阶段，也可选择探索', async ({ page }) => {
   test.setTimeout(150000); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, expeditions: 1, depot: { materials: 16, energy: 2, medkits: 0 }, survivors: ['engineer'], weapons: ['pistol', 'rifle'], lastSummary: null, base: null })); });
   await page.clock.install(); await page.goto('/?test=1&mode=base'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
@@ -29,7 +29,7 @@ test('首阶段锁定设施、胜利保存成长、原阵地重试，再真实�
   for (let i = 0; i < 13 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(3500);
   const win = await state(page); expect(win.status).toBe('victory'); expect(win.bossesSeen).toEqual(['axeman']);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!)); expect(saved.clearedStage).toBe(1); expect(saved.base.stage).toBe(1);
-  await key(page, 'Enter'); expect((await state(page)).stage).toBe(1);
+  await key(page, 'Enter'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); expect((await state(page)).plan.stage).toBe(2);
   // 用已保存结果重新打开原阵地，再从布防入口回城；不向只读诊断接口写入状态。
   await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await key(page, 'Enter'); await click(page, 1198, 70);
   await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(200);

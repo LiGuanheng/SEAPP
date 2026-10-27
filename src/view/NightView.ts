@@ -89,7 +89,7 @@ export class NightView {
         const x = p.x / 2, y = p.y / 2, r = radius / 2;
         c.globalAlpha = power; c.drawImage(this.lightMask, x - r, y - r, radius, radius);
       };
-      light(LIGHTHOUSE, 450, world.status === 'defeat' ? 0.92 * (1 - this.outcomeAge) : 0.92);
+      light(LIGHTHOUSE, world.lightRadius + 60, world.status === 'defeat' ? 0.92 * (1 - this.outcomeAge) : 0.92);
       for (const s of world.livingSoldiers) light(s, 290, 0.78);
       const litCells = new Set<string>();
       for (const b of world.plan.buildings) if (BUILDINGS[b.kind].range) {

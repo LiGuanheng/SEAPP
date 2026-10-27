@@ -135,9 +135,9 @@ export class Hud {
     this.isOverlay = overlay; this.overlay.setVisible(overlay);
     this.pauseLabel.setText(paused ? '▶ 继续' : 'Ⅱ 暂停');
     if (overlay) {
-      this.overlayTitle.setText(world.status === 'defeat' ? '灯火暂熄，希望仍在。' : '守灯人，稍作休整。');
-      this.overlayBody.setText(world.status === 'defeat' ? `存活 ${Math.floor(world.elapsed)} 秒 · 击杀 ${world.kills} 只感染者\n按 Enter 或点击重试，重新进入街区。` : '战斗已暂停。按 Esc / P 或点击继续。\n窗口失焦后不会自动恢复开火与移动。');
-      this.overlayButton.setText(world.status === 'defeat' ? '重新出发  →' : '继续战斗  →');
+      this.overlayTitle.setText(world.status === 'defeat' ? '守灯人倒下，本局结束。' : '守灯人，稍作休整。');
+      this.overlayBody.setText(world.status === 'defeat' ? `存活 ${Math.floor(world.elapsed)} 秒 · 击杀 ${world.kills} 只感染者\n本局已结束，按 Enter 查看得分和排行榜。` : '战斗已暂停。按 Esc / P 或点击继续。\n窗口失焦后不会自动恢复开火与移动。');
+      this.overlayButton.setText(world.status === 'defeat' ? '查看本局成绩  →' : '继续战斗  →');
       if (bag && expedition) {
         this.overlayTitle.setText('行军背包');
         this.overlayBody.setText(`负重 ${expedition.weight} / ${CAPACITY} · 物资返营后入库\n建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　急救包 ${expedition.inventory.medkits}\n营地库存：建材 ${expedition.campaign.depot.materials} / 电力 ${expedition.campaign.depot.energy} / 急救包 ${expedition.campaign.depot.medkits}\n装备：${world.ownedWeapons.map(id => WEAPONS[id].name).join(' / ')}\n随队：${expedition.followers.map(s => SURVIVOR_PROFILES[s.id].name).join('、') || '暂无'}\n按 H 使用急救包（关闭背包后）\n时间已暂停 · Tab / B / Esc 关闭`);

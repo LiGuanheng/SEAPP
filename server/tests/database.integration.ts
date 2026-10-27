@@ -14,7 +14,7 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
   const pool = createPool({ DATABASE_URL: raw, DATABASE_SSL: process.env.DATABASE_SSL === 'verify-full' ? 'verify-full' : 'disable' });
   t.after(() => pool.end()); await migrate(pool); const store = createStore(pool);
   await t.test('迁移可重复执行且保留版本校验和', async () => {
-    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 1);
+    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 2);
   });
   await t.test('空榜、真实写入读取、同昵称允许多次战役', async () => {
     await pool.query('TRUNCATE scores'); assert.deepEqual(await store.leaderboard('speed', 'normal', 20), []);
@@ -25,6 +25,18 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
     await pool.query('TRUNCATE scores'); const s = payload(); const results = await Promise.all(Array.from({ length: 8 }, () => store.submit(s)));
     assert.equal(results.filter(r => r.created).length, 1); assert.equal(Number((await pool.query('SELECT count(*) FROM scores')).rows[0].count), 1);
     await assert.rejects(() => store.submit({ ...s, nickname: '改动昵称' }), ConflictError);
+  });
+  await t.test('失败/主动结束/演示独立分榜，真实名次与幂等返回一致', async () => {
+    await pool.query('TRUNCATE scores');
+    const challenge = payload({ scope: 'challenge', outcome: 'defeat', completed: false, stages: [], durationMs: 1000 });
+    const demo = payload({ scope: 'demo', outcome: 'retired', completed: false, stages: [], durationMs: 2000, exploration: { kills: 10, caches: 1, rescued: 0 } });
+    const a = await store.submit(challenge), b = await store.submit(demo);
+    assert.deepEqual(a.ranks, { speed: null, score: 1 }); assert.deepEqual(b.ranks, { speed: null, score: 1 });
+    assert.deepEqual((await store.submit(demo)).ranks, b.ranks);
+    assert.equal((await store.leaderboard('score', 'normal', 20)).length, 0);
+    assert.deepEqual((await store.leaderboard('score', 'normal', 20, 'demo')).map(r => r.id), [demo.runId]);
+    const high = payload({ ...challenge, runId: crypto.randomUUID(), score: undefined, exploration: { kills: 1, caches: 0, rescued: 0 } });
+    assert.equal((await store.submit(high)).ranks?.score, 1); assert.equal((await store.submit(challenge)).ranks?.score, 2);
   });
   await t.test('双榜主要与次级排序、难度隔离、完全并列顺序稳定、最多20条', async () => {
     await pool.query('TRUNCATE scores');

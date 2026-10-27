@@ -3,7 +3,7 @@ import { BASE_HEIGHT, BASE_WIDTH, BUILDING_KEYS, BUILDINGS, GRID, LIGHTHOUSE, bu
 import { STAGES } from '../config/progression.ts';
 import { BaseWorld } from '../core/base-world.ts';
 import { newCampaign, type Campaign } from '../core/campaign.ts';
-import { loadGameCampaign, saveGameCampaign, rankedRun, updateRun } from '../services/game-session.ts';
+import { loadGameCampaign, saveGameCampaign, rankedRun, demoMode, updateRun } from '../services/game-session.ts';
 import { onlinePanel, bindOnlinePanel } from '../view/LeaderboardPanel.ts';
 import { distance } from '../core/geometry.ts';
 import type { Rect, Vec } from '../core/types.ts';
@@ -55,17 +55,20 @@ export class BaseScene extends Phaser.Scene {
     if (!data.campaign) try { const loaded = loadGameCampaign(localStorage); campaign = loaded.campaign; warning = loaded.warning; } catch { warning = '存储不可用，基地仍可操作。'; }
     this.world = data.battle ? new NightWorld(campaign, new URLSearchParams(location.search).get('difficulty') === 'hard' ? 'hard' : 'normal') : new BaseWorld(campaign); if (data.fresh && !data.battle) this.world.resume();
     const params = new URLSearchParams(location.search); this.practice = params.get('mode') === 'base' || params.get('practice') === 'base';
-    this.support = false; this.audio = new SoundBus(!!data.battle); this.speed = 1;
+    this.support = false; this.audio = new SoundBus(!!data.battle); this.speed = demoMode ? 3 : 1;
     this.rankingShown = false;
     this.selected.clear(); this.held.clear(); this.kind = null; this.rotation = 0; this.selectedBuilding = null;
     this.paused = false; this.drag = null; this.wallStroke = null; this.accumulator = 0; this.savedReady = false; this.pointerActive = false;
     const camera = this.cameras.main;
-    camera.setBounds(0, 0, BASE_WIDTH, BASE_HEIGHT).setZoom(0.9).centerOn(LIGHTHOUSE.x, LIGHTHOUSE.y).setRoundPixels(true);
+    // 战场只占 HUD 之间的区域。取消边缘夹紧，缩小时灯塔也能保持在战场中心。
+    camera.removeBounds().setViewport(0, 94, 1080, 502).setZoom(0.9).centerOn(LIGHTHOUSE.x, LIGHTHOUSE.y).setRoundPixels(true);
     this.view = new BaseView(this);
     this.nightView = this.world instanceof NightWorld ? new NightView(this, this.view.root) : null;
     this.hud = data.battle ? new NightHud(this, () => this.action(this.world.hold([...this.selected])), () => this.toggleSupport(), () => this.audio?.toggle(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore()) :
       new BaseHud(this, k => this.setKind(k), () => this.action(this.world.hold([...this.selected])), () => this.finish(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore(), () => this.sellSelected(), () => this.refitSelected());
     this.radar = new TacticalRadar(this, this.hud.root, (x, y) => { if (!this.paused && this.world.commanding) { this.transition?.skip(); camera.centerOn(x, y); this.drag = null; this.wallStroke = null; } });
+    const area = this.world.buildArea;
+    this.hud.root.add(this.add.text(1100, 260, `阶段 ${this.world.stage} / 3\n照明半径 ${this.world.lightRadius}\n施工区 ${area.width / GRID} × ${area.height / GRID} 格\n\n金色虚线内可布防\n道路与设施旁留空\n外侧黑雾尚未开放\n\n守住本夜后：\n${this.world.stage < 3 ? '照明与施工区扩大\n发放建材、电力\n可直接进入下次布防' : '完成三夜，结算总成绩'}\n\nC 回中 · 滚轮缩放\n底部可结束结算`, { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#b9c6ab', lineSpacing: 7 }));
     const home = this.add.text(1040, 70, '回灯塔 [C]', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e4ca91', backgroundColor: '#263d3b', padding: { x: 10, y: 8 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     home.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.home(); }); this.hud.root.add(home);
     const control = (y: number, action: () => void) => { const t = this.add.text(930, y, '', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e4ca91', backgroundColor: '#263d3b', padding: { x: 7, y: 8 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }); t.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); action(); }); this.hud.root.add(t); return t; };
@@ -79,6 +82,7 @@ export class BaseScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
     const keyDown = (e: KeyboardEvent) => {
       if (onlinePanel.visible) return;
+      if (rankedRun.result) { if (e.code === 'Space') this.transition.skip(); if (e.code === 'Enter') onlinePanel.open('result'); return; }
       this.audio?.unlock();
       if (['F1', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Tab'].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
@@ -157,16 +161,18 @@ export class BaseScene extends Phaser.Scene {
     this.input.on('pointerdown', down); this.input.on('pointerup', up); this.input.on('pointerupoutside', up); this.input.on('pointermove', move); this.input.on('wheel', wheel);
     window.addEventListener('blur', blur); document.addEventListener('visibilitychange', hidden); this.game.canvas.addEventListener('pointerleave', leave);
     const unbindOnline = bindOnlinePanel(() => this.paused, paused => this.setPaused(paused));
+    onlinePanel.setSessionActions({ end: () => this.endRun() });
     updateRun(!this.paused && this.world.commanding);
     this.events.once('shutdown', () => {
-      updateRun(false); unbindOnline();
+      updateRun(false); unbindOnline(); onlinePanel.setSessionActions(null);
       this.input.keyboard?.off('keydown', keyDown); this.input.keyboard?.off('keyup', keyUp);
       this.input.off('pointerdown', down); this.input.off('pointerup', up); this.input.off('pointerupoutside', up); this.input.off('pointermove', move); this.input.off('wheel', wheel);
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', hidden); this.game.canvas.removeEventListener('pointerleave', leave); delete window.__baseLight; delete window.__nightLight; this.audio?.destroy();
     });
     if (params.get('test') === '1') {
-      if (this.world instanceof NightWorld) window.__nightLight = Object.freeze({ presentation: () => this.transition.snapshot(), snapshot: () => ({ ...(this.world as NightWorld).nightSnapshot(), selected: [...this.selected], paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, support: this.support, muted: this.audio?.muted ?? true, view: { ...this.view.counts(), ...this.nightView!.counts() }, camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
-      else window.__baseLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), selected: [...this.selected], selectedBuilding: this.selectedBuilding, placement: this.kind, rotation: this.rotation, paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, view: this.view.counts(), camera: { x: camera.worldView.x, y: camera.worldView.y, zoom: camera.zoom } }) });
+      const cameraSnapshot = () => ({ x: camera.worldView.x - camera.x / camera.zoom, y: camera.worldView.y - camera.y / camera.zoom, zoom: camera.zoom });
+      if (this.world instanceof NightWorld) window.__nightLight = Object.freeze({ presentation: () => this.transition.snapshot(), snapshot: () => ({ ...(this.world as NightWorld).nightSnapshot(), selected: [...this.selected], paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, support: this.support, muted: this.audio?.muted ?? true, view: { ...this.view.counts(), ...this.nightView!.counts() }, camera: cameraSnapshot() }) });
+      else window.__baseLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), selected: [...this.selected], selectedBuilding: this.selectedBuilding, placement: this.kind, rotation: this.rotation, paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, view: this.view.counts(), camera: cameraSnapshot() }) });
     }
     document.getElementById('loading')?.remove();
   }
@@ -217,8 +223,8 @@ export class BaseScene extends Phaser.Scene {
     if (!this.world.unlocked(kind)) { this.hud.notify(`${BUILDINGS[kind].name} · 第 ${BUILDINGS[kind].stage} 阶段解锁`); return; }
     this.kind = this.kind === kind ? null : kind; this.rotation = 0; this.drag = null; this.wallStroke = null; this.selectedBuilding = null;
   }
-  private setPaused(paused: boolean): void { this.paused = paused; updateRun(!paused && this.world.commanding, this.speed); this.held.clear(); this.drag = null; this.wallStroke = null; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio?.pause(paused); }
-  private home(): void { if (!this.paused && this.world.commanding) { this.cameras.main.centerOn(LIGHTHOUSE.x, LIGHTHOUSE.y); this.drag = null; this.wallStroke = null; } }
+  private setPaused(paused: boolean): void { this.paused = paused || !!rankedRun.result; updateRun(!this.paused && this.world.commanding, this.speed); this.held.clear(); this.drag = null; this.wallStroke = null; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio?.pause(this.paused); }
+  private home(): void { if (!this.paused && this.world.commanding) { this.transition.skip(); this.cameras.main.centerOn(LIGHTHOUSE.x, LIGHTHOUSE.y); this.drag = null; this.wallStroke = null; } }
   private cycleSpeed(): void { if (!this.paused && this.world.commanding && !this.guide.visible) { this.speed = this.speed === 3 ? 1 : this.speed === 2 ? 3 : 2; } }
   private toggleGuide(): void {
     if (!this.world.commanding) return;
@@ -226,16 +232,23 @@ export class BaseScene extends Phaser.Scene {
     else { this.guideWasPaused = this.paused; this.guide.show(true); this.setPaused(true); }
   }
   private toggleSupport(): void { if (this.paused || !(this.world instanceof NightWorld) || !this.world.commanding) return; this.audio?.unlock(); this.support = !this.support; this.drag = null; }
-  private startNight(): void { updateRun(false); this.persist(); this.scene.restart({ campaign: this.world.campaign, battle: true }); }
+  private startNight(): void { if (rankedRun.result) return; updateRun(false); this.persist(); this.scene.restart({ campaign: this.world.campaign, battle: true }); }
   private finish(): void { if (this.paused || this.world.plan.status !== 'preparing' || this.world instanceof NightWorld) return; this.world.finish(); this.kind = null; this.drag = null; this.wallStroke = null; this.held.clear(); this.persist(); this.savedReady = true; if (!this.practice) this.startNight(); }
   private resume(): void {
     updateRun(false);
-    if (this.world instanceof NightWorld) { if (!this.world.commanding) this.scene.restart({ campaign: this.world.resultCampaign(), battle: true }); else this.setPaused(false); return; }
+    if (rankedRun.result) { onlinePanel.open('result'); return; }
+    if (this.world instanceof NightWorld) { if (!this.world.commanding && this.world.status === 'victory') this.scene.restart({ campaign: this.world.resultCampaign(), fresh: true }); else this.setPaused(false); return; }
     this.setPaused(false); if (this.world.plan.status === 'ready') { this.world.resume(); this.savedReady = false; this.persist(); }
   }
-  private explore(): void { updateRun(false); this.persist(); this.scene.start('Combat', { campaign: this.world instanceof NightWorld ? this.world.resultCampaign() : this.world.campaign }); }
+  private explore(): void { if (rankedRun.result || this.world instanceof NightWorld && this.world.status !== 'victory') return; updateRun(false); this.persist(); this.scene.start('Combat', { campaign: this.world instanceof NightWorld ? this.world.resultCampaign() : this.world.campaign }); }
+  private endRun(): void {
+    this.setPaused(true); this.kind = null; this.support = false; this.selected.clear();
+    const w = this.world;
+    rankedRun.finishRun('retired', performance.now(), w instanceof NightWorld ? { stage: w.stage, kills: w.kills, bossKills: w.bossKills, lampHealth: w.lampHealth, soldiers: w.livingSoldiers.length, cleared: false } : undefined);
+    if (rankedRun.result) { onlinePanel.remember(rankedRun.result); this.rankingShown = true; onlinePanel.open('result'); }
+  }
   update(_time: number, delta: number): void {
-    const dt = Math.min(delta / 1000, 0.1), active = !this.paused && this.world.commanding;
+    const dt = Math.min(delta / 1000, 0.1), active = !this.paused && this.world.commanding && !rankedRun.result;
     updateRun(active, this.speed);
     let simulated = 0;
     if (active) {
@@ -255,7 +268,7 @@ export class BaseScene extends Phaser.Scene {
       const camera = this.cameras.main;
       const x = Number(this.held.has('KeyD') || this.held.has('ArrowRight')) - Number(this.held.has('KeyA') || this.held.has('ArrowLeft'));
       const y = Number(this.held.has('KeyS') || this.held.has('ArrowDown')) - Number(this.held.has('KeyW') || this.held.has('ArrowUp'));
-      if (x || y) camera.centerOn(camera.midPoint.x + x * dt * 600 / camera.zoom, camera.midPoint.y + y * dt * 600 / camera.zoom);
+      if (x || y) camera.centerOn(Phaser.Math.Clamp(camera.midPoint.x + x * dt * 600 / camera.zoom, 0, BASE_WIDTH), Phaser.Math.Clamp(camera.midPoint.y + y * dt * 600 / camera.zoom, 0, BASE_HEIGHT));
     }
     if ((this.world instanceof NightWorld ? !this.world.commanding : this.world.plan.status === 'ready') && !this.savedReady) {
       this.kind = null; this.drag = null; this.wallStroke = null; this.held.clear(); this.support = false; this.persist(); this.savedReady = true;
@@ -273,7 +286,7 @@ export class BaseScene extends Phaser.Scene {
     this.guide.available(this.world.commanding);
     this.transition.update(this.paused ? 0 : dt, !this.paused && !this.guide.visible);
     if (this.world instanceof NightWorld && !this.world.commanding && !this.transition.active) this.audio?.pause(true);
-    if (rankedRun?.result && this.world instanceof NightWorld && this.world.stage === 3 && this.world.status === 'victory' && !this.transition.active && !this.rankingShown) {
+    if (rankedRun.result && this.world instanceof NightWorld && !this.transition.active && !this.rankingShown) {
       this.rankingShown = true; onlinePanel.open('result');
     }
     this.speedLabel.setText(`×${this.speed} 倍速 [T]`); this.musicLabel.setText(this.audio?.musicMuted ? '配乐关 [L]' : '配乐开 [L]');

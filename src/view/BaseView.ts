@@ -13,10 +13,12 @@ export class BaseView {
   private buildings = new Map<number, Phaser.GameObjects.Container>();
   private previewImage: Phaser.GameObjects.Image;
   private hint: Phaser.GameObjects.Text;
+  private zoneLabel: Phaser.GameObjects.Text;
   private refits = new Map<number, { kind: string; until: number }>();
   constructor(private scene: Phaser.Scene) {
     this.root = scene.add.container(0, 0);
     const add = <T extends Phaser.GameObjects.GameObject>(object: T): T => { this.root.add(object); return object; };
+    add(scene.add.rectangle(BASE_WIDTH / 2, BASE_HEIGHT / 2, BASE_WIDTH + 3072, BASE_HEIGHT + 2048, 0x07151e).setDepth(-101));
     const data = Array.from({ length: BASE_HEIGHT / GRID }, (_, y) => Array.from({ length: BASE_WIDTH / GRID }, (_, x) =>
       x * GRID >= BUILD_AREA.x && x * GRID < BUILD_AREA.x + BUILD_AREA.width && y * GRID >= BUILD_AREA.y && y * GRID < BUILD_AREA.y + BUILD_AREA.height ? ((x * 13 + y * 7) % 17 === 0 ? 777 : 704) : 889));
     const map = scene.make.tilemap({ data, tileWidth: 16, tileHeight: 16 });
@@ -44,12 +46,18 @@ export class BaseView {
     add(scene.add.image(LIGHTHOUSE.x, LIGHTHOUSE.y + 30, 'lighthouse').setName('lighthouse').setOrigin(0.5, 0.94).setDepth(LIGHTHOUSE.y));
     add(scene.add.text(LIGHTHOUSE.x, LIGHTHOUSE.y - 145, '最后一盏灯', { fontFamily: 'Microsoft YaHei', fontSize: '14px', color: '#ead49b', letterSpacing: 3 }).setOrigin(0.5).setDepth(LIGHTHOUSE.y + 2));
     this.graphics = add(scene.add.graphics().setDepth(9000));
+    this.zoneLabel = add(scene.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei', fontSize: '14px', color: '#e7d09a', backgroundColor: '#162b2c', padding: { x: 10, y: 7 } }).setDepth(9002));
     this.previewImage = add(scene.add.image(0, 0, 'barricade').setAlpha(0.68).setDepth(9001).setVisible(false));
     this.hint = add(scene.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei', fontSize: '12px', color: '#e9d298', backgroundColor: '#11262c', padding: { x: 7, y: 5 } }).setDepth(9002).setOrigin(0.5));
   }
   update(world: BaseWorld, selected: Set<number>, buildingId: number | null, placement: Placement | null, marquee: Rect | null, paused: boolean): void {
     const g = this.graphics.clear();
     const area = world.buildArea;
+    // 黑雾区域和金线内施工区域明确区分；只扩大许可，不移动或丢弃旧存档建筑。
+    g.fillStyle(0x030f19, 0.66).fillRect(0, 0, BASE_WIDTH, area.y).fillRect(0, area.y + area.height, BASE_WIDTH, BASE_HEIGHT - area.y - area.height)
+      .fillRect(0, area.y, area.x, area.height).fillRect(area.x + area.width, area.y, BASE_WIDTH - area.x - area.width, area.height);
+    g.fillStyle(0xf2cf7c, 0.025).fillCircle(LIGHTHOUSE.x, LIGHTHOUSE.y, world.lightRadius);
+    this.zoneLabel.setPosition(area.x + 20, area.y + 20).setText(`阶段 ${world.stage} 可施工区 · ${area.width / GRID}×${area.height / GRID} 格`);
     g.lineStyle(2, 0xd5bd83, 0.55);
     for (let x = area.x; x < area.x + area.width; x += 32) g.lineBetween(x, area.y, x + 16, area.y).lineBetween(x, area.y + area.height, x + 16, area.y + area.height);
     for (let y = area.y; y < area.y + area.height; y += 32) g.lineBetween(area.x, y, area.x, y + 16).lineBetween(area.x + area.width, y, area.x + area.width, y + 16);

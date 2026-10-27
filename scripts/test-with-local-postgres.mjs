@@ -38,7 +38,8 @@ try {
     }
     await command(['node_modules/typescript/bin/tsc', '--noEmit']);
     await command(['node_modules/vite/bin/vite.js', 'build', '--base=./'], { VITE_API_BASE_URL: 'http://127.0.0.1:3000' });
-    await command(['node_modules/@playwright/test/cli.js', 'test', ...(process.argv.includes('--all') ? [] : ['tests/browser/leaderboard.spec.ts'])], { E2E_REAL_API: '1', E2E_PRODUCTION: '1' });
+    const specs = process.argv.includes('--all') ? [] : process.argv.includes('--flow') ? ['run-flow', 'leaderboard', 'night', 'polish', 'city-and-refits'].map(name => `tests/browser/${name}.spec.ts`) : ['tests/browser/leaderboard.spec.ts'];
+    await command(['node_modules/@playwright/test/cli.js', 'test', ...specs], { E2E_REAL_API: '1', E2E_PRODUCTION: '1' });
   }
 } finally {
   if (apiProcess && apiProcess.exitCode === null) { const stopped = new Promise(r => apiProcess.once('exit', r)); apiProcess.kill(); await stopped; }

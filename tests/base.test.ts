@@ -78,7 +78,7 @@ test('旧 v2 存档无基地字段可迁移，布局与资源同一 JSON 往返�
   assert.deepEqual(restored.snapshot(), w.snapshot()); assert.equal(validBasePlan(restored.plan), true);
   for (const mutate of [
     (p: any) => { p.buildings[0].paid.materials = 999; },
-    (p: any) => { p.buildings[0].x = 32; },
+    (p: any) => { p.buildings[0].x = -32; },
     (p: any) => { p.soldiers[0].x = 768; p.soldiers[0].y = 512; },
     (p: any) => { p.soldiers[1].id = p.soldiers[0].id; },
     (p: any) => { p.elapsed = -1; },

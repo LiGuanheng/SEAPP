@@ -93,14 +93,14 @@ for (const mode of ['base', 'night']) test(`${mode} 战术地图只移动镜头�
   await page.screenshot({ path: `artifacts/polish-${mode}-radar.png` }); expect(errors).toEqual([]);
 });
 
-test('探索真实战败后重试保留本次已载入营地，即使存储随后被禁用', async ({ page }) => {
+test('探索真实战败后结算并保留本次已载入营地，即使存储随后被禁用', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, expeditions: 2, depot: { materials: 17, energy: 4, medkits: 1 }, survivors: ['engineer'], weapons: ['pistol'], lastSummary: null, base: null })));
   await ready(page);
   await page.evaluate(() => { Storage.prototype.getItem = () => { throw new DOMException('storage disabled'); }; Storage.prototype.setItem = () => { throw new DOMException('storage disabled'); }; });
   for (let i = 0; i < 20 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(2000);
   expect((await state(page)).status).toBe('defeat');
-  await key(page, 'Enter'); expect((await state(page)).status).toBe('playing');
+  await key(page, 'Enter'); await expect(page.getByRole('dialog')).toBeVisible(); expect((await state(page)).status).toBe('defeat');
   expect((await state(page)).expedition.campaign.depot).toEqual({ materials: 17, energy: 4, medkits: 1 });
   expect((await state(page)).expedition.campaign.survivors).toEqual(['engineer']);
   expect((await state(page)).expedition.inventory.materials).toBe(0); expect(errors).toEqual([]);

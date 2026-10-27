@@ -56,12 +56,13 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
   await page.clock.runFor(3000); expect(await state(page)).toEqual(won);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!)); expect(saved.nightsWon).toBe(1); expect(saved.lastNight.outcome).toBe('victory');
   expect(saved.base.buildings).toHaveLength(4);
-  await key(page, 'Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('playing'); expect((await state(page)).lampHealth).toBe(380); expect((await state(page)).charges).toBe(2);
+  await key(page, 'Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
+  const next = await page.evaluate(() => (window as any).__baseLight.snapshot()); expect(next.plan.stage).toBe(2); expect(next.remaining).toBeGreaterThan(29); expect(next.lightRadius).toBe(530);
   expect((await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!))).nightsWon).toBe(1);
   expect(errors).toEqual([]);
 });
 
-test('没有设施时真实失守，存储禁用仍能结算与重试，音效偏好可保留', async ({ page }) => {
+test('没有设施时真实失守，存储禁用仍能结算，Enter不会自动重试', async ({ page }) => {
   test.setTimeout(120000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.clock.install(); await page.goto('/?mode=night&test=1'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await page.clock.runFor(100);
@@ -70,9 +71,9 @@ test('没有设施时真实失守，存储禁用仍能结算与重试，音效�
   for (let i = 0; i < 25 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(5000);
   const lost = await state(page); expect(lost.status).toBe('defeat'); expect(lost.lampHealth).toBe(0);
   await page.screenshot({ path: 'artifacts/phase4-defeat.png' });
-  await page.clock.runFor(1000); expect(await state(page)).toEqual(lost);
+  await page.clock.runFor(2600); expect((await state(page)).elapsed).toBe(lost.elapsed);
   expect(await page.evaluate(() => localStorage.getItem('last-light.campaign.v2'))).toBe(null);
-  await key(page, 'KeyM'); expect((await state(page)).muted).toBe(false);
-  await key(page, 'Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('playing'); expect((await state(page)).muted).toBe(false); expect(errors).toEqual([]);
+  await expect(page.getByRole('heading', { name: '灯火熄灭，本局结束。' })).toBeVisible();
+  await page.keyboard.press('Escape'); await key(page, 'Enter'); await page.clock.runFor(200); expect((await state(page)).status).toBe('defeat'); expect((await state(page)).lampHealth).toBe(0); expect(errors).toEqual([]);
   await page.goto('/?mode=night'); await page.clock.runFor(200); expect(await page.evaluate(() => '__nightLight' in window)).toBe(false);
 });
