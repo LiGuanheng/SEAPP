@@ -1,0 +1,154 @@
+import { calculateScore, formatDuration, normalizeNickname, validNickname, type BoardType, type RankDifficulty, type ScoreSubmission } from '../core/scoring.ts';
+import { ApiError, NICKNAME_KEY, PENDING_KEY, apiConfigured, getLeaderboard, loadPending, readLocal, submitScore, writeLocal, type PendingScore } from '../services/leaderboard.ts';
+import { rankedRun } from '../services/game-session.ts';
+
+/** DOM 只承担表单与滚动表格；打开时通过统一事件暂停 Phaser，关闭后恢复原暂停状态。 */
+export class LeaderboardPanel {
+  visible = false;
+  private overlay = document.createElement('div');
+  private content = document.createElement('div');
+  private heading = document.createElement('h1');
+  private tabs = document.createElement('div');
+  private pending: PendingScore | null = loadPending();
+  private board: BoardType = 'speed';
+  private difficulty: RankDifficulty = rankedRun?.difficulty ?? 'normal';
+  private page: 'board' | 'result' = 'board';
+  private generation = 0;
+  private sending = false;
+  private returnFocus: HTMLElement | null = null;
+  private resultButton: HTMLButtonElement;
+  constructor() {
+    const dock = document.createElement('nav'); dock.className = 'online-ui online-dock'; dock.setAttribute('aria-label', '在线排行榜');
+    dock.append(this.button('排行榜', () => this.open('board')));
+    this.resultButton = this.button('通关成绩', () => this.open('result')); this.resultButton.hidden = !this.pending; dock.append(this.resultButton);
+    const mode = document.createElement('span'); mode.textContent = rankedRun ? '排名战役 · 三阶段' : '自由营地'; dock.append(mode); document.body.append(dock);
+    this.overlay.className = 'online-ui online-overlay'; this.overlay.hidden = true;
+    const dialog = document.createElement('section'); dialog.className = 'online-dialog'; dialog.role = 'dialog'; dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'online-title');
+    const top = document.createElement('header'), kicker = document.createElement('p'); kicker.className = 'online-kicker'; kicker.textContent = 'THE LAST LIGHT / 守灯人档案';
+    this.heading.id = 'online-title'; this.heading.tabIndex = -1;
+    const close = this.button('返回游戏 ×', () => this.close()); close.className = 'online-close'; top.append(kicker, this.heading, close);
+    this.tabs.className = 'online-tabs'; this.content.className = 'online-content';
+    const foot = document.createElement('footer'); foot.textContent = '三阶段完整通关 · 普通 / 困难分榜 · 允许原有倍速并显示标记 · 匿名成绩，客户端可伪造';
+    dialog.append(top, this.tabs, this.content, foot); this.overlay.append(dialog); document.body.append(this.overlay);
+    // Phaser 会把 DOM 按键排队到下一帧再分发；必须在捕获阶段截住，
+    // 否则关闭面板后，同一个 Esc/Enter 会再次触发游戏暂停或重试。
+    window.addEventListener('keydown', event => {
+      if (!this.visible) return;
+      event.stopImmediatePropagation();
+      if (event.key === 'Escape') { event.preventDefault(); this.close(); }
+      if (event.key === 'Tab') {
+        const nodes = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select, a[href]')].filter(n => !n.hidden && n.getClientRects().length);
+        const first = nodes[0], last = nodes.at(-1);
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === this.heading)) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    }, true);
+    // 表单键盘输入不交给 Phaser；Enter 提交也不会重试游戏。
+    window.addEventListener('keyup', e => { if (this.visible) e.stopImmediatePropagation(); }, true);
+  }
+  private button(label: string, action: () => void): HTMLButtonElement {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.addEventListener('click', action); return b;
+  }
+  remember(result: Omit<ScoreSubmission, 'nickname'>): void {
+    if (this.pending?.result.runId !== result.runId) this.pending = { result };
+    writeLocal(PENDING_KEY, JSON.stringify(this.pending)); this.resultButton.hidden = false;
+  }
+  open(page: 'board' | 'result' = 'board'): void {
+    if (!this.visible) {
+      this.returnFocus = document.activeElement as HTMLElement | null; this.visible = true; this.overlay.hidden = false;
+      window.dispatchEvent(new CustomEvent('last-light:online', { detail: true }));
+    }
+    this.page = page; this.render(); this.heading.focus();
+  }
+  private close(): void {
+    this.visible = false; this.overlay.hidden = true; this.generation++;
+    window.dispatchEvent(new CustomEvent('last-light:online', { detail: false }));
+    // 返回游戏时把焦点交还画布，避免 Space/Enter 再次激活底部入口按钮。
+    const canvas = document.querySelector<HTMLCanvasElement>('#game canvas');
+    if (canvas && this.returnFocus?.closest('.online-dock')) { canvas.tabIndex = 0; canvas.focus(); }
+    else this.returnFocus?.focus();
+  }
+  private render(): void {
+    this.generation++; this.content.replaceChildren(); this.tabs.replaceChildren();
+    this.heading.textContent = this.page === 'result' ? '三夜已尽，灯火长明。' : '守灯人排行榜';
+    if (this.page === 'result' && this.pending) { this.renderResult(this.pending); return; }
+    this.page = 'board';
+    for (const [id, name] of [['speed', '极速通关榜'], ['score', '综合得分榜']] as const) {
+      const b = this.button(name, () => { this.board = id; this.render(); }); b.setAttribute('aria-pressed', String(this.board === id)); this.tabs.append(b);
+    }
+    const label = document.createElement('label'); label.textContent = '游戏难度 ';
+    const select = document.createElement('select'); select.setAttribute('aria-label', '游戏难度');
+    for (const [id, name] of [['normal', '普通'], ['hard', '困难']]) { const o = document.createElement('option'); o.value = id; o.textContent = name; select.append(o); }
+    select.value = this.difficulty; select.addEventListener('change', () => { this.difficulty = select.value as RankDifficulty; this.render(); }); label.append(select); this.tabs.append(label);
+    const intro = document.createElement('p'); intro.className = 'online-note'; intro.textContent = '前 20 名 · 用时为实际游玩时间，暂停、失焦及结算等待不计时。击杀奖励封顶，重复守夜不增加评分。'; this.content.append(intro);
+    const status = document.createElement('p'); status.className = 'online-status'; status.role = 'status'; status.textContent = '正在连接灯塔档案…'; this.content.append(status);
+    this.content.append(this.button('刷新榜单', () => this.render()));
+    const links = document.createElement('div'); links.className = 'online-start';
+    const note = document.createElement('p'); note.textContent = '从空营地挑战完整三阶段。原营地存档保留；排名战役刷新后重新开始。'; links.append(note);
+    for (const [id, name] of [['normal', '普通'], ['hard', '困难']]) {
+      const a = document.createElement('a'); a.textContent = `开始${name}排名战役 →`; const url = new URL(location.href); url.search = new URLSearchParams({ ranked: '1', difficulty: id, intro: '0' }).toString(); a.href = url.toString(); links.append(a);
+    }
+    if (rankedRun) { const a = document.createElement('a'); a.textContent = '返回原营地'; const url = new URL(location.href); url.search = ''; a.href = url.toString(); links.append(a); }
+    status.before(links);
+    const generation = this.generation;
+    if (!apiConfigured) { status.textContent = '尚未配置在线服务。可继续单机游玩，管理员配置 API 后即可联网。'; return; }
+    void getLeaderboard(this.board, this.difficulty).then(result => {
+      if (generation !== this.generation || !this.visible) return;
+      if (!Array.isArray(result.entries)) throw new Error('榜单响应格式错误');
+      status.textContent = result.entries.length ? `共展示 ${result.entries.length} 条成绩 · 评分版本 ${result.scoreVersion}` : '档案尚空，期待第一位守灯人。';
+      if (!result.entries.length) return;
+      const wrap = document.createElement('div'); wrap.className = 'online-table-wrap'; const table = document.createElement('table');
+      const head = table.createTHead().insertRow(); for (const name of ['排名', '守灯人', '通关用时', '综合得分', '难度', '倍速']) { const th = document.createElement('th'); th.scope = 'col'; th.textContent = name; head.append(th); }
+      const body = table.createTBody();
+      result.entries.forEach((entry, i) => { const row = body.insertRow(); for (const value of [String(i + 1).padStart(2, '0'), entry.nickname, formatDuration(entry.durationMs), entry.score.toLocaleString('zh-CN'), entry.difficulty === 'hard' ? '困难' : '普通', `≤×${entry.maxSpeed}`]) row.insertCell().textContent = value; });
+      wrap.append(table); status.after(wrap);
+    }).catch(error => { if (generation === this.generation && this.visible) status.textContent = error instanceof Error ? error.message : '读取失败，请重试。'; });
+  }
+  private renderResult(pending: PendingScore): void {
+    const r = pending.result, parts = calculateScore(r.stages, r.durationMs);
+    const stats = document.createElement('div'); stats.className = 'online-stats';
+    for (const [label, value] of [['三阶段通关', r.difficulty === 'hard' ? '困难' : '普通'], ['实际用时', formatDuration(r.durationMs)], ['综合得分', r.score.toLocaleString('zh-CN')]]) {
+      const item = document.createElement('div'), small = document.createElement('span'), big = document.createElement('strong'); small.textContent = label; big.textContent = value; item.append(small, big); stats.append(item);
+    }
+    this.content.append(stats);
+    const breakdown = document.createElement('p'); breakdown.className = 'online-breakdown'; breakdown.textContent = `通关 ${parts.victory} + 击杀 ${parts.combat} + Boss ${parts.bosses} + 灯塔 ${parts.lighthouse} + 守卫 ${parts.defenders} + 效率 ${parts.efficiency} · 最高 ×${r.maxSpeed}`; this.content.append(breakdown);
+    const form = document.createElement('form'), label = document.createElement('label'); label.textContent = '留下你的守灯人昵称';
+    const input = document.createElement('input'); input.name = 'nickname'; input.setAttribute('aria-label', '玩家昵称'); input.setAttribute('autocomplete', 'nickname'); input.maxLength = 16; input.placeholder = '2–16个中英文字或数字'; input.value = pending.payload?.nickname ?? readLocal(NICKNAME_KEY); input.disabled = Boolean(pending.payload); label.append(input);
+    const status = document.createElement('p'); status.className = 'online-status'; status.role = 'status'; status.textContent = pending.submitted ? '成绩已收录。可以查看排行榜。' : pending.payload ? '已保留原提交；重试使用同一战役 ID 和内容。' : '昵称可重复，不作为账号。分数仅用于交流展示。';
+    const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = pending.submitted ? '已提交 ✓' : this.sending ? '正在提交…' : pending.payload ? '重试提交' : '提交成绩'; submit.disabled = Boolean(pending.submitted) || this.sending;
+    const edit = this.button('修改昵称', () => { input.disabled = false; input.focus(); }); edit.hidden = Boolean(pending.payload);
+    const view = this.button('查看排行榜 →', () => { this.page = 'board'; this.difficulty = r.difficulty; this.render(); });
+    form.append(label, status, submit, edit, view); this.content.append(form);
+    form.addEventListener('submit', event => {
+      event.preventDefault(); if (this.sending || pending.submitted) return;
+      if (!apiConfigured) { status.textContent = '尚未配置在线服务。成绩已保留，请等待管理员配置 API。'; return; }
+      const nickname = normalizeNickname(input.value);
+      if (!validNickname(nickname)) { status.textContent = '昵称需为2–16个中英文字、数字、单空格、_、-或·。'; input.focus(); return; }
+      pending.payload ??= { ...r, nickname }; // 第一次发出后固定载荷；超时后不能变更昵称造成不确定写入。
+      input.value = pending.payload.nickname; input.disabled = true; edit.hidden = true;
+      writeLocal(NICKNAME_KEY, pending.payload.nickname);
+      const saved = writeLocal(PENDING_KEY, JSON.stringify(pending));
+      this.sending = true; submit.disabled = true; submit.textContent = '正在提交…'; status.textContent = saved ? '正在发送，网络失败后可安全重试。' : '浏览器存储不可用；请保留本页以便重试。';
+      void submitScore(pending.payload).then(() => {
+        pending.submitted = true; writeLocal(PENDING_KEY, JSON.stringify(pending)); status.textContent = '成绩已收录，灯塔记住了你的名字。';
+      }).catch(error => {
+        status.textContent = error instanceof ApiError ? error.message : '提交失败，请重试。';
+      }).finally(() => {
+        this.sending = false; submit.disabled = Boolean(pending.submitted); submit.textContent = pending.submitted ? '已提交 ✓' : '重试提交';
+        if (this.visible && this.page === 'result' && !form.isConnected) this.render();
+      });
+    });
+  }
+}
+export const onlinePanel = new LeaderboardPanel();
+export function bindOnlinePanel(getPaused: () => boolean, setPaused: (paused: boolean) => void): () => void {
+  let previous = getPaused();
+  const change = (event: Event) => {
+    if ((event as CustomEvent<boolean>).detail) { previous = getPaused(); setPaused(true); }
+    else setPaused(previous || document.hidden);
+  };
+  const blur = () => { if (onlinePanel.visible) previous = true; };
+  window.addEventListener('last-light:online', change); window.addEventListener('blur', blur);
+  if (onlinePanel.visible) setPaused(true);
+  return () => { window.removeEventListener('last-light:online', change); window.removeEventListener('blur', blur); };
+}

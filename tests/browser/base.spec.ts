@@ -115,7 +115,9 @@ test('基地读档失败不立即覆盖原存档，禁用写入后仍可建设�
   await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('storage disabled'); }; });
   await page.keyboard.press('Digit2'); await click(page, 964, 356); expect((await state(page)).plan.buildings).toHaveLength(1);
-  await page.keyboard.press('Escape'); await page.keyboard.press('Space'); await click(page, 1000, 688, 'right'); await page.clock.runFor(300);
+  // Phaser 下一帧才分发按键；先确认全选完成，再发送右键指令，避免并行负载下先下令后选兵。
+  await page.keyboard.press('Escape'); await page.clock.runFor(60); await page.keyboard.press('Space'); await page.clock.runFor(60);
+  expect((await state(page)).selected).toHaveLength(3); await click(page, 1000, 688, 'right'); await page.clock.runFor(300);
   expect((await state(page)).plan.soldiers.some((s: any) => s.moving)).toBe(true);
   await page.keyboard.press('Enter'); await page.clock.runFor(100); expect((await state(page)).plan.status).toBe('ready');
   expect(JSON.parse((await page.evaluate(() => localStorage.getItem('last-light.campaign.v2')))!).depot.materials).toBe(12);

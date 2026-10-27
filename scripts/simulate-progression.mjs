@@ -4,11 +4,14 @@ import { NightWorld } from '../src/core/night-world.ts';
 import { newCampaign } from '../src/core/campaign.ts';
 import { NIGHT_LIMITS } from '../src/config/night.ts';
 import { INFECTED, levelStats } from '../src/config/night.ts';
+import { RankedRun } from '../src/core/ranking.ts';
+import { calculateScore } from '../src/core/scoring.ts';
 import { mkdirSync, writeFileSync } from 'node:fs';
 mkdirSync('artifacts', { recursive: true });
 
 // 模型场景：每阶段一次可在48负重内取得的补给；不声称是键鼠实玩或低配GPU测试。
 let campaign = newCampaign(); campaign.survivors = ['engineer']; campaign.weapons.push('rifle');
+const ranking = new RankedRun('model-fixture', 'normal');
 const builds = [
   [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640], ['barricade', 960, 640]],
   [['grid', 1024, 576], ['repair', 928, 736], ['cannon', 960, 352], ['arrowtower', 608, 352], ['cannon', 448, 352], ['arrowtower', 480, 640]],
@@ -47,9 +50,15 @@ for (let stage = 1; stage <= 3; stage++) {
   times.sort((a, b) => a - b);
   console.log(JSON.stringify({ stage, summary: night.summary(), bosses: [...night.bossesSeen], peak, modelStepMs: { mean: times.reduce((a, b) => a + b, 0) / times.length, p95: times[Math.floor(times.length * 0.95)], max: times.at(-1) }, depot: base.campaign.depot }));
   if (night.status !== 'victory') throw new Error(`阶段${stage}参考阵地失守，需调整布防或数值`);
+  // 从真实模型结算取数据；此处虚拟墙钟只验证连接关系，不作为实玩通关成绩提交。
+  ranking.update(true, (stage - 1) * 40000, 3);
+  const summary = night.summary();
+  ranking.finishNight({ stage, outcome: summary.outcome, kills: summary.kills, bossKills: summary.bossKills ?? 0, lampHealth: summary.lampHealth, soldiers: summary.soldiers }, stage * 40000);
   if (stage === 3 && peak.enemies < 40) throw new Error('后期尸潮密度不足：参考阵地应观察到至少40名敌人同时逼近');
   campaign = night.resultCampaign();
 }
+if (!ranking.result || ranking.result.score !== calculateScore(ranking.stages, 120000).total) throw new Error('完整战役结算未接入统一评分');
+console.log(JSON.stringify({ rankingFixture: true, score: ranking.result.score, stages: ranking.stages.length }));
 
 const stressCampaign = structuredClone(campaign); stressCampaign.depot = { materials: 5000, energy: 2000, medkits: 0 };
 const stressBase = new BaseWorld(stressCampaign); stressBase.resume();

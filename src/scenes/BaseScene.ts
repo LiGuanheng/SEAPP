@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import { BASE_HEIGHT, BASE_WIDTH, BUILDING_KEYS, BUILDINGS, GRID, LIGHTHOUSE, buildingRect, type BuildingKind } from '../config/base.ts';
 import { STAGES } from '../config/progression.ts';
 import { BaseWorld } from '../core/base-world.ts';
-import { loadCampaign, newCampaign, saveCampaign, type Campaign } from '../core/campaign.ts';
+import { newCampaign, type Campaign } from '../core/campaign.ts';
+import { loadGameCampaign, saveGameCampaign, rankedRun, updateRun } from '../services/game-session.ts';
+import { onlinePanel, bindOnlinePanel } from '../view/LeaderboardPanel.ts';
 import { distance } from '../core/geometry.ts';
 import type { Rect, Vec } from '../core/types.ts';
 import type { ActionResult } from '../core/expedition.ts';
@@ -46,13 +48,15 @@ export class BaseScene extends Phaser.Scene {
   private speedLabel!: Phaser.GameObjects.Text;
   private musicLabel!: Phaser.GameObjects.Text;
   private transition!: SceneTransition;
+  private rankingShown = false;
   constructor() { super('Base'); }
   create(data: { campaign?: Campaign; fresh?: boolean; battle?: boolean } = {}): void {
     let campaign = data.campaign ?? newCampaign(), warning = '';
-    if (!data.campaign) try { const loaded = loadCampaign(localStorage); campaign = loaded.campaign; warning = loaded.warning; } catch { warning = '存储不可用，基地仍可操作。'; }
+    if (!data.campaign) try { const loaded = loadGameCampaign(localStorage); campaign = loaded.campaign; warning = loaded.warning; } catch { warning = '存储不可用，基地仍可操作。'; }
     this.world = data.battle ? new NightWorld(campaign, new URLSearchParams(location.search).get('difficulty') === 'hard' ? 'hard' : 'normal') : new BaseWorld(campaign); if (data.fresh && !data.battle) this.world.resume();
     const params = new URLSearchParams(location.search); this.practice = params.get('mode') === 'base' || params.get('practice') === 'base';
     this.support = false; this.audio = new SoundBus(!!data.battle); this.speed = 1;
+    this.rankingShown = false;
     this.selected.clear(); this.held.clear(); this.kind = null; this.rotation = 0; this.selectedBuilding = null;
     this.paused = false; this.drag = null; this.wallStroke = null; this.accumulator = 0; this.savedReady = false; this.pointerActive = false;
     const camera = this.cameras.main;
@@ -74,6 +78,7 @@ export class BaseScene extends Phaser.Scene {
     if (warning) this.hud.notify(warning);
     this.input.mouse?.disableContextMenu();
     const keyDown = (e: KeyboardEvent) => {
+      if (onlinePanel.visible) return;
       this.audio?.unlock();
       if (['F1', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Tab'].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
@@ -151,7 +156,10 @@ export class BaseScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown', keyDown); this.input.keyboard!.on('keyup', keyUp);
     this.input.on('pointerdown', down); this.input.on('pointerup', up); this.input.on('pointerupoutside', up); this.input.on('pointermove', move); this.input.on('wheel', wheel);
     window.addEventListener('blur', blur); document.addEventListener('visibilitychange', hidden); this.game.canvas.addEventListener('pointerleave', leave);
+    const unbindOnline = bindOnlinePanel(() => this.paused, paused => this.setPaused(paused));
+    updateRun(!this.paused && this.world.commanding);
     this.events.once('shutdown', () => {
+      updateRun(false); unbindOnline();
       this.input.keyboard?.off('keydown', keyDown); this.input.keyboard?.off('keyup', keyUp);
       this.input.off('pointerdown', down); this.input.off('pointerup', up); this.input.off('pointerupoutside', up); this.input.off('pointermove', move); this.input.off('wheel', wheel);
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', hidden); this.game.canvas.removeEventListener('pointerleave', leave); delete window.__baseLight; delete window.__nightLight; this.audio?.destroy();
@@ -194,8 +202,14 @@ export class BaseScene extends Phaser.Scene {
   }
   private persist(): void {
     if (this.world instanceof NightWorld && this.world.commanding) return;
+    if (this.world instanceof NightWorld && rankedRun) {
+      const summary = this.world.summary();
+      rankedRun.finishNight({ stage: this.world.stage, outcome: summary.outcome, kills: summary.kills, bossKills: summary.bossKills ?? 0, lampHealth: summary.lampHealth, soldiers: summary.soldiers }, performance.now());
+      if (rankedRun.result) onlinePanel.remember(rankedRun.result);
+      else if (rankedRun.invalidReason) this.hud.notify(rankedRun.invalidReason);
+    }
     const campaign = this.world instanceof NightWorld ? this.world.resultCampaign() : this.world.campaign;
-    try { if (saveCampaign(localStorage, campaign)) { this.hud.saveWarning = ''; return; } } catch { /* 私密模式等禁用存储时保持当前阵地可用。 */ }
+    try { if (saveGameCampaign(localStorage, campaign)) { this.hud.saveWarning = ''; return; } } catch { /* 私密模式等禁用存储时保持当前阵地可用。 */ }
     this.hud.saveWarning = '未能保存基地；当前可继续操作，刷新后变更可能丢失。';
   }
   private setKind(kind: BuildingKind): void {
@@ -203,7 +217,7 @@ export class BaseScene extends Phaser.Scene {
     if (!this.world.unlocked(kind)) { this.hud.notify(`${BUILDINGS[kind].name} · 第 ${BUILDINGS[kind].stage} 阶段解锁`); return; }
     this.kind = this.kind === kind ? null : kind; this.rotation = 0; this.drag = null; this.wallStroke = null; this.selectedBuilding = null;
   }
-  private setPaused(paused: boolean): void { this.paused = paused; this.held.clear(); this.drag = null; this.wallStroke = null; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio?.pause(paused); }
+  private setPaused(paused: boolean): void { this.paused = paused; updateRun(!paused && this.world.commanding, this.speed); this.held.clear(); this.drag = null; this.wallStroke = null; this.accumulator = 0; this.cameras.main.shakeEffect.reset(); this.audio?.pause(paused); }
   private home(): void { if (!this.paused && this.world.commanding) { this.cameras.main.centerOn(LIGHTHOUSE.x, LIGHTHOUSE.y); this.drag = null; this.wallStroke = null; } }
   private cycleSpeed(): void { if (!this.paused && this.world.commanding && !this.guide.visible) { this.speed = this.speed === 3 ? 1 : this.speed === 2 ? 3 : 2; } }
   private toggleGuide(): void {
@@ -212,15 +226,17 @@ export class BaseScene extends Phaser.Scene {
     else { this.guideWasPaused = this.paused; this.guide.show(true); this.setPaused(true); }
   }
   private toggleSupport(): void { if (this.paused || !(this.world instanceof NightWorld) || !this.world.commanding) return; this.audio?.unlock(); this.support = !this.support; this.drag = null; }
-  private startNight(): void { this.persist(); this.scene.restart({ campaign: this.world.campaign, battle: true }); }
+  private startNight(): void { updateRun(false); this.persist(); this.scene.restart({ campaign: this.world.campaign, battle: true }); }
   private finish(): void { if (this.paused || this.world.plan.status !== 'preparing' || this.world instanceof NightWorld) return; this.world.finish(); this.kind = null; this.drag = null; this.wallStroke = null; this.held.clear(); this.persist(); this.savedReady = true; if (!this.practice) this.startNight(); }
   private resume(): void {
+    updateRun(false);
     if (this.world instanceof NightWorld) { if (!this.world.commanding) this.scene.restart({ campaign: this.world.resultCampaign(), battle: true }); else this.setPaused(false); return; }
     this.setPaused(false); if (this.world.plan.status === 'ready') { this.world.resume(); this.savedReady = false; this.persist(); }
   }
-  private explore(): void { this.persist(); this.scene.start('Combat', { campaign: this.world instanceof NightWorld ? this.world.resultCampaign() : this.world.campaign }); }
+  private explore(): void { updateRun(false); this.persist(); this.scene.start('Combat', { campaign: this.world instanceof NightWorld ? this.world.resultCampaign() : this.world.campaign }); }
   update(_time: number, delta: number): void {
     const dt = Math.min(delta / 1000, 0.1), active = !this.paused && this.world.commanding;
+    updateRun(active, this.speed);
     let simulated = 0;
     if (active) {
       this.paintWall();
@@ -257,6 +273,9 @@ export class BaseScene extends Phaser.Scene {
     this.guide.available(this.world.commanding);
     this.transition.update(this.paused ? 0 : dt, !this.paused && !this.guide.visible);
     if (this.world instanceof NightWorld && !this.world.commanding && !this.transition.active) this.audio?.pause(true);
+    if (rankedRun?.result && this.world instanceof NightWorld && this.world.stage === 3 && this.world.status === 'victory' && !this.transition.active && !this.rankingShown) {
+      this.rankingShown = true; onlinePanel.open('result');
+    }
     this.speedLabel.setText(`×${this.speed} 倍速 [T]`); this.musicLabel.setText(this.audio?.musicMuted ? '配乐关 [L]' : '配乐开 [L]');
   }
 }

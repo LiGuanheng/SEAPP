@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { STORY_CHAPTERS, STORY_SECONDS, rememberStory } from '../config/story.ts';
 import { MapView } from '../view/MapView.ts';
+import { onlinePanel, bindOnlinePanel } from '../view/LeaderboardPanel.ts';
 
 /** 独立叙事场景：此时尚未创建探索世界，不消耗 90 秒探索预算。 */
 export class PrologueScene extends Phaser.Scene {
@@ -35,12 +36,13 @@ export class PrologueScene extends Phaser.Scene {
     text(1090, 660, '开始行动 [Enter / Space]', 14, '#ecd59f').setOrigin(0.5);
     skip.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.finish(); });
     this.cameras.main.ignore(root); const ui = this.cameras.add(0, 0, 1280, 720); ui.ignore(this.children.list.filter(o => o !== root));
-    const key = (e: KeyboardEvent) => { if (['Space', 'Enter', 'Escape'].includes(e.code)) { e.preventDefault(); this.finish(); } else if (e.code === 'KeyP') this.paused = !this.paused; };
+    const key = (e: KeyboardEvent) => { if (onlinePanel.visible) return; if (['Space', 'Enter', 'Escape'].includes(e.code)) { e.preventDefault(); this.finish(); } else if (e.code === 'KeyP') this.paused = !this.paused; };
     const blur = () => { this.paused = true; };
     const hidden = () => { if (document.hidden) blur(); };
-    const down = () => { if (this.paused) this.paused = false; };
+    const down = () => { if (this.paused && !onlinePanel.visible) this.paused = false; };
+    const unbindOnline = bindOnlinePanel(() => this.paused, paused => { this.paused = paused; });
     this.input.keyboard!.on('keydown', key); this.input.on('pointerdown', down); window.addEventListener('blur', blur); document.addEventListener('visibilitychange', hidden);
-    this.events.once('shutdown', () => { this.input.keyboard?.off('keydown', key); this.input.off('pointerdown', down); window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', hidden); delete window.__storyLight; });
+    this.events.once('shutdown', () => { unbindOnline(); this.input.keyboard?.off('keydown', key); this.input.off('pointerdown', down); window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', hidden); delete window.__storyLight; });
     if (new URLSearchParams(location.search).get('test') === '1') window.__storyLight = Object.freeze({ snapshot: () => ({ elapsed: this.age, chapter: Math.min(2, Math.floor(this.age / 3)), paused: this.paused, ready: true }) });
     document.getElementById('loading')?.remove(); this.paint();
   }

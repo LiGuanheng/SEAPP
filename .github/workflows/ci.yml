@@ -17,8 +17,42 @@ jobs:
       - run: npm test
       - run: npm run test:legacy
       - run: npm run build
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:3000
       - run: npm run simulate:progression
       - run: npx playwright install --with-deps chromium
+      - run: npm ci --prefix server
+      - run: npm --prefix server run build
+      - run: npm --prefix server run typecheck
+      - run: npm --prefix server test
+      - run: npm --prefix server run migrate
+        env:
+          DATABASE_URL: postgresql://seapp:test_only_password@127.0.0.1:5432/seapp_test
+      - run: npm --prefix server run test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://seapp:test_only_password@127.0.0.1:5432/seapp_test
+      - run: npm --prefix server start > /tmp/seapp-api.log 2>&1 &
+        env:
+          DATABASE_URL: postgresql://seapp:test_only_password@127.0.0.1:5432/seapp_test
+          CORS_ORIGINS: http://127.0.0.1:4173
+      - run: node --input-type=module -e "for(let i=0;i<30;i++){try{if((await fetch('http://127.0.0.1:3000/api/health')).ok)process.exit(0)}catch{} await new Promise(r=>setTimeout(r,500))}process.exit(1)"
       - run: npm run test:e2e
         env:
           E2E_PRODUCTION: '1'
+          E2E_REAL_API: '1'
+      - run: docker compose -f compose.yaml -f compose.dev.yaml config --quiet
+        env:
+          POSTGRES_PASSWORD: ci_only_password
+          CORS_ORIGINS: http://127.0.0.1:4173
+      - run: docker build -f server/Dockerfile .
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: seapp
+          POSTGRES_PASSWORD: test_only_password
+          POSTGRES_DB: seapp_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U seapp -d seapp_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10

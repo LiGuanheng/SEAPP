@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: seapp-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: verify-full
+      - key: CORS_ORIGINS
+        sync: false
+      - key: TRUST_PROXY
+        value: '1'

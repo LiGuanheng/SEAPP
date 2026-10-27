@@ -1,0 +1,42 @@
+name: seapp-dev
+services:
+  db:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: seapp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 设置数据库密码}
+      POSTGRES_DB: ${POSTGRES_DB:-seapp_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U seapp -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      options: { max-size: 10m, max-file: '3' }
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://seapp:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-seapp_dev}
+      DATABASE_SSL: disable
+      HOST: 0.0.0.0
+      PORT: 3000
+      CORS_ORIGINS: ${CORS_ORIGINS:?请设置准确的前端来源}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      options: { max-size: 10m, max-file: '3' }
+volumes:
+  pgdata:

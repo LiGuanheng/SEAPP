@@ -2,9 +2,34 @@
 
 使用 Phaser + TypeScript 实现的 2D 末日生存探索与即时防御游戏。
 
+**v0.12：匿名在线双排行榜与全栈课程工程。** 底部“排行榜”可随时查看极速/得分榜并切换普通/困难；从榜内开始独立排名战役，依次完成三个阶段首胜后输入昵称提交。使用实际活动时间，排除暂停/指南/失焦/结算等待；原有倍速可用并显示标记。原营地 v2 存档保留，排名战役刷新重新开始，最近完成成绩支持保存与安全重试。
+
+后端采用 Node.js 24 + TypeScript + Fastify + pg + PostgreSQL + Zod，不要求账号。服务端重算分数并验证边界，UUID 防意外重复；**客户端数据仍可伪造，不是服务器权威防作弊**。未配置 API 或断网时单机照常运行。
+
+- [后端与源码答辩指南](docs/BACKEND_GUIDE.md)：真实目录、功能函数表、API、计时评分、DBeaver、20 问答。
+- [部署与备份迁移](docs/BACKEND_DEPLOYMENT.md)：本地、VPS/Caddy、Render/Neon、更新回滚。
+- [六天学习路线](docs/BACKEND_STUDY_PLAN.md)。
+- [本轮真实验收与限制](docs/BACKEND_VALIDATION.md)。
+
+本地后端快速开始（先安装并启动 Docker Desktop；Node API 与容器 API 选一种）：
+
+```powershell
+npm ci
+npm ci --prefix server
+Copy-Item .env.example .env
+Copy-Item server/.env.example server/.env
+docker compose -f compose.yaml -f compose.dev.yaml up -d db
+npm --prefix server run migrate
+npm run server:dev
+# 另开终端
+npm run dev
+```
+
+根 `.env` 的 VITE_API_BASE_URL 只填公开 API 来源，不放密码。生产 Pages 工作流读取同名 Actions Variable，继续只发布 dist。本轮未实际部署到云端，缺 Docker 的本机验收替代方案见指南第 8 节。
+
 **v0.11：成团多向围城、连续场景演出、模块城市与炮塔改装。** 第一批见 [围城与演出记录](docs/18-v0.11-siege.md)，完整交付见 [v0.11验收](docs/19-v0.11-delivery.md)。Space跳过演出，V减少动态；`?difficulty=hard` 可选困难；`?seed=1000` 可复现城市。保留v0.10成长、48负重和已有存档。
 
-**延续v0.10成长基础：** 序章、提灯探索、90秒白天 / 30秒布防 / 120秒夜战，首次通关逐步开放施工空间、设施与人物。首阶段Boss只迎战巨汉；第二阶段开放电网、维修站、电工与战地医师，迎击女皇和喷毒者；最终阶段开放火焰塔、狙击塔和重火力英雄，抵御空地尸潮、自爆巨怪与最终双Boss。没有增加后端或更换引擎。
+**延续v0.10成长基础：** 序章、提灯探索、90秒白天 / 30秒布防 / 120秒夜战，首次通关逐步开放施工空间、设施与人物。首阶段Boss只迎战巨汉；第二阶段开放电网、维修站、电工与战地医师，迎击女皇和喷毒者；最终阶段开放火焰塔、狙击塔和重火力英雄，抵御空地尸潮、自爆巨怪与最终双Boss。v0.12 接入后端，沿用原引擎和这些玩法。
 
 | 阶段 | 可施工范围 | Boss编成 | 首次胜利补给 |
 | --- | --- | --- | --- |

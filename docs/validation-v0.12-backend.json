@@ -1,0 +1,89 @@
+{
+  "gameVersion": "0.12.0",
+  "baseCommit": "ddee025",
+  "recordDate": "2026-10-27",
+  "node": "24.15.0",
+  "npm": "11.12.1",
+  "gameRuleTests": {
+    "passed": 95,
+    "failed": 0
+  },
+  "legacyRuleTests": {
+    "passed": 22,
+    "failed": 0
+  },
+  "apiTests": {
+    "passed": 7,
+    "failed": 0
+  },
+  "postgresIntegrationTests": {
+    "passed": 8,
+    "failed": 0,
+    "note": "7 subtests plus parent test, real local PostgreSQL 17"
+  },
+  "browserTests": {
+    "distinctPassed": 45,
+    "batchPassed": [
+      28,
+      19
+    ],
+    "repeatedCases": 2,
+    "firstBatchInterrupted": true,
+    "remainingBatchExitCode": 0,
+    "cases": [
+      "tests\\browser\\assault-and-walls.spec.ts:13:1 › 按住拖墙补齐水平及斜线，回划/停留不重复扣费，松手停止并可刷新保存",
+      "tests\\browser\\assault-and-walls.spec.ts:28:1 › 拖墙在暂停、Esc、离开画布时取消，不会恢复后误建；穿过通道仍留通路",
+      "tests\\browser\\assault-and-walls.spec.ts:40:1 › 点选设施后可点击出售，显示真实回收金额，暂停不穿透且不可重复领取",
+      "tests\\browser\\base.spec.ts:107:1 › 基地读档失败不立即覆盖原存档，禁用写入后仍可建设、指挥和完成",
+      "tests\\browser\\base.spec.ts:32:1 › 真实探索回营后进入基地，资源建设、选兵右键移动、驻守、框选、暂停与存档",
+      "tests\\browser\\base.spec.ts:71:1 › 镜头缩放/移动后仍正确落地，HUD 固定，旋转、拆除、驻守和失焦无残留输入",
+      "tests\\browser\\base.spec.ts:93:1 › 30 秒自动完成，继续调整不重置预算，可返回探索；正常入口无诊断接口",
+      "tests\\browser\\bosses.spec.ts:25:1 › 第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无缺帧，终局冻结",
+      "tests\\browser\\bosses.spec.ts:90:1 › 重新探索真实生成新种子和支线摆位，保留主线物资、药房奖励与工程师位置",
+      "tests\\browser\\city-and-refits.spec.ts:20:1 › 三个种子真实走入不同街区门口与室内，轮廓/入口/道路结构变化且迷雾保留",
+      "tests\\browser\\city-and-refits.spec.ts:38:1 › 真实库存改装两种炮塔、刷新保留、暂停不误扣，夜战实际发射防空破片与榴弹",
+      "tests\\browser\\city-and-refits.spec.ts:56:1 › 出发、黄昏归来与失守均展示真实地图，跳过失败演出后原阶段可重试",
+      "tests\\browser\\combat.spec.ts:105:1 › 素材缺失时出现清晰错误，避免静默黑屏",
+      "tests\\browser\\combat.spec.ts:112:1 › 一分钟场景运行与多次重试，无控制台错误或对象累积",
+      "tests\\browser\\combat.spec.ts:26:1 › 直接出现真实像素场景，WASD/冲刺/瞄准射击可操作，实际命中并击杀",
+      "tests\\browser\\combat.spec.ts:51:1 › 暂停与失焦停止模拟，恢复后没有残留移动或自动开火，R 可换弹",
+      "tests\\browser\\combat.spec.ts:70:1 › 丧尸真实追击、攻击、失败与重试；持续运行无页面异常",
+      "tests\\browser\\combat.spec.ts:90:1 › 窗口缩放后仍能瞄准射击，正常入口不暴露测试接口，旧存档不改变",
+      "tests\\browser\\expansion.spec.ts:21:1 › 真实走入药房战斗、取得猎弓、营救弓手，再从门口护送回营",
+      "tests\\browser\\expansion.spec.ts:43:1 › 探索滚轮缩放后仍正确瞄准，独立配乐开关保存，真实 Web Audio 启动旋律",
+      "tests\\browser\\expansion.spec.ts:56:1 › 五类防御和六人兵种阵地，2/3 倍速推进真实夜战，暂停与胜负保持正确",
+      "tests\\browser\\expedition.spec.ts:26:1 › 键鼠完成搜刮、步枪、护送、背包暂停、提前回营与刷新存档",
+      "tests\\browser\\expedition.spec.ts:62:1 › 损坏存档与浏览器禁用存储时仍能探索、结算并清楚提示未保存",
+      "tests\\browser\\expedition.spec.ts:77:1 › 实际射击防守至 90 秒，黄昏自动收队并只入库一次",
+      "tests\\browser\\leaderboard.spec.ts:32:1 › 结算得分构成、昵称校验、首次失败安全重试、成功结果及本地昵称恢复",
+      "tests\\browser\\leaderboard.spec.ts:52:1 › 榜单文本安全显示、不执行恶意昵称；排名战役不读取或覆盖原营地",
+      "tests\\browser\\leaderboard.spec.ts:62:1 › 浏览器fetch真实API写入PostgreSQL并刷新榜单（显式本地环境）",
+      "tests\\browser\\leaderboard.spec.ts:75:1 › 排名活动时钟在真实场景中排除暂停、指南、榜单等待，重载开始新战役",
+      "tests\\browser\\leaderboard.spec.ts:7:1 › 随时看榜、空/失败/加载反馈、难度筛选，关闭保留原暂停状态，小窗口可用",
+      "tests\\browser\\night.spec.ts:21:1 › 一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开关、120 秒守夜胜利并保存",
+      "tests\\browser\\night.spec.ts:64:1 › 没有设施时真实失守，存储禁用仍能结算与重试，音效偏好可保留",
+      "tests\\browser\\polish.spec.ts:15:1 › 探索指南冻结世界、阻断穿透，关闭后保留背包和失焦暂停",
+      "tests\\browser\\polish.spec.ts:38:1 › 白天真实枪声与交互音色启用，静音跨探索到夜战保留",
+      "tests\\browser\\polish.spec.ts:71:39 › base 战术地图只移动镜头，C 回中，指南不误操作或消耗支援",
+      "tests\\browser\\polish.spec.ts:71:39 › night 战术地图只移动镜头，C 回中，指南不误操作或消耗支援",
+      "tests\\browser\\polish.spec.ts:96:1 › 探索真实战败后重试保留本次已载入营地，即使存储随后被禁用",
+      "tests\\browser\\progression.spec.ts:21:1 › 首阶段锁定设施、胜利保存成长、原阵地重试，再真实探索进入第二阶段",
+      "tests\\browser\\progression.spec.ts:44:1 › 第二阶段真实进入维修站，英雄营救、伏击与护送返营，刷新保留英雄",
+      "tests\\browser\\progression.spec.ts:60:1 › 后期新增区域真实施工、远距离编队移动、小地图定位与存档刷新",
+      "tests\\browser\\siege.spec.ts:23:1 › 真实第三阶段四向成群进攻、Boss演出与黎明，终局模型冻结而表现独立结束",
+      "tests\\browser\\siege.spec.ts:7:1 › 入夜演出不随三倍速加速，暂停失焦冻结、跳过和减少动态不改变存档/操控",
+      "tests\\browser\\story-and-fog.spec.ts:15:1 › 首次开场真实播放三幕叙事，失焦暂停，自动开始不消耗探索预算且记住已观看",
+      "tests\\browser\\story-and-fog.spec.ts:29:1 › 公开序章重播入口可立即跳过，存储禁用不阻断游戏，跳过键不误射击",
+      "tests\\browser\\story-and-fog.spec.ts:37:1 › 真实提灯探索揭开迷雾，搜刮镜片即时增亮，安全返营保留灯级并播放归来叠化",
+      "tests\\browser\\story-and-fog.spec.ts:55:1 › 实机可建六十段墙，正常扣费、保存并刷新，原四十座限制已移除"
+    ]
+  },
+  "frontendBuild": "passed",
+  "backendTypecheck": "passed",
+  "backendBuild": "passed",
+  "pagesSubpathOffline": "passed",
+  "yamlSyntaxFiles": 6,
+  "dockerStartup": "not run: Docker unavailable",
+  "cloudDeployment": "not performed",
+  "finalFrontendBundle": "index-C5pbdbUe.js"
+}

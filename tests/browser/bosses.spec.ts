@@ -1,10 +1,25 @@
 import { test, expect, type Page } from './fixtures.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => ((window as any).__nightLight ?? (window as any).__baseLight ?? (window as any).__lastLight).snapshot());
-async function key(page: Page, code: string) { await page.keyboard.press(code); await page.clock.runFor(60); }
+async function key(page: Page, code: string) {
+  await page.keyboard.down(code); await page.clock.runFor(40); await page.keyboard.up(code); await page.clock.runFor(60);
+}
 async function clickWorld(page: Page, x: number, y: number, button: 'left' | 'right' = 'left') {
+  // 虚拟时钟下镜头更新可能晚一帧；按实际可见范围移动，避免落点落到 HUD/画布外。
+  // 保留真实 WASD 操作，不写入只读诊断接口或降低阵地/战斗断言。
+  for (let i = 0; i < 12; i++) {
+    const current = await state(page), sx = (x - current.camera.x) * current.camera.zoom, sy = (y - current.camera.y) * current.camera.zoom;
+    const code = sy < 120 ? 'KeyW' : sy > 560 ? 'KeyS' : sx < 40 ? 'KeyA' : sx > 1060 ? 'KeyD' : null;
+    if (!code) break;
+    await page.keyboard.down(code); await page.clock.runFor(150); await page.keyboard.up(code); await page.clock.runFor(40);
+  }
   const s = await state(page), b = (await page.locator('canvas').boundingBox())!;
-  await page.mouse.click(b.x + (x - s.camera.x) * s.camera.zoom / 1280 * b.width, b.y + (y - s.camera.y) * s.camera.zoom / 720 * b.height, { button }); await page.clock.runFor(80);
+  expect(s.paused, '施工/支援前保持活动状态，越界点击不可用 Esc 意外暂停').toBe(false);
+  expect((y - s.camera.y) * s.camera.zoom).toBeGreaterThanOrEqual(94);
+  expect((y - s.camera.y) * s.camera.zoom).toBeLessThan(596);
+  await page.mouse.move(b.x + (x - s.camera.x) * s.camera.zoom / 1280 * b.width, b.y + (y - s.camera.y) * s.camera.zoom / 720 * b.height);
+  // 铺墙在固定步读取“仍按住左键”；让按下跨过一帧，避免并行负载下 down/up 同帧合并。
+  await page.mouse.down({ button }); await page.clock.runFor(40); await page.mouse.up({ button }); await page.clock.runFor(80);
 }
 
 test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无缺帧，终局冻结', async ({ page }) => {
@@ -12,7 +27,9 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error' || /frame.*not found|missing.*texture/i.test(m.text())) errors.push(m.text()); });
   // 合法已解锁战役夹具；只通过键鼠施工和倍速，诊断接口保持只读。
   await page.addInitScript(() => localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 2, expeditions: 4, depot: { materials: 100, energy: 40, medkits: 0 }, survivors: ['engineer', 'medic', 'captain', 'ranger', 'brawler', 'guardian', 'gunner'], weapons: ['pistol', 'rifle', 'axe', 'bow'], lastSummary: null, base: null })));
-  await page.clock.install(); await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
+  await page.clock.install(); await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
+  // install 后时间仍自然流动；暂停后仅用 runFor 推进，CPU/截图耗时不再消耗30秒布防预算。
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000); await page.clock.runFor(100);
   for (const [code, x, y] of [['Digit2', 832, 352], ['Digit3', 960, 352], ['Digit4', 608, 640], ['Digit4', 864, 640], ['Digit4', 608, 352], ['Digit6', 1024, 576], ['Digit7', 928, 736], ['Digit8', 576, 416], ['Digit9', 1056, 352], ['Digit2', 832, 800]] as const) { await key(page, code); if (y >= 800) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); } await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); if (y >= 800) await key(page, 'KeyC'); }
   for (const [code, x, y] of [['Digit3', 448, 352], ['Digit8', 576, 736], ['Digit8', 960, 800], ['Digit6', 544, 640]] as const) {
     await key(page, code); if (y >= 736) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); }
@@ -21,7 +38,11 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   for (const y of [256, 864]) {
     if (y === 864) { await page.keyboard.down('KeyS'); await page.clock.runFor(500); await page.keyboard.up('KeyS'); }
     await key(page, 'Digit5');
-    for (const x of [416, 448, 480, 512, 544, 576, 608, 640, 672]) await clickWorld(page, x + 4, y + 4);
+    expect((await state(page)).placement, `第${y}行施工前必须真实选中城墙`).toBe('wall');
+    for (const x of [416, 448, 480, 512, 544, 576, 608, 640, 672]) {
+      const before = await state(page); await clickWorld(page, x + 4, y + 4); const after = await state(page);
+      expect(after.plan.buildings.length, `城墙${x},${y}；placement=${after.placement}；camera=${JSON.stringify(after.camera)}；paused=${after.paused}`).toBe(before.plan.buildings.length + 1);
+    }
     await key(page, 'Escape'); await key(page, 'KeyC');
   }
   expect((await state(page)).plan.buildings).toHaveLength(32);
@@ -33,7 +54,10 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   }
   await page.clock.runFor(10000);
   await page.screenshot({ path: 'artifacts/progression-late-base.png' });
-  await key(page, 'Enter'); await key(page, 'KeyN'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await key(page, 'KeyT'); await key(page, 'KeyT');
+  if ((await state(page)).plan.status === 'preparing') await key(page, 'Enter');
+  expect((await state(page)).plan.status).toBe('ready'); await key(page, 'KeyN');
+  for (let i = 0; i < 20 && !await page.evaluate(() => (window as any).__nightLight?.snapshot().ready); i++) await page.clock.runFor(100);
+  expect(await page.evaluate(() => (window as any).__nightLight?.snapshot().ready)).toBe(true); await key(page, 'KeyT'); await key(page, 'KeyT');
   const kinds = new Set<string>(); let skill = false, checkedPause = false, capturedNewBoss = false, capturedHorde = false;
   for (let i = 0; i < 260 && (await state(page)).status === 'playing'; i++) {
     await page.clock.runFor(180); const s = await state(page);

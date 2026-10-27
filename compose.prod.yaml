@@ -1,0 +1,21 @@
+name: seapp-prod
+services:
+  api:
+    environment:
+      TRUST_PROXY: '1'
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ['80:80', '443:443', '443:443/udp']
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?请设置 API 域名}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+    logging:
+      options: { max-size: 10m, max-file: '3' }
+volumes:
+  caddy_data:
+  caddy_config:
