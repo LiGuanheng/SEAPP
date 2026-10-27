@@ -2,7 +2,7 @@ import type { WeaponId } from '../config/weapons.ts';
 import { validBasePlan, type BasePlan } from '../config/base.ts';
 import type { NightResult } from './night-world.ts';
 import { SURVIVOR_IDS } from '../config/survivors.ts';
-import { validStage } from '../config/progression.ts';
+import { STAGE_COUNT, validStage } from '../config/progression.ts';
 
 export interface Cargo { materials: number; energy: number; medkits: number }
 export interface ExpeditionSummary {
@@ -37,7 +37,7 @@ export function decodeCampaign(raw: string | null): Campaign {
     !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || (s.seed !== undefined && (!Number.isInteger(s.seed) || s.seed < 0 || s.seed > 4294967295)) || (s.specialistBonus !== undefined && s.specialistBonus !== 3) || !cargoValid(s.cargo) || !idsValid(s.rescued, SURVIVOR_IDS))) throw new Error('结算记录无效');
   if (c.base !== undefined && c.base !== null && !validBasePlan(c.base)) throw new Error('基地布防存档无效');
   if (c.nightsWon !== undefined && !count(c.nightsWon)) throw new Error('守夜次数无效');
-  if (c.clearedStage !== undefined && (!count(c.clearedStage) || c.clearedStage > 3)) throw new Error('战役阶段无效');
+  if (c.clearedStage !== undefined && (!count(c.clearedStage) || c.clearedStage > STAGE_COUNT)) throw new Error('战役阶段无效');
   if (c.lanternLevel !== undefined && (!count(c.lanternLevel) || c.lanternLevel > 2)) throw new Error('提灯升级无效');
   const n = c.lastNight;
   if (n !== undefined && n !== null && (!n || !['victory', 'defeat'].includes(n.outcome) || !Number.isFinite(n.duration) || n.duration < 0 || n.duration > 120 ||

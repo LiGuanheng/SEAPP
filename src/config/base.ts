@@ -1,15 +1,20 @@
 import type { Rect, Vec } from '../core/types.ts';
 import { canOccupy } from '../core/geometry.ts';
-import { STAGES, validStage, type StageId } from './progression.ts';
+import { STAGE_COUNT, STAGES, validStage, type StageId } from './progression.ts';
 
 export const BASE_WIDTH = 2048, BASE_HEIGHT = 1408, GRID = 32, PREPARATION_SECONDS = 30;
-export const BUILD_AREA: Rect = STAGES[3].area;
+export const BUILD_AREA: Rect = STAGES[STAGE_COUNT].area;
 export const LIGHTHOUSE = { x: 768, y: 512 };
 export const LIGHTHOUSE_FOOT: Rect = { x: 736, y: 480, width: 64, height: 64 };
 export const BASE_OBSTACLES: readonly Rect[] = [LIGHTHOUSE_FOOT,
   { x: 128, y: 128, width: 192, height: 128 }, { x: 1216, y: 800, width: 192, height: 128 }];
 export const RESERVED_ROUTES: readonly Rect[] = [
   { x: BUILD_AREA.x, y: 480, width: BUILD_AREA.width, height: 96 }, { x: 720, y: BUILD_AREA.y, width: 96, height: BUILD_AREA.height },
+];
+// Only the newly unlocked outer strips are reserved; existing v2 building coordinates remain valid.
+export const OUTER_ENTRY_AREAS: readonly Rect[] = [
+  { x: 1856, y: 320, width: 192, height: 384 },
+  { x: 576, y: 1184, width: 384, height: 224 },
 ];
 export const BUILDINGS = {
   barricade: { name: '沙袋路障', width: 64, height: 32, materials: 3, energy: 0, health: 160, range: 0, stage: 1, tint: 0xb9a47e, description: '耐久掩体 · 可旋转 · 拖延地面敌人' },

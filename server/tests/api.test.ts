@@ -19,7 +19,8 @@ test('health、空榜、查询默认值、正确JSON与404', async t => {
   assert.equal((await app.inject('/api/health')).json().database, 'ready');
   const board = await app.inject('/api/leaderboard'); assert.equal(board.statusCode, 200); assert.deepEqual(board.json().entries, []); assert.equal(board.json().board, 'speed');
   assert.equal((await app.inject('/missing')).statusCode, 404);
-  for (const query of ['board=hack', 'difficulty=easy', 'limit=21', 'limit=0', 'board=score&unknown=1']) assert.equal((await app.inject('/api/leaderboard?' + query)).statusCode, 400);
+  for (const query of ['board=hack', 'difficulty=nightmare', 'limit=21', 'limit=0', 'board=score&unknown=1']) assert.equal((await app.inject('/api/leaderboard?' + query)).statusCode, 400);
+  assert.equal((await app.inject('/api/leaderboard?difficulty=easy')).statusCode, 200);
 });
 test('首次201，安全重复200，同ID更改内容409，同昵称允许不同战役', async t => {
   const app = await buildApp(memoryStore(), { logger: false }); t.after(() => app.close());
@@ -27,21 +28,31 @@ test('首次201，安全重复200，同ID更改内容409，同昵称允许不同
   assert.equal((await send(s)).statusCode, 201); const replay = await send(s); assert.equal(replay.statusCode, 200); assert.equal(replay.json().duplicate, true);
   assert.equal((await send({ ...s, nickname: '其他昵称' })).statusCode, 409); assert.equal((await send(payload())).statusCode, 201);
 });
-test('失败、零分主动结束与课堂演示可提交，分榜参数与极速榜限制生效', async t => {
+test('失败、零分主动结束可提交，移除课堂演示，挑战榜不提供极速排名', async t => {
   const app = await buildApp(memoryStore(), { logger: false }); t.after(() => app.close());
-  for (const [scope, outcome] of [['challenge', 'defeat'], ['challenge', 'retired'], ['demo', 'retired']] as const) {
+  for (const [scope, outcome] of [['challenge', 'defeat'], ['challenge', 'retired']] as const) {
     const s = payload({ scope, outcome, completed: false, stages: [], durationMs: 0 });
     assert.equal((await app.inject({ method: 'POST', url: '/api/scores', payload: s })).statusCode, 201);
     assert.equal((await app.inject(`/api/leaderboard?board=score&scope=${scope}`)).json().scope, scope);
   }
-  for (const query of ['scope=unknown', 'board=speed&scope=demo', 'scope=challenge']) assert.equal((await app.inject('/api/leaderboard?' + query)).statusCode, 400);
+  for (const query of ['scope=unknown', 'scope=demo', 'board=speed&scope=demo', 'scope=challenge']) assert.equal((await app.inject('/api/leaderboard?' + query)).statusCode, 400);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/scores', payload: { ...payload(), scope: 'demo' } })).statusCode, 400);
 });
 test('非法昵称、分数、时间、失败、旧版本、重复阶段、额外字段均拒绝', async t => {
   const app = await buildApp(memoryStore(), { logger: false, submitLimit: 100 }); t.after(() => app.close());
-  for (const patch of [{ nickname: '<script>' }, { nickname: 'a' }, { nickname: '灯\u202e人' }, { score: 999999 }, { score: 10001 }, { durationMs: 119999 }, { durationMs: 86400001 }, { completed: false }, { maxSpeed: 1, durationMs: 120000 }, { gameVersion: '0.11.0' }, { scoreVersion: 99 }, { stages: [payload().stages[0], payload().stages[0], payload().stages[2]] }, { extra: true }]) {
+  for (const patch of [{ nickname: '<script>' }, { nickname: 'a' }, { nickname: '灯\u202e人' }, { score: 999999 }, { score: 10001 }, { durationMs: 119999 }, { durationMs: 86400001 }, { totalDurationMs: -1 }, { phaseTimesMs: { day: 150000, base: 150000, night: 599999 } }, { completed: false }, { maxSpeed: 1, durationMs: 120000 }, { gameVersion: '0.13.0' }, { scoreVersion: 2 }, { stages: [payload().stages[0], payload().stages[0], payload().stages[2]] }, { extra: true }]) {
     const response = await app.inject({ method: 'POST', url: '/api/scores', payload: { ...payload(), ...patch } }); assert.equal(response.statusCode, 400, JSON.stringify(patch));
   }
   const normalized = await app.inject({ method: 'POST', url: '/api/scores', payload: payload({ nickname: '  ＡＢ守灯人  ' }) }); assert.equal(normalized.json().entry.nickname, 'AB守灯人');
+});
+test('五阶段通关的主要用时包含固定布防和守夜，实际墙钟可受三倍速缩短', async t => {
+  const app = await buildApp(memoryStore(), { logger: false }); t.after(() => app.close());
+  for (const difficulty of ['easy', 'normal', 'hard'] as const) {
+    const s = payload({ difficulty, totalDurationMs: 300000, maxSpeed: 3 });
+    assert.equal((await app.inject({ method: 'POST', url: '/api/scores', payload: s })).statusCode, 201);
+  }
+  const broken = payload(); const { phaseTimesMs: _phase, ...missing } = broken;
+  assert.equal((await app.inject({ method: 'POST', url: '/api/scores', payload: missing })).statusCode, 400);
 });
 test('只允许准确来源，正确预检，不信任伪造的转发地址', async t => {
   const app = await buildApp(memoryStore(), { logger: false, submitLimit: 1 }); t.after(() => app.close());

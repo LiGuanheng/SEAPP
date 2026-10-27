@@ -7,7 +7,7 @@ async function point(page: Page, x: number, y: number, world = false) {
   const b = (await page.locator('canvas').boundingBox())!; return { x: b.x + x / 1280 * b.width, y: b.y + y / 720 * b.height };
 }
 async function click(page: Page, x: number, y: number, world = false) { const p = await point(page, x, y, world); await page.mouse.click(p.x, p.y); await page.clock.runFor(80); }
-async function ready(page: Page, mode = '') { await page.clock.install(); await page.goto(`/?test=1${mode ? `&mode=${mode}` : ''}`); await page.waitForFunction(() => Boolean((window as any).__lastLight?.snapshot().ready || (window as any).__baseLight?.snapshot().ready)); await page.clock.runFor(100); }
+async function ready(page: Page, mode = '') { await page.clock.install(); await page.goto(`/?play=1&test=1${mode ? `&mode=${mode}` : ''}`); await page.waitForFunction(() => Boolean((window as any).__lastLight?.snapshot().ready || (window as any).__baseLight?.snapshot().ready)); await page.clock.runFor(100); }
 async function walk(page: Page, x: number, y: number) {
   for (let i = 0; i < 65; i++) {
     const p = (await state(page)).player, dx = x - p.x, dy = y - p.y; if (Math.hypot(dx, dy) < 13) return;

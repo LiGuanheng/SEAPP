@@ -1,6 +1,8 @@
 import { calculateScore, formatDuration, normalizeNickname, validNickname, SCOPE_NAMES, OUTCOME_NAMES, type BoardType, type RankDifficulty, type ScoreScope, type ScoreSubmission } from '../core/scoring.ts';
 import { ApiError, NICKNAME_KEY, PENDING_KEY, apiConfigured, getLeaderboard, loadPending, readLocal, submitScore, writeLocal, type PendingScore } from '../services/leaderboard.ts';
-import { rankedRun, rankedMode, demoMode } from '../services/game-session.ts';
+import { rankedRun } from '../services/game-session.ts';
+import { DIFFICULTIES } from '../config/difficulty.ts';
+import { STAGE_COUNT } from '../config/progression.ts';
 
 /** DOM 只承担表单与滚动表格；打开时通过统一事件暂停 Phaser，关闭后恢复原暂停状态。 */
 export class LeaderboardPanel {
@@ -12,28 +14,32 @@ export class LeaderboardPanel {
   private pending: PendingScore | null = loadPending();
   private board: BoardType = 'speed';
   private difficulty: RankDifficulty = rankedRun?.difficulty ?? 'normal';
-  private page: 'board' | 'result' | 'end' = 'board';
+  private page: 'board' | 'result' | 'end' | 'restart' | 'menu' = 'board';
   private scope: ScoreScope = 'clear';
-  private actions: { end: () => void; retry?: () => void } | null = null;
+  private actions: { end: () => void; restart: () => void; menu: () => void } | null = null;
+  private dock: HTMLElement;
+  private restartButton: HTMLButtonElement;
+  private menuButton: HTMLButtonElement;
+  private closeButton: HTMLButtonElement;
   private endButton: HTMLButtonElement;
   private generation = 0;
   private sending = false;
   private returnFocus: HTMLElement | null = null;
   private resultButton: HTMLButtonElement;
   constructor() {
-    const dock = document.createElement('nav'); dock.className = 'online-ui online-dock'; dock.setAttribute('aria-label', '在线排行榜');
+    const dock = document.createElement('nav'); this.dock = dock; dock.className = 'online-ui online-dock'; dock.setAttribute('aria-label', '游戏菜单');
+    this.menuButton = this.button('主菜单', () => rankedRun.result ? this.actions?.menu() : this.open('menu')); this.menuButton.disabled = true; dock.append(this.menuButton);
     dock.append(this.button('排行榜', () => this.open('board')));
     this.resultButton = this.button('本局成绩', () => this.open('result')); this.resultButton.hidden = !this.pending; dock.append(this.resultButton);
     this.endButton = this.button('结束并结算', () => this.open('end')); this.endButton.disabled = true; dock.append(this.endButton);
-    dock.append(this.link('课堂演示', { demo: '1', difficulty: this.difficulty }));
-    const mode = document.createElement('span'); mode.textContent = rankedRun.demo ? '课堂 / 练习演示' : rankedMode ? '排名战役 · 三阶段' : '营地挑战'; dock.append(mode); document.body.append(dock);
+    this.restartButton = this.button('重新开始阶段', () => this.open('restart')); this.restartButton.disabled = true; dock.append(this.restartButton); document.body.append(dock);
     this.overlay.className = 'online-ui online-overlay'; this.overlay.hidden = true;
     const dialog = document.createElement('section'); dialog.className = 'online-dialog'; dialog.role = 'dialog'; dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'online-title');
     const top = document.createElement('header'), kicker = document.createElement('p'); kicker.className = 'online-kicker'; kicker.textContent = 'THE LAST LIGHT / 守灯人档案';
     this.heading.id = 'online-title'; this.heading.tabIndex = -1;
-    const close = this.button('返回游戏 ×', () => this.close()); close.className = 'online-close'; top.append(kicker, this.heading, close);
+    const close = this.button('返回游戏 ×', () => this.close()); this.closeButton = close; close.className = 'online-close'; top.append(kicker, this.heading, close);
     this.tabs.className = 'online-tabs'; this.content.className = 'online-content';
-    const foot = document.createElement('footer'); foot.textContent = '普通 / 困难分榜 · 正式通关、挑战、课堂演示分别记录';
+    const foot = document.createElement('footer'); foot.textContent = '各难度独立排名 · 五阶段完整通关 · 总用时榜与综合得分榜';
     dialog.append(top, this.tabs, this.content, foot); this.overlay.append(dialog); document.body.append(this.overlay);
     // Phaser 会把 DOM 按键排队到下一帧再分发；必须在捕获阶段截住，
     // 否则关闭面板后，同一个 Esc/Enter 会再次触发游戏暂停或重试。
@@ -58,21 +64,25 @@ export class LeaderboardPanel {
     const a = document.createElement('a'), url = new URL(location.href); a.textContent = label;
     url.search = new URLSearchParams({ ...params, intro: '0' }).toString(); a.href = url.toString(); return a;
   }
-  setSessionActions(actions: { end: () => void; retry?: () => void } | null): void {
-    this.actions = actions; this.endButton.disabled = !actions || !!rankedRun.result;
+  setSessionActions(actions: { end: () => void; restart: () => void; menu: () => void } | null): void {
+    this.actions = actions; this.endButton.disabled = !actions || !!rankedRun.result; this.restartButton.disabled = !actions; this.menuButton.disabled = !actions;
   }
-  remember(result: Omit<ScoreSubmission, 'nickname'>): void {
+  setInGame(value: boolean): void { this.dock.hidden = !value; this.closeButton.textContent = value ? '返回游戏 ×' : '返回主菜单 ×'; }
+  forgetResult(): void { this.pending = null; this.resultButton.hidden = true; try { localStorage.removeItem(PENDING_KEY); } catch { /* 本页状态已清除。 */ } }
+  remember(result: Omit<ScoreSubmission, 'nickname'>, campaignComplete = false): void {
     if (this.pending?.result.runId !== result.runId) this.pending = { result };
+    if (campaignComplete) this.pending.campaignComplete = true;
     writeLocal(PENDING_KEY, JSON.stringify(this.pending)); this.resultButton.hidden = false; this.endButton.disabled = true;
   }
-  open(page: 'board' | 'result' | 'end' = 'board'): void {
+  open(page: 'board' | 'result' | 'end' | 'restart' | 'menu' = 'board'): void {
     if (!this.visible) {
       this.returnFocus = document.activeElement as HTMLElement | null; this.visible = true; this.overlay.hidden = false;
       window.dispatchEvent(new CustomEvent('last-light:online', { detail: true }));
     }
     this.page = page; this.render(); this.heading.focus();
   }
-  private close(): void {
+  close(): void {
+    if (!this.visible) return;
     this.visible = false; this.overlay.hidden = true; this.generation++;
     window.dispatchEvent(new CustomEvent('last-light:online', { detail: false }));
     // 返回游戏时把焦点交还画布，避免 Space/Enter 再次激活底部入口按钮。
@@ -82,13 +92,14 @@ export class LeaderboardPanel {
   }
   private render(): void {
     this.generation++; this.content.replaceChildren(); this.tabs.replaceChildren();
-    if (this.page === 'end') {
-      this.heading.textContent = '结束这一局，保留你的成绩。';
-      const note = document.createElement('p'); note.textContent = '立即停止计时与战斗，结算当前探索、击杀和已通关阶段。未完成三阶段进入挑战榜；课堂演示进入演示榜。'; this.content.append(note);
-      const confirm = this.button('确认结束本局', () => this.actions?.end()); confirm.disabled = !this.actions || !!rankedRun.result;
+    if (this.page === 'end' || this.page === 'restart' || this.page === 'menu') {
+      const page = this.page;
+      this.heading.textContent = page === 'restart' ? '重新开始本阶段？' : page === 'menu' ? '返回主菜单？' : '结束这一局，保留你的成绩。';
+      const note = document.createElement('p'); note.textContent = page === 'restart' ? '放弃本阶段的探索收获、建造、击杀和用时，恢复到本阶段起点。之前完成的阶段与奖励保留。' : page === 'menu' ? '本阶段将保留起点存档。之后选择继续游戏，会从本阶段开始时恢复。' : '立即停止计时与战斗，结算当前探索、击杀和已通关阶段。未完成五阶段的成绩进入挑战榜。'; this.content.append(note);
+      const confirm = this.button(page === 'restart' ? '确认重新开始本阶段' : page === 'menu' ? '确认返回主菜单' : '确认结束本局', () => { const actions = this.actions; if (page === 'restart') actions?.restart(); else if (page === 'menu') actions?.menu(); else actions?.end(); }); confirm.disabled = !this.actions || page === 'end' && !!rankedRun.result;
       this.content.append(confirm, this.button('继续游玩', () => this.close())); return;
     }
-    this.heading.textContent = this.page === 'result' ? '三夜已尽，灯火长明。' : '守灯人排行榜';
+    this.heading.textContent = this.page === 'result' ? '五夜已尽，灯火长明。' : '守灯人排行榜';
     if (this.page === 'result' && this.pending) { this.renderResult(this.pending); return; }
     this.page = 'board';
     for (const [id, name] of [['speed', '极速通关榜'], ['score', '综合得分榜']] as const) {
@@ -100,18 +111,18 @@ export class LeaderboardPanel {
     scopeSelect.value = this.scope; scopeSelect.addEventListener('change', () => { this.scope = scopeSelect.value as ScoreScope; if (this.scope !== 'clear') this.board = 'score'; this.render(); }); scopeLabel.append(scopeSelect); this.tabs.append(scopeLabel);
     const label = document.createElement('label'); label.textContent = '游戏难度 ';
     const select = document.createElement('select'); select.setAttribute('aria-label', '游戏难度');
-    for (const [id, name] of [['normal', '普通'], ['hard', '困难']]) { const o = document.createElement('option'); o.value = id; o.textContent = name; select.append(o); }
+    for (const [id, preset] of Object.entries(DIFFICULTIES)) { const o = document.createElement('option'); o.value = id; o.textContent = preset.name; select.append(o); }
     select.value = this.difficulty; select.addEventListener('change', () => { this.difficulty = select.value as RankDifficulty; this.render(); }); label.append(select); this.tabs.append(label);
-    const intro = document.createElement('p'); intro.className = 'online-note'; intro.textContent = '前 20 名 · 用时为实际游玩时间，暂停、失焦及结算等待不计时。击杀奖励封顶，重复守夜不增加评分。'; this.content.append(intro);
+    const intro = document.createElement('p'); intro.className = 'online-note'; intro.textContent = '前 20 名 · 总用时包含探索、布防和守夜的游戏内进度；暂停、失焦和结算等待不计时。倍速不减少固定守夜用时。'; this.content.append(intro);
     const status = document.createElement('p'); status.className = 'online-status'; status.role = 'status'; status.textContent = '正在连接灯塔档案…'; this.content.append(status);
     this.content.append(this.button('刷新榜单', () => this.render()));
     const links = document.createElement('div'); links.className = 'online-start';
-    const note = document.createElement('p'); note.textContent = '从空营地挑战完整三阶段。原营地存档保留；排名战役刷新后重新开始。'; links.append(note);
-    for (const [id, name] of [['normal', '普通'], ['hard', '困难']]) {
+    const note = document.createElement('p'); note.textContent = '五阶段战役 · 通关用时包含探索、布防与守夜 · 暂停不计时，倍速不降低固定阶段用时'; links.append(note);
+    for (const [id, preset] of Object.entries(DIFFICULTIES)) {
+      const name = preset.name;
       const a = document.createElement('a'); a.textContent = `开始${name}排名战役 →`; const url = new URL(location.href); url.search = new URLSearchParams({ ranked: '1', difficulty: id, intro: '0' }).toString(); a.href = url.toString(); links.append(a);
     }
-    links.append(this.link('进入课堂演示 →', { demo: '1', difficulty: this.difficulty }));
-    if (rankedMode || demoMode) links.append(this.link('返回原营地', {}));
+    links.append(this.link('前往主菜单 →', {}));
     status.before(links);
     const generation = this.generation;
     if (!apiConfigured) { status.textContent = '尚未配置在线服务。可继续单机游玩，管理员配置 API 后即可联网。'; return; }
@@ -123,19 +134,21 @@ export class LeaderboardPanel {
       const wrap = document.createElement('div'); wrap.className = 'online-table-wrap'; const table = document.createElement('table');
       const head = table.createTHead().insertRow(); for (const name of ['排名', '守灯人', '游玩用时', '综合得分', '难度', '结果', '倍速']) { const th = document.createElement('th'); th.scope = 'col'; th.textContent = name; head.append(th); }
       const body = table.createTBody();
-      result.entries.forEach((entry, i) => { const row = body.insertRow(); for (const value of [String(i + 1).padStart(2, '0'), entry.nickname, formatDuration(entry.durationMs), entry.score.toLocaleString('zh-CN'), entry.difficulty === 'hard' ? '困难' : '普通', OUTCOME_NAMES[entry.outcome ?? 'victory'], `≤×${entry.maxSpeed}`]) row.insertCell().textContent = value; });
+      result.entries.forEach((entry, i) => { const row = body.insertRow(); for (const value of [String(i + 1).padStart(2, '0'), entry.nickname, formatDuration(entry.durationMs), entry.score.toLocaleString('zh-CN'), DIFFICULTIES[entry.difficulty].name, OUTCOME_NAMES[entry.outcome ?? 'victory'], `≤×${entry.maxSpeed}`]) row.insertCell().textContent = value; });
       wrap.append(table); status.after(wrap);
     }).catch(error => { if (generation === this.generation && this.visible) status.textContent = error instanceof Error ? error.message : '读取失败，请重试。'; });
   }
   private renderResult(pending: PendingScore): void {
     const r = pending.result, parts = calculateScore(r.stages, r.durationMs, r);
-    this.heading.textContent = r.completed ? '三夜已尽，灯火长明。' : r.outcome === 'defeat' ? '灯火熄灭，本局结束。' : '本局已结算，灯火仍在。';
-    const badge = document.createElement('p'); badge.className = 'online-note'; badge.textContent = `${SCOPE_NAMES[r.scope]} · ${OUTCOME_NAMES[r.outcome]} · 已通关 ${r.stages.filter(s => s.cleared !== false).length}/3 阶段`; this.content.append(badge);
+    this.heading.textContent = r.completed || pending.campaignComplete ? '五夜已尽，灯火长明。' : r.outcome === 'defeat' ? '灯火熄灭，本局结束。' : '本局已结算，灯火仍在。';
+    const badge = document.createElement('p'); badge.className = 'online-note'; badge.textContent = `${SCOPE_NAMES[r.scope]} · ${OUTCOME_NAMES[r.outcome]} · 已通关 ${r.stages.filter(s => s.cleared !== false).length}/${STAGE_COUNT} 阶段`; this.content.append(badge);
+    if (pending.campaignComplete && !r.completed) { const note = document.createElement('p'); note.className = 'online-note'; note.textContent = '战役已通关。本次从旧营地继续，成绩仅记录本次会话，归入挑战榜；新游戏可记录完整五阶段用时。'; this.content.append(note); }
     const stats = document.createElement('div'); stats.className = 'online-stats';
-    for (const [label, value] of [['游戏难度', r.difficulty === 'hard' ? '困难' : '普通'], ['实际用时', formatDuration(r.durationMs)], ['综合得分', r.score.toLocaleString('zh-CN')]]) {
+    for (const [label, value] of [['游戏难度', DIFFICULTIES[r.difficulty].name], ['战役总用时', formatDuration(r.durationMs)], ['综合得分', r.score.toLocaleString('zh-CN')]]) {
       const item = document.createElement('div'), small = document.createElement('span'), big = document.createElement('strong'); small.textContent = label; big.textContent = value; item.append(small, big); stats.append(item);
     }
     this.content.append(stats);
+    const timing = document.createElement('p'); timing.className = 'online-breakdown'; timing.textContent = `探索 ${formatDuration(r.phaseTimesMs.day)} + 布防 ${formatDuration(r.phaseTimesMs.base)} + 守夜 ${formatDuration(r.phaseTimesMs.night)} · 实际活动 ${formatDuration(r.totalDurationMs)}`; this.content.append(timing);
     const breakdown = document.createElement('p'); breakdown.className = 'online-breakdown'; breakdown.textContent = `阶段/通关 ${parts.victory} + 击杀 ${parts.combat} + Boss ${parts.bosses} + 灯塔 ${parts.lighthouse} + 守卫 ${parts.defenders} + 探索 ${parts.exploration} + 效率 ${parts.efficiency} · 最高 ×${r.maxSpeed}`; this.content.append(breakdown);
     const form = document.createElement('form'), label = document.createElement('label'); label.textContent = '留下你的守灯人昵称';
     const input = document.createElement('input'); input.name = 'nickname'; input.setAttribute('aria-label', '玩家昵称'); input.setAttribute('autocomplete', 'nickname'); input.maxLength = 16; input.placeholder = '2–16个中英文字或数字'; input.value = pending.payload?.nickname ?? readLocal(NICKNAME_KEY); input.disabled = Boolean(pending.payload); label.append(input);
@@ -144,8 +157,8 @@ export class LeaderboardPanel {
     const edit = this.button('修改昵称', () => { input.disabled = false; input.focus(); }); edit.hidden = Boolean(pending.payload);
     const view = this.button('查看排行榜 →', () => { this.page = 'board'; this.scope = r.scope; this.board = 'score'; this.difficulty = r.difficulty; this.render(); });
     form.append(label, status, submit, edit, view); this.content.append(form);
-    const next = document.createElement('div'); next.className = 'online-start'; next.append(this.link('开始新战役 →', { ranked: '1', difficulty: r.difficulty }), this.link('课堂演示 →', { demo: '1', difficulty: r.difficulty }));
-    if (this.actions?.retry) next.append(this.button('练习：重试本阶段', () => { const retry = this.actions?.retry; this.close(); retry?.(); })); this.content.append(next);
+    const next = document.createElement('div'); next.className = 'online-start'; next.append(this.link('开始新游戏 →', {}));
+    if (this.actions) next.append(this.button('重新开始本阶段', () => this.open('restart')), this.button('返回主菜单', () => this.actions?.menu())); this.content.append(next);
     this.resultStandings(r);
     form.addEventListener('submit', event => {
       event.preventDefault(); if (this.sending || pending.submitted) return;

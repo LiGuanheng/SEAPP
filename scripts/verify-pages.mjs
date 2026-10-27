@@ -17,11 +17,20 @@ try {
   await page.addInitScript(() => sessionStorage.setItem('last-light.prologue.seen', '1'));
   await page.goto('http://127.0.0.1:4180/SEAPP/');
   await page.waitForFunction(() => !!document.querySelector('canvas') && !document.getElementById('loading'));
+  await page.getByRole('main', { name: '主菜单' }).waitFor();
+  assert.equal(await page.getByText('课堂演示', { exact: false }).count(), 0);
+  await page.getByLabel('游戏难度', { exact: true }).selectOption('hard');
+  await page.screenshot({ path: 'artifacts/pages-main-menu.png' });
   await page.getByRole('button', { name: '排行榜', exact: true }).click();
   await page.getByRole('status').filter({ hasText: '尚未配置在线服务' }).waitFor();
   const link = await page.getByRole('link', { name: '开始普通排名战役 →' }).getAttribute('href');
   assert.ok(link.includes('/SEAPP/?ranked=1'));
   assert.deepEqual(errors, []);
   await page.screenshot({ path: 'artifacts/pages-offline.png' });
-  console.log('Pages 子路径 /SEAPP/：素材载入、离线游戏、未配置 API 反馈、排名入口链接全部通过。');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '开始新游戏', exact: true }).click();
+  await page.waitForURL(url => url.pathname === '/SEAPP/' && url.searchParams.get('difficulty') === 'hard');
+  await page.waitForFunction(() => !document.getElementById('loading'));
+  assert.deepEqual(errors, []);
+  console.log('Pages 子路径 /SEAPP/：主菜单、难度、新游戏、素材载入、离线反馈与排行榜入口均通过。');
 } finally { await browser?.close(); preview.kill(); }

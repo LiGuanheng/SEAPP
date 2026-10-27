@@ -24,6 +24,7 @@ export class SceneTransition {
   private anchor: Vec = { x: 768, y: 512 };
   private origin: Vec = { x: 768, y: 512 };
   private zoom = 0.9;
+  private focusOffset = 0;
   private sound: SoundBus | null = null;
   private cueAt = -1;
   private silhouette: Phaser.GameObjects.Image;
@@ -47,13 +48,14 @@ export class SceneTransition {
     this.title.setText(title); this.subtitle.setText(subtitle + '   ·   Space 跳过 / V 减少动态');
     this.anchor = anchor ?? { x: 768, y: 512 };
     const c = this.scene.cameras.main;
+    this.focusOffset = this.scene.sys.settings.key === 'Base' ? 32 : 0;
     this.origin = { x: c.midPoint.x || this.anchor.x, y: c.midPoint.y || this.anchor.y }; this.zoom = c.zoom;
     this.sound = sound ?? null;
     if (texture) this.silhouette.setTexture(texture, 1).setPosition(this.anchor.x, this.anchor.y - 34).setScale(1.4).setTintFill(0x15191c);
     this.root.setVisible(true);
   }
   skip(): void {
-    if (this.active && ['night', 'departure', 'camp'].includes(this.kind)) this.scene.cameras.main.setZoom(this.zoom).centerOn(this.anchor.x, this.anchor.y);
+    if (this.active && ['night', 'departure', 'camp'].includes(this.kind)) this.scene.cameras.main.setZoom(this.zoom).centerOn(this.anchor.x, this.anchor.y - this.focusOffset);
     this.age = 99; this.root.setVisible(false); this.world.clear(); this.silhouette.setVisible(false); this.campLight.setVisible(false); this.sound?.endCue();
   }
   snapshot() { return { active: this.active, progress: Math.min(1, this.age / durations[this.kind]), title: this.title.text, kind: this.kind, reduced: effects.reduced }; }
@@ -72,7 +74,8 @@ export class SceneTransition {
     const c = this.scene.cameras.main;
     if (!effects.reduced && ['night', 'departure', 'camp'].includes(kind)) {
       c.setZoom(this.zoom + Math.sin(t * Math.PI) * (kind === 'night' ? -0.13 : 0.07));
-      c.centerOn(Phaser.Math.Linear(this.origin.x, x, ease) + (kind === 'night' ? Math.sin(t * Math.PI * 2) * 95 : 0), Phaser.Math.Linear(this.origin.y, y, ease) - Math.sin(t * Math.PI) * 48);
+      if (this.focusOffset) c.centerOn(x, y - this.focusOffset);
+      else c.centerOn(Phaser.Math.Linear(this.origin.x, x, ease) + (kind === 'night' ? Math.sin(t * Math.PI * 2) * 95 : 0), Phaser.Math.Linear(this.origin.y, y, ease) - Math.sin(t * Math.PI) * 48);
     }
     for (let i = 0; i < 24; i++) {
       const offset = (i * 73) % 150, drift = effects.reduced ? 0 : this.age * 28;

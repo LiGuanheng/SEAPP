@@ -3,6 +3,7 @@ import { WEAPONS, type WeaponId } from '../config/weapons.ts';
 import { OBSTACLES, PLAYER_SPAWN, TILE, WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
 import { canOccupy, distance, firstWall, moveWithCollision, normalized, segmentCircle } from './geometry.ts';
 import { Navigation } from './navigation.ts';
+import { DIFFICULTIES, type Difficulty } from '../config/difficulty.ts';
 import type { Bullet, CombatEvent, InputState, Player, Rect, Vec, Zombie } from './types.ts';
 
 export class CombatWorld {
@@ -17,27 +18,30 @@ export class CombatWorld {
   private magazines: Partial<Record<WeaponId, number>> = {};
   get weapon() { return WEAPONS[this.weaponId]; }
   get reloadDuration(): number { return this.weapon.reload; }
-  protected get spawnInterval(): number { return B.zombie.spawnInterval; }
-  protected get maxZombies(): number { return B.zombie.maxAlive; }
+  protected get spawnInterval(): number { return B.zombie.spawnInterval / DIFFICULTIES[this.difficulty].count; }
+  protected get maxZombies(): number { return Math.round(B.zombie.maxAlive * DIFFICULTIES[this.difficulty].count); }
   private seed: number; private nextId = 1; private spawnTimer = 3;
   private sprintExhausted = false;
   readonly obstacles: readonly Rect[];
   readonly width: number;
   readonly height: number;
-  constructor(seed = 20261022, obstacles: readonly Rect[] = OBSTACLES, width = WORLD_WIDTH, height = WORLD_HEIGHT, spawn: Vec = PLAYER_SPAWN, initialEnemies = true) {
+  readonly difficulty: Difficulty;
+  constructor(seed = 20261022, obstacles: readonly Rect[] = OBSTACLES, width = WORLD_WIDTH, height = WORLD_HEIGHT, spawn: Vec = PLAYER_SPAWN, initialEnemies = true, difficulty: Difficulty = 'normal') {
+    this.difficulty = difficulty;
     this.obstacles = obstacles; this.width = width; this.height = height;
     this.seed = (seed >>> 0) || 1;
     this.player = { ...spawn, health: B.player.health, stamina: B.player.stamina, ammo: B.weapon.magazine, aim: 0, reload: 0, shotCooldown: 0, invulnerable: 0, moving: false, sprinting: false, shots: 0 };
     this.navigation = new Navigation(width, height, TILE, obstacles, B.zombie.radius);
     this.navigation.rebuild(spawn);
-    if (initialEnemies) for (const offset of [{ x: 335, y: 10 }, { x: -310, y: 70 }, { x: 130, y: -175 }, { x: 440, y: -150 }, { x: -420, y: -130 }, { x: 340, y: 160 }]) {
+    const offsets = [{ x: 335, y: 10 }, { x: -310, y: 70 }, { x: 130, y: -175 }, { x: 440, y: -150 }, { x: -420, y: -130 }, { x: 340, y: 160 }, { x: 520, y: 200 }, { x: -520, y: 200 }];
+    if (initialEnemies) for (const offset of offsets.slice(0, Math.round(6 * DIFFICULTIES[difficulty].count))) {
       const point = { x: spawn.x + offset.x, y: spawn.y + offset.y };
       if (canOccupy(point, B.zombie.radius, obstacles, width, height)) this.addZombie(point);
     }
   }
   private random(): number { let x = this.seed; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.seed = x >>> 0; return this.seed / 4294967296; }
   protected addZombie(point: Vec): void {
-    this.zombies.push({ ...point, id: this.nextId++, health: B.zombie.health, aim: 0, moving: false, attackCooldown: 0, hurt: 0, knockX: 0, knockY: 0, skin: this.nextId % 2 });
+    this.zombies.push({ ...point, id: this.nextId++, health: Math.round(B.zombie.health * DIFFICULTIES[this.difficulty].health), aim: 0, moving: false, attackCooldown: 0, hurt: 0, knockX: 0, knockY: 0, skin: this.nextId % 2 });
   }
   requestReload(): boolean {
     const p = this.player;
@@ -180,6 +184,6 @@ export class CombatWorld {
     }
   }
   snapshot() {
-    return { status: this.status, elapsed: this.elapsed, kills: this.kills, weaponId: this.weaponId, ownedWeapons: [...this.ownedWeapons], player: { ...this.player }, zombies: this.zombies.map(z => ({ ...z })), bullets: this.bullets.map(b => ({ ...b })) };
+    return { status: this.status, elapsed: this.elapsed, kills: this.kills, difficulty: this.difficulty, weaponId: this.weaponId, ownedWeapons: [...this.ownedWeapons], player: { ...this.player }, zombies: this.zombies.map(z => ({ ...z })), bullets: this.bullets.map(b => ({ ...b })) };
   }
 }

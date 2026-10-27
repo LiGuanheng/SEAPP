@@ -21,7 +21,7 @@ async function walk(page: Page, x: number, y: number) {
 test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开关、120 秒守夜胜利并保存', async ({ page }) => {
   test.setTimeout(180000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.clock.install(); await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
+  await page.clock.install(); await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
   for (const p of [{ x: 1056, y: 736 }, { x: 1200, y: 780 }, { x: 1264, y: 704 }, { x: 1104, y: 852 }, { x: 920, y: 760 }]) { await walk(page, p.x, p.y); await page.clock.runFor(200); await key(page, 'KeyE'); }
   await key(page, 'Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
   await key(page, 'Digit2'); await clickWorld(page, 836, 356, true);

@@ -15,8 +15,10 @@ export class PrologueScene extends Phaser.Scene {
   private frame!: Phaser.GameObjects.Graphics;
   private light!: Phaser.GameObjects.Image;
   private actors: Phaser.GameObjects.Sprite[] = [];
+  private returnToMenu = false;
   constructor() { super('Prologue'); }
-  create(): void {
+  create(data: { returnToMenu?: boolean } = {}): void {
+    this.returnToMenu = !!data.returnToMenu;
     this.age = 0; this.paused = false; this.leaving = false; this.actors = [];
     new MapView(this);
     this.light = this.add.image(880, 730, 'lighthouse').setOrigin(0.5, 0.94).setScale(1.5).setDepth(730);
@@ -46,7 +48,7 @@ export class PrologueScene extends Phaser.Scene {
     if (new URLSearchParams(location.search).get('test') === '1') window.__storyLight = Object.freeze({ snapshot: () => ({ elapsed: this.age, chapter: Math.min(2, Math.floor(this.age / 3)), paused: this.paused, ready: true }) });
     document.getElementById('loading')?.remove(); this.paint();
   }
-  private finish(): void { if (this.leaving) return; this.leaving = true; rememberStory(); this.scene.start('Combat'); }
+  private finish(): void { if (this.leaving) return; this.leaving = true; rememberStory(); this.scene.start(this.returnToMenu ? 'MainMenu' : 'Combat'); }
   private paint(): void {
     const index = Math.min(2, Math.floor(this.age / 3)), chapter = STORY_CHAPTERS[index];
     const fade = Math.min(1, this.age % 3 * 3 + 0.15);

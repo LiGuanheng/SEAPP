@@ -21,7 +21,7 @@ test('三个种子真实走入不同街区门口与室内，轮廓/入口/道路
   const shapes = new Set(), templates = new Set(), errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.clock.install();
   for (const seed of [1000, 1006, 1024]) {
-    await page.goto(`/?test=1&seed=${seed}`); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready);
+    await page.goto(`/?play=1&test=1&seed=${seed}`); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready);
     await key(page, 'Digit3'); await page.mouse.move(600, 360); await page.mouse.down();
     const s = await state(page), room = s.expedition.layout.buildings[3], door = { x: (room.x + (room.doorColumn ?? Math.floor(room.width / 2)) + 0.5) * 32, y: (room.y + room.height) * 32 };
     templates.add(s.expedition.layout.template); shapes.add(JSON.stringify(room));
@@ -54,7 +54,7 @@ test('真实库存改装两种炮塔、刷新保留、暂停不误扣，夜战�
 });
 
 test('出发、黄昏归来与失守均展示真实地图，跳过失败演出后进入成绩', async ({ page }) => {
-  await page.clock.install(); await page.goto('/?test=1&seed=1000'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready);
+  await page.clock.install(); await page.goto('/?play=1&test=1&seed=1000'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready);
   await page.clock.runFor(650); await page.screenshot({ path: 'artifacts/v011/departure.png' });
   await key(page, 'Space'); await walk(page, 1056, 736); await key(page, 'KeyE'); await walk(page, 920, 760); await key(page, 'KeyE');
   expect((await state(page)).status).toBe('complete'); await page.clock.runFor(700); await page.screenshot({ path: 'artifacts/v011/sunset-return.png' });

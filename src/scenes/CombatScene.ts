@@ -8,7 +8,7 @@ import { Hud } from '../view/Hud.ts';
 import { MapView } from '../view/MapView.ts';
 import { ExpeditionWorld } from '../core/expedition.ts';
 import { cloneCampaign, newCampaign, type Campaign } from '../core/campaign.ts';
-import { loadGameCampaign, saveGameCampaign, rankedRun, updateRun, rankingSnapshot } from '../services/game-session.ts';
+import { loadGameCampaign, saveGameCampaign, rankedRun, difficulty, beginStage, restoreStage, advanceRun, updateRun, rankingSnapshot } from '../services/game-session.ts';
 import { onlinePanel, bindOnlinePanel } from '../view/LeaderboardPanel.ts';
 import { ExpeditionView } from '../view/ExpeditionView.ts';
 import { SoundBus } from '../view/SoundBus.ts';
@@ -39,7 +39,7 @@ export class CombatScene extends Phaser.Scene {
   private scored = false;
   private rankingShown = false;
   constructor() { super('Combat'); }
-  create(data: { campaign?: Campaign } = {}): void {
+  create(data: { campaign?: Campaign; seed?: number } = {}): void {
     const training = new URLSearchParams(location.search).get('mode') === 'combat';
     let warning = '';
     let campaign = data.campaign ? cloneCampaign(data.campaign) : newCampaign();
@@ -47,8 +47,9 @@ export class CombatScene extends Phaser.Scene {
       try { const loaded = loadGameCampaign(window.localStorage); campaign = loaded.campaign; warning = loaded.warning; }
       catch { warning = '浏览器不允许存档，本次探索仍可正常进行。'; }
     }
-    const seedParam = new URLSearchParams(location.search).get('seed'), seed = seedParam !== null && /^\d{1,10}$/.test(seedParam) && Number(seedParam) <= 4294967295 ? Number(seedParam) : crypto.getRandomValues(new Uint32Array(1))[0];
-    this.world = training ? new CombatWorld() : new ExpeditionWorld(campaign, true, seed);
+    const seedParam = new URLSearchParams(location.search).get('seed'), seed = data.seed ?? (seedParam !== null && /^\d{1,10}$/.test(seedParam) && Number(seedParam) <= 4294967295 ? Number(seedParam) : crypto.getRandomValues(new Uint32Array(1))[0]);
+    this.world = training ? new CombatWorld(undefined, undefined, undefined, undefined, undefined, undefined, difficulty) : new ExpeditionWorld(campaign, true, seed, difficulty);
+    beginStage(campaign, 'day', undefined, seed);
     this.held.clear(); this.firing = false; this.paused = false; this.pointerActive = false; this.accumulator = 0; this.bag = false; this.persisted = false;
     this.scored = false; this.rankingShown = false;
     this.mapView = new MapView(this, this.world instanceof ExpeditionWorld ? this.world.layout : undefined);
@@ -126,8 +127,8 @@ export class CombatScene extends Phaser.Scene {
     const leaveCanvas = () => { this.firing = false; this.pointerActive = false; };
     window.addEventListener('blur', loseFocus); document.addEventListener('visibilitychange', hidden);
     const unbindOnline = bindOnlinePanel(() => this.paused, paused => this.setPaused(paused));
-    onlinePanel.setSessionActions({ end: () => this.endRun() });
-    updateRun(!this.paused && !training);
+    onlinePanel.setSessionActions({ end: () => this.endRun(), restart: () => this.restartStage(), menu: () => this.returnMenu() });
+    updateRun(!this.paused);
     this.game.canvas.addEventListener('pointerleave', leaveCanvas);
     this.events.once('shutdown', () => {
       updateRun(false); unbindOnline(); onlinePanel.setSessionActions(null);
@@ -185,6 +186,13 @@ export class CombatScene extends Phaser.Scene {
     this.setPaused(true); this.recordExploration(); rankedRun.finishRun('retired', performance.now());
     if (rankedRun.result) { onlinePanel.remember(rankedRun.result); this.rankingShown = true; onlinePanel.open('result'); }
   }
+  private restartStage(): void {
+    updateRun(false); const checkpoint = restoreStage(); if (!checkpoint) return;
+    onlinePanel.forgetResult(); onlinePanel.close();
+    if (checkpoint.phase === 'day') this.scene.restart({ campaign: checkpoint.campaign, seed: checkpoint.seed });
+    else this.scene.start('Base', { campaign: checkpoint.campaign, fresh: checkpoint.phase === 'base', battle: checkpoint.phase === 'night' });
+  }
+  private returnMenu(): void { updateRun(false); onlinePanel.close(); this.scene.start('MainMenu'); }
   private inputState(): InputState {
     const p = this.world.player, pointer = this.input.activePointer;
     const worldPoint = this.pointerActive ? pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2 : { x: p.x + 300, y: p.y - 16 };
@@ -198,11 +206,12 @@ export class CombatScene extends Phaser.Scene {
   }
   update(_time: number, delta: number): void {
     const dt = Math.min(delta / 1000, 0.12), active = !this.paused && this.world.status === 'playing' && !rankedRun.result;
-    updateRun(active && this.world instanceof ExpeditionWorld);
+    updateRun(active);
     if (active) {
       this.accumulator = Math.min(0.15, this.accumulator + dt);
       while (this.accumulator >= BALANCE.step && this.world.status === 'playing') {
-        this.world.step(this.inputState(), BALANCE.step); this.accumulator -= BALANCE.step;
+        const before = this.world.elapsed;
+        this.world.step(this.inputState(), BALANCE.step); this.accumulator -= BALANCE.step; advanceRun('day', this.world.elapsed - before);
         this.actors.handle(this.world.events);
         this.audio.combat(this.world.events);
         if (this.world.events.some(e => e.type === 'hurt')) { this.hud.flashHurt(); if (!effects.reduced) this.cameras.main.shake(75, 0.0017); }

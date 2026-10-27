@@ -13,7 +13,7 @@ async function walk(page: Page, x: number, y: number) {
 }
 
 test('首次开场真实播放三幕叙事，失焦暂停，自动开始不消耗探索预算且记住已观看', async ({ page }) => {
-  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); await page.clock.install(); await page.goto('/?test=1');
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); await page.clock.install(); await page.goto('/?play=1&test=1');
   await page.waitForFunction(() => (window as any).__storyLight?.snapshot().ready); await page.clock.runFor(500);
   expect(await page.evaluate(() => '__lastLight' in window)).toBe(false); await page.screenshot({ path: 'artifacts/story-darkness.png' });
   await page.evaluate(() => window.dispatchEvent(new Event('blur'))); const paused = await page.evaluate(() => (window as any).__storyLight.snapshot());
@@ -37,7 +37,7 @@ test('公开序章重播入口可立即跳过，存储禁用不阻断游戏，�
 test('真实提灯探索揭开迷雾，搜刮镜片即时增亮，安全返营保留灯级并播放归来叠化', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => sessionStorage.setItem('last-light.prologue.seen', '1'));
-  await page.clock.install(); await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(850);
+  await page.clock.install(); await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(850);
   const start = await state(page); expect(start.expedition.capacity).toBe(48); expect(start.expedition.lightRadius).toBe(240);
   expect(start.view.visibleEnemies).toBe(start.expedition.vision.visibleEnemies.length); expect(start.expedition.vision.visibleSurvivors).not.toContain('ranger');
   await page.screenshot({ path: 'artifacts/fog-before.png' }); await walk(page, 1152, 688); await key(page, 'KeyE'); const brighter = await state(page);
@@ -49,7 +49,7 @@ test('真实提灯探索揭开迷雾，搜刮镜片即时增亮，安全返营�
   await page.clock.runFor(2300); expect(await page.evaluate(() => (window as any).__lastLight.presentation().active)).toBe(false);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!).lanternLevel)).toBe(1);
   await key(page, 'Enter'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.screenshot({ path: 'artifacts/home-transition.png' });
-  await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); expect((await state(page)).expedition.lightRadius).toBe(320); expect(errors).toEqual([]);
+  await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); expect((await state(page)).expedition.lightRadius).toBe(320); expect(errors).toEqual([]);
 });
 
 test('实机可建六十段墙，正常扣费、保存并刷新，原四十座限制已移除', async ({ page }) => {

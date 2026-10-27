@@ -1,0 +1,22 @@
+{
+  "gameVersion": "0.14.0",
+  "scoreVersion": 3,
+  "campaignStages": 5,
+  "baseCommit": "534b60c17ca37317dfed8f8298271f6f7039c4ff",
+  "recordDate": "2026-10-27",
+  "gameRuleTests": { "passed": 103, "failed": 0 },
+  "legacyRuleTests": { "passed": 22, "failed": 0 },
+  "apiTests": { "passed": 9, "failed": 0 },
+  "postgresIntegration": { "passedIncludingParent": 10, "failed": 0, "version": 17 },
+  "browserCoverage": {
+    "distinctCases": 52,
+    "initialProductionBatch": { "passed": 51, "failed": 1 },
+    "finalAffectedProductionBatch": { "passed": 9, "failed": 0, "repeatedPassingCases": 8 },
+    "intermediateDevelopmentBatch": "8 passed, one long case timed out while source hot reload occurred; final fixed production bundle passed all9"
+  },
+  "frontendAndBackendBuild": "passed",
+  "pagesSubpathOfflineBuild": "passed",
+  "referenceModel": { "victories": 5, "difficulty": "normal", "score": 33860, "durationMs": 1830000, "phaseTimesMs": { "day": 1080000, "base": 150000, "night": 600000 }, "usesExplorationResourceFixtures": true },
+  "backendCloudDeployment": "deferred by explicit user choice",
+  "frontendDeploymentTarget": "https://liguanheng.github.io/SEAPP/"
+}

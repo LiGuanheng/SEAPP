@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { buildingStats, type BuildingKind } from '../config/base.ts';
 import { BOSS_ABILITIES, INFECTED, LAMP_HEALTH, NIGHT_SECONDS, type BossKind } from '../config/night.ts';
-import { STAGES } from '../config/progression.ts';
+import { STAGES, STAGE_COUNT } from '../config/progression.ts';
+import { DIFFICULTIES } from '../config/difficulty.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { NightWorld } from '../core/night-world.ts';
 import { ASSAULT_NAMES } from '../core/assault.ts';
@@ -64,11 +65,11 @@ export class NightHud {
     this.overlay.add([this.title, this.body, primary, this.primary, this.exit]);
   }
   setModes(support: boolean, muted: boolean): void { this.support = support; this.muted = muted; }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x >= 1080 || y < 94 || y >= 596 || this.bossRows > 0 && x >= 320 && x <= 960 && y < 105 + this.bossRows * 29; }
+  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || x >= 1080 && y < 290 || y < 94 || y >= 596 || this.bossRows > 0 && x >= 320 && x <= 960 && y < 105 + this.bossRows * 29; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(base: BaseWorld, ids: Set<number>, buildingId: number | null, _buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const w = base as NightWorld, g = this.graphics.clear();
-    g.fillStyle(0x081722, 0.97).fillRect(0, 0, 1280, 94).fillRect(0, 596, 1280, 124).fillRect(1080, 94, 200, 502);
+    g.fillStyle(0x081722, 0.97).fillRect(0, 0, 1280, 94).fillRect(0, 596, 1280, 124);
     g.fillStyle(0x273e3b).fillRect(26, 73, 305, 6).fillRect(425, 79, 560, 3);
     g.fillStyle(w.lampHealth > 95 ? 0xdac28d : 0xd58b77).fillRect(26, 73, 305 * w.lampHealth / LAMP_HEALTH, 6);
     g.fillStyle(0xb6bfa0).fillRect(425, 79, 560 * Math.min(1, w.elapsed / NIGHT_SECONDS), 3);
@@ -81,9 +82,9 @@ export class NightHud {
       g.lineStyle(2, color, pulse * 0.4).strokeCircle(x, y, 14 + Math.min(count, 30) / 5);
     });
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
-    this.status.setText(`阶段${w.stage}/3 · 天亮 ${Math.ceil(w.remaining)}s · ${w.wave}/${w.waves.length}波 · 击杀${w.kills}`);
+    this.status.setText(`阶段${w.stage}/${STAGE_COUNT} · 天亮 ${Math.ceil(w.remaining)}s · ${w.wave}/${w.waves.length}波 · 击杀${w.kills}`);
     const next = w.waves[w.wave];
-    this.forecast.setText(`${ASSAULT_NAMES[Math.max(0, w.wave - 1)]} · ${w.pressure.filter(n => n >= 3).length}向受压${w.pressure.filter(n => n >= 14).length >= 3 ? ' · 多线告急' : ''} · ${w.difficulty === 'hard' ? '困难' : '普通'} · ${next ? `下一轮 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s` : '末段高潮，坚守至黎明'}`);
+    this.forecast.setText(`${ASSAULT_NAMES[Math.max(0, w.wave - 1)]} · ${w.pressure.filter(n => n >= 3).length}向受压${w.pressure.filter(n => n >= 14).length >= 3 ? ' · 多线告急' : ''} · ${DIFFICULTIES[w.difficulty].name} · ${next ? `下一轮 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s` : '末段高潮，坚守至黎明'}`);
     const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 5); this.bossRows = bosses.length;
     this.bosses.forEach((label, i) => {
       const e = bosses[i]; label.setVisible(!!e && !paused && w.commanding); if (!e) return;
@@ -97,13 +98,13 @@ export class NightHud {
     this.charges.setText(`炮火支援 [F]　${w.charges} 次${w.supportCooldown > 0 ? ` / ${Math.ceil(w.supportCooldown)}s` : ''}`);
     this.sound.setText(this.muted ? '静音 [M]' : '声音 [M]');
     this.toastTime = Math.max(0, this.toastTime - dt); this.toast.setVisible(this.toastTime > 0);
-    this.ready = !w.commanding; this.overlay.setVisible(paused || this.ready && !this.cinematic); this.exit.setVisible(this.ready && w.status === 'victory' && w.stage < 3);
+    this.ready = !w.commanding; this.overlay.setVisible(paused || this.ready && !this.cinematic); this.exit.setVisible(this.ready && w.status === 'victory' && w.stage < STAGE_COUNT);
     if (paused || this.ready) {
       this.title.setText(!this.ready ? '指挥暂停' : w.status === 'victory' ? '天亮了，最后一盏灯仍在。' : '灯塔熄灭，防线失守。');
       const firstClear = w.stage > (w.checkpoint.clearedStage ?? 0), reward = STAGES[w.stage].reward;
-      this.body.setText(this.ready ? `阶段 ${w.stage}/3 · ${STAGES[w.stage].name} · 守夜 ${Math.floor(w.elapsed)}秒\n击杀 ${w.kills} · Boss 击败 ${w.bossKills}/${w.bossCount} · 灯塔 ${w.lampHealth}/${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? firstClear ? `首次守住：建材+${reward.materials} / 电力+${reward.energy}\n${STAGES[w.stage].unlock}` : '本阶段已通关，重复守夜不重复发放补给。' : '本局结束，击杀与已守住的阶段计入挑战成绩。'}\n${w.status === 'victory' && w.stage < 3 ? 'Enter 直接进入下一阶段 · 布防 30 秒后自动开战\n守夜前阵地免费修复，街区探索可以跳过。' : '查看总分与排行榜，可选择开始全新战役。'}` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
+      this.body.setText(this.ready ? `阶段 ${w.stage}/${STAGE_COUNT} · ${STAGES[w.stage].name} · 守夜 ${Math.floor(w.elapsed)}秒\n击杀 ${w.kills} · Boss 击败 ${w.bossKills}/${w.bossCount} · 灯塔 ${w.lampHealth}/${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? firstClear ? `首次守住：建材+${reward.materials} / 电力+${reward.energy}\n${STAGES[w.stage].unlock}` : '本阶段已通关，重复守夜不重复发放补给。' : '本局结束，击杀与已守住的阶段计入挑战成绩。'}\n${w.status === 'victory' && w.stage < STAGE_COUNT ? 'Enter 直接进入下一阶段 · 布防 30 秒后自动开战\n守夜前阵地免费修复，街区探索可以跳过。' : '查看总分与排行榜，可选择开始全新战役。'}` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
       if (this.saveWarning) this.body.setText(this.body.text + '\n' + this.saveWarning);
-      this.primary.setText(this.ready ? w.status === 'victory' && w.stage < 3 ? '下一阶段：布置防御 [Enter]' : '查看本局成绩 [Enter]' : '继续指挥 [P]');
+      this.primary.setText(this.ready ? w.status === 'victory' && w.stage < STAGE_COUNT ? '下一阶段：布置防御 [Enter]' : '查看本局成绩 [Enter]' : '继续指挥 [P]');
     }
   }
 }

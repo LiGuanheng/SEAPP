@@ -7,9 +7,9 @@ import { NIGHT_LIMITS } from '../src/config/night.ts';
 import { canOccupy } from '../src/core/geometry.ts';
 mkdirSync('artifacts', { recursive: true });
 
-export function siegeFixture(name) {
+export function siegeFixture(name, stage = 3) {
   const c = newCampaign(), ordinary = name === 'ordinary';
-  c.clearedStage = ordinary ? 0 : 2;
+  c.clearedStage = ordinary ? 0 : stage - 1;
   c.depot = { materials: ordinary ? 16 : 1800, energy: ordinary ? 2 : 500, medkits: 0 };
   c.survivors = ordinary ? ['engineer'] : ['engineer', 'captain', 'ranger', 'brawler', 'guardian', 'gunner', 'medic'];
   c.weapons.push('rifle'); const b = new BaseWorld(c);

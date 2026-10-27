@@ -9,6 +9,7 @@ test('入夜演出不随三倍速加速，暂停失焦冻结、跳过和减少�
   await page.clock.install(); await page.goto('/?mode=night&test=1'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready);
   await key(page, 'KeyT'); await key(page, 'KeyT'); await page.clock.runFor(400);
   expect((await state(page)).speed).toBe(3); expect((await presentation(page)).progress).toBeLessThan(0.35);
+  const centered = await state(page); expect((768 - centered.camera.x) * centered.camera.zoom).toBeCloseTo(640, 0); expect((480 - centered.camera.y) * centered.camera.zoom).toBeCloseTo(345, 0);
   await key(page, 'KeyP'); const paused = await state(page), frame = await presentation(page);
   await page.clock.runFor(1600); expect(await state(page)).toEqual(paused); expect(await presentation(page)).toEqual(frame);
   await key(page, 'KeyP'); await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await page.clock.runFor(100);
@@ -42,5 +43,5 @@ test('真实第三阶段四向成群进攻、Boss演出与黎明，终局模型�
   await page.clock.runFor(2600); const settled = await state(page);
   expect(settled.summary).toEqual(end.summary); expect(settled.enemies).toEqual(end.enemies); expect((await presentation(page)).active).toBe(false);
   await page.screenshot({ path: 'artifacts/v011/dawn-result.png' }); await key(page, 'Enter');
-  await expect(page.getByRole('dialog')).toBeVisible(); expect((await state(page)).status).toBe('victory'); expect((await state(page)).elapsed).toBe(120); expect(errors).toEqual([]);
+  await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); expect(await page.evaluate(() => (window as any).__baseLight.snapshot().plan.stage)).toBe(4); await expect(page.getByRole('dialog')).toBeHidden(); expect(errors).toEqual([]);
 });

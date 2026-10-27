@@ -1,4 +1,5 @@
 import type { StageId } from './progression.ts';
+import { DIFFICULTIES, type Difficulty } from './difficulty.ts';
 export const NIGHT_SECONDS = 120, LAMP_HEALTH = 380;
 export const NIGHT_LIMITS = { enemies: 96, bullets: 160, corpses: 40, particles: 200, zones: 8 };
 interface Creature { name: string; health: number; speed: number; damage: number; interval: number; scale?: number; tint?: number; texture?: string; boss?: boolean; flying?: boolean; radius?: number; armor?: number }
@@ -38,12 +39,14 @@ const STAGE_WAVES: Record<StageId, readonly Wave[]> = {
   1: [wave(3, 6, 2), wave(22, 16, 4, 0, 0, 0, 2), wave(42, 20, 7, 1, 0, 0, 3), wave(64, 24, 6, 2, 0, 0, 4), wave(84, 27, 7, 2, 0, 0, 5, ['axeman'])],
   2: [wave(3, 12, 5, 1, 0, 0, 3), wave(22, 25, 8, 2, 4, 0, 5), wave(42, 28, 9, 3, 7, 0, 6, ['queen']), wave(64, 30, 10, 4, 6, 3, 7), wave(84, 34, 12, 4, 8, 3, 9, ['blighter'])],
   3: [wave(3, 18, 6, 2, 0, 3, 4), wave(22, 32, 10, 3, 4, 4, 6, ['knight']), wave(42, 36, 12, 4, 8, 4, 8, ['bird']), wave(64, 40, 14, 5, 7, 6, 10, ['bomber']), wave(82, 44, 16, 6, 10, 6, 12, ['queen', 'blighter'])],
+  4: [wave(3, 24, 9, 3, 4, 4, 6), wave(21, 38, 12, 4, 9, 5, 8, ['queen']), wave(40, 42, 14, 5, 8, 7, 10, ['knight']), wave(61, 46, 16, 6, 10, 8, 12, ['blighter']), wave(81, 50, 18, 7, 12, 9, 14, ['axeman', 'bird'])],
+  5: [wave(3, 28, 10, 4, 5, 5, 8, ['axeman']), wave(20, 42, 14, 5, 10, 7, 10, ['queen']), wave(39, 46, 16, 6, 11, 8, 12, ['knight']), wave(59, 50, 18, 7, 12, 9, 14, ['bird']), wave(79, 56, 20, 8, 14, 10, 16, ['blighter', 'bomber'])],
 };
 export const wavesForStage = (stage: StageId): readonly Wave[] => STAGE_WAVES[stage];
 export const WAVES = STAGE_WAVES[1];
 export const GATES = [{ x: 768, y: 112 }, { x: 1536, y: 512 }, { x: 768, y: 992 }, { x: 128, y: 512 }];
 export const gatesForStage = (stage: StageId) => stage === 1 ? GATES : stage === 2 ? [{ x: 768, y: 80 }, { x: 1696, y: 512 }, { x: 768, y: 1120 }, { x: 96, y: 512 }] : [{ x: 768, y: 48 }, { x: 1920, y: 512 }, { x: 768, y: 1248 }, { x: 64, y: 512 }];
-export function levelStats(kind: InfectedKind, level = 1, stage: StageId = 1) {
+export function levelStats(kind: InfectedKind, level = 1, stage: StageId = 1, difficulty: Difficulty = 'normal') {
   const c = INFECTED[kind], tier = Math.max(0, Math.min(4, level - 1));
-  return { health: Math.round(c.health * (1 + tier * 0.10) * (1 + (stage - 1) * 0.18)), damage: Math.round(c.damage * (1 + tier * 0.06) * (1 + (stage - 1) * 0.12)), speed: c.speed * (1 + tier * 0.035) * (1 + (stage - 1) * 0.05) };
+  return { health: Math.round(c.health * (1 + tier * 0.10) * (1 + (stage - 1) * 0.18) * DIFFICULTIES[difficulty].health), damage: Math.round(c.damage * (1 + tier * 0.06) * (1 + (stage - 1) * 0.12)), speed: c.speed * (1 + tier * 0.035) * (1 + (stage - 1) * 0.05) };
 }

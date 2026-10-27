@@ -9,6 +9,7 @@ import { explorationLayout, freeLayoutPoint, type ExplorationLayout } from './ex
 import { ExplorationVision, LIGHT_RADII } from './exploration-vision.ts';
 import { SURVIVOR_PROFILES, type SurvivorId } from '../config/survivors.ts';
 import { nextStage } from '../config/progression.ts';
+import { DIFFICULTIES, type Difficulty } from '../config/difficulty.ts';
 export { SURVIVOR_PROFILES, type SurvivorId } from '../config/survivors.ts';
 
 export const EXPEDITION_SECONDS = 90;
@@ -51,9 +52,9 @@ export class ExpeditionWorld extends CombatWorld {
   get lightRadius(): number { return LIGHT_RADII[this.lanternLevel]; }
   canSee(p: Vec): boolean { return this.vision.canSee(p); }
   get currentRoom(): number { return roomAt(this.player, this.layout.buildings); }
-  constructor(campaign = newCampaign(), enemies = true, seed = 20261023 + campaign.expeditions * 7919) {
+  constructor(campaign = newCampaign(), enemies = true, seed = 20261023 + campaign.expeditions * 7919, difficulty: Difficulty = 'normal') {
     const layout = explorationLayout(seed);
-    super(seed, layout.obstacles, WORLD_WIDTH, WORLD_HEIGHT, PLAYER_SPAWN, false);
+    super(seed, layout.obstacles, WORLD_WIDTH, WORLD_HEIGHT, PLAYER_SPAWN, false, difficulty);
     this.layout = layout;
     this.campaign = cloneCampaign(campaign); this.enemiesEnabled = enemies;
     this.survivors[1].x += layout.medicOffset; this.survivors[2].x += layout.captainOffset;
@@ -78,12 +79,13 @@ export class ExpeditionWorld extends CombatWorld {
     for (const p of [...this.caches, ...this.survivors]) if (!canOccupy(p, 12, this.obstacles, this.width, this.height)) Object.assign(p, freeLayoutPoint(p, this.obstacles));
     this.lanternLevel = campaign.lanternLevel ?? 0;
     this.vision = new ExplorationVision(this.width, this.height, this.obstacles); this.vision.update(this.player, this.lightRadius);
-    if (enemies) for (const point of [{ x: 1450, y: 680 }, { x: 720, y: 520 }, { x: 1440, y: 970 }]) {
+    const initialPoints = [{ x: 1450, y: 680 }, { x: 720, y: 520 }, { x: 1440, y: 970 }, { x: 624, y: 960 }, { x: 1536, y: 1104 }];
+    if (enemies) for (const point of initialPoints.slice(0, Math.round(3 * DIFFICULTIES[difficulty].count))) {
       if (canOccupy(point, B.zombie.radius, this.obstacles, this.width, this.height)) this.addZombie(point);
     }
   }
-  protected override get spawnInterval(): number { return 6 - (nextStage(this.campaign?.clearedStage) - 1) * 0.6; }
-  protected override get maxZombies(): number { return this.enemiesEnabled ? 10 + (nextStage(this.campaign.clearedStage) - 1) * 2 : 0; }
+  protected override get spawnInterval(): number { return (6 - (nextStage(this.campaign?.clearedStage) - 1) * 0.6) / DIFFICULTIES[this.difficulty].count; }
+  protected override get maxZombies(): number { return this.enemiesEnabled ? Math.round((10 + (nextStage(this.campaign.clearedStage) - 1) * 2) * DIFFICULTIES[this.difficulty].count) : 0; }
   override get reloadDuration(): number { return this.weapon.reload * (this.survivors.some(s => s.id === 'captain' && s.state === 'following') ? 0.8 : 1); }
   get remaining(): number { return Math.max(0, EXPEDITION_SECONDS - this.elapsed); }
   get weight(): number { return cargoWeight(this.inventory); }

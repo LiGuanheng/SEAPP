@@ -28,12 +28,12 @@ export function submitScore(payload: ScoreSubmission): Promise<{ entry: { id: st
 }
 export function readLocal(key: string): string { try { return localStorage.getItem(key) ?? ''; } catch { return ''; } }
 export function writeLocal(key: string, value: string): boolean { try { localStorage.setItem(key, value); return true; } catch { return false; } }
-export interface PendingScore { result: Omit<ScoreSubmission, 'nickname'>; payload?: ScoreSubmission; submitted?: boolean; ranks?: ScoreRanks }
+export interface PendingScore { result: Omit<ScoreSubmission, 'nickname'>; payload?: ScoreSubmission; submitted?: boolean; ranks?: ScoreRanks; campaignComplete?: boolean }
 export function loadPending(): PendingScore | null {
   try {
     const value: PendingScore = JSON.parse(readLocal(PENDING_KEY)), r = value.result;
-    if (typeof r.completed !== 'boolean' || r.completed !== (r.outcome === 'victory') || !['clear', 'challenge', 'demo'].includes(r.scope) ||
-      r.scoreVersion !== SCORE_VERSION || r.gameVersion !== GAME_VERSION || !['normal', 'hard'].includes(r.difficulty) || ![1, 2, 3].includes(r.maxSpeed) || !/^[0-9a-f-]{36}$/i.test(r.runId) || calculateScore(r.stages, r.durationMs, r).total !== r.score) return null;
+    if (typeof r.completed !== 'boolean' || r.completed !== (r.outcome === 'victory') || !['clear', 'challenge'].includes(r.scope) || !['victory', 'defeat', 'retired'].includes(r.outcome) ||
+      r.scoreVersion !== SCORE_VERSION || r.gameVersion !== GAME_VERSION || !['easy', 'normal', 'hard'].includes(r.difficulty) || ![1, 2, 3].includes(r.maxSpeed) || !/^[0-9a-f-]{36}$/i.test(r.runId) || !r.phaseTimesMs || calculateScore(r.stages, r.durationMs, r).total !== r.score) return null;
     if (value.payload && (!validNickname(normalizeNickname(value.payload.nickname)) || JSON.stringify({ ...value.payload, nickname: undefined }) !== JSON.stringify({ ...r, nickname: undefined }))) return null;
     return value;
   } catch { return null; }

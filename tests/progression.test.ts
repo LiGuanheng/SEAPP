@@ -4,9 +4,13 @@ import { BaseWorld } from '../src/core/base-world.ts';
 import { NightWorld, type NightEnemy } from '../src/core/night-world.ts';
 import { ExpeditionWorld, CAMP } from '../src/core/expedition.ts';
 import { newCampaign, decodeCampaign, type Campaign } from '../src/core/campaign.ts';
-import { BASE_WIDTH, BASE_HEIGHT, BUILDINGS, validBasePlan } from '../src/config/base.ts';
+import { BASE_WIDTH, BASE_HEIGHT, BUILDINGS, LIGHTHOUSE, GRID, validBasePlan } from '../src/config/base.ts';
+import { Navigation } from '../src/core/navigation.ts';
 import { INFECTED, MOB_KINDS, NIGHT_LIMITS, levelStats, wavesForStage, type InfectedKind } from '../src/config/night.ts';
-import { nextStage, STAGES, type StageId } from '../src/config/progression.ts';
+import { nextStage, STAGES, STAGE_COUNT, validStage, type StageId } from '../src/config/progression.ts';
+import { CombatWorld } from '../src/core/world.ts';
+import { assaultPlan } from '../src/core/assault.ts';
+import { DIFFICULTIES, difficultyFrom } from '../src/config/difficulty.ts';
 import { canOccupy, distance } from '../src/core/geometry.ts';
 
 const run = (w: NightWorld, seconds: number) => { for (let i = 0; i < Math.ceil(seconds * 60) && w.commanding; i++) w.step(); };
@@ -26,6 +30,53 @@ test('三阶段敌人数与基础强度递增，Boss逐步开放，最终波真�
   assert.deepEqual(wavesForStage(3)[4].bosses, ['queen', 'blighter']);
   const a = levelStats('walker', 5, 1), b = levelStats('walker', 5, 3); assert.ok(b.health > a.health && b.damage > a.damage && b.speed > a.speed);
   const w = quiet(); w.elapsed = 94; run(w, 0.4); assert.ok(w.bossesSeen.has('queen') && w.bossesSeen.has('blighter'));
+});
+test('完整战役扩展至五阶段，第三阶段继续成长，阶段与补给存档兼容', () => {
+  assert.equal(STAGE_COUNT, 5); assert.equal(nextStage(2), 3); assert.equal(nextStage(3), 4); assert.equal(nextStage(4), 5); assert.equal(nextStage(5), 5);
+  assert.equal(validStage(5), true); assert.equal(validStage(6), false);
+  const ids = [1, 2, 3, 4, 5] as const;
+  const bosses = ids.map(stage => wavesForStage(stage).reduce((n, w) => n + w.bosses.length, 0));
+  assert.deepEqual(bosses, [1, 2, 5, 5, 6]);
+  for (const stage of ids) {
+    const c = campaign(stage); assert.equal(new BaseWorld(decodeCampaign(JSON.stringify(c))).stage, stage);
+    if (stage > 1) { assert.ok(STAGES[stage].lightRadius > STAGES[(stage - 1) as StageId].lightRadius); assert.ok(STAGES[stage].area.width * STAGES[stage].area.height > STAGES[(stage - 1) as StageId].area.width * STAGES[(stage - 1) as StageId].area.height); }
+  }
+  const old = new BaseWorld(campaign(3)); old.build('sniper', { x: 1760, y: 1088 }); old.finish();
+  old.campaign.clearedStage = 3; const fourth = new BaseWorld(decodeCampaign(JSON.stringify(old.campaign))); fourth.resume();
+  assert.equal(fourth.stage, 4); assert.equal(fourth.plan.buildings.length, 1); assert.ok(fourth.build('wall', { x: 1888, y: 1216 }).ok);
+  fourth.campaign.clearedStage = 4; fourth.resume(); assert.equal(fourth.stage, 5); assert.ok(fourth.build('wall', { x: 1984, y: 1344 }).ok);
+  assert.ok(validBasePlan(fourth.plan)); assert.equal(decodeCampaign(JSON.stringify({ ...fourth.campaign, clearedStage: 5 })).clearedStage, 5);
+});
+test('三种难度在白天与夜晚真实改变敌人生命和数量，普通旧数值不变', () => {
+  assert.equal(difficultyFrom('easy'), 'easy'); assert.equal(difficultyFrom('hard'), 'hard'); assert.equal(difficultyFrom('unknown'), 'normal');
+  const difficulties = ['easy', 'normal', 'hard'] as const;
+  const days = difficulties.map(d => new CombatWorld(123, [], 2048, 1408, { x: 1024, y: 704 }, true, d));
+  assert.ok(days[0].zombies.length < days[1].zombies.length && days[1].zombies.length < days[2].zombies.length);
+  assert.deepEqual(days.map(w => w.zombies[0].health), difficulties.map(d => Math.round(64 * DIFFICULTIES[d].health)));
+  const expeditions = difficulties.map(d => new ExpeditionWorld(campaign(4), true, 1000, d));
+  assert.ok(expeditions[0].zombies.length < expeditions[1].zombies.length && expeditions[1].zombies.length < expeditions[2].zombies.length);
+  assert.deepEqual(expeditions.map(w => w.zombies[0].health), days.map(w => w.zombies[0].health));
+  const totals = difficulties.map(d => assaultPlan(5, 123, d).length); assert.ok(totals[0] < totals[1] && totals[1] < totals[2]);
+  const nights = difficulties.map(d => { const w = new NightWorld(campaign(4), d); w.elapsed = 3; w.step(); return w; });
+  assert.deepEqual(nights.map(w => w.enemies[0].health), difficulties.map(d => levelStats('walker', 1, 4, d).health));
+  assert.ok(nights[0].enemies[0].health < nights[1].enemies[0].health && nights[1].enemies[0].health < nights[2].enemies[0].health);
+});
+test('四、五阶段新开放区域保留尸潮入口，不扣费，实际刷新仍能进入战场', () => {
+  for (const stage of [4, 5] as const) {
+    const b = new BaseWorld(campaign(stage)), before = { ...b.campaign.depot };
+    for (const point of [{ x: 1888, y: 352 }, { x: 1888, y: 640 }, { x: 608, y: 1248 }, { x: 896, y: 1248 }]) {
+      const r = b.build('wall', point); assert.equal(r.ok, false); assert.equal(r.message, '尸潮入口，必须留通道');
+    }
+    assert.deepEqual(b.campaign.depot, before); assert.equal(b.plan.buildings.length, 0);
+    assert.ok(b.build('wall', { x: 1888, y: 768 }).ok);
+    const w = new NightWorld(b.campaign); w.elapsed = 82; w.step();
+    assert.ok(w.enemies.some(e => e.gate === 1)); assert.ok(w.enemies.some(e => e.gate === 2));
+    const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, b.obstacles, 11); nav.rebuild({ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
+    for (const e of w.enemies.filter(e => !INFECTED[e.kind].flying)) {
+      assert.ok(canOccupy(e, INFECTED[e.kind].radius, b.obstacles, BASE_WIDTH, BASE_HEIGHT));
+      assert.ok(nav.field[Math.floor(e.y / GRID) * nav.cols + Math.floor(e.x / GRID)] >= 0);
+    }
+  }
 });
 
 test('设施阶段锁在模型中生效，扩建保留旧阵地且新增区域可施工/行军/保存', () => {
@@ -59,7 +110,7 @@ test('胜利解锁及补给只发一次，重试锁原阶段，失败不推进�
   const retry = new NightWorld(result); assert.equal(retry.stage, 1); run(retry, 120.1); assert.equal(retry.status, 'victory'); assert.deepEqual(retry.resultCampaign().depot, result.depot);
   const next = new BaseWorld(result); next.resume(); assert.equal(next.stage, 2);
   const loss = quiet(2); loss.lampHealth = 1; enemy(loss, 'walker', 812, 512).cooldown = 0; loss.step(); assert.equal(loss.status, 'defeat'); assert.equal(loss.resultCampaign().clearedStage, 1);
-  assert.equal(nextStage(3), 3);
+  assert.equal(nextStage(3), 4); assert.equal(nextStage(5), 5);
 });
 
 test('电网真实减速并范围伤害，不对空；移出电网后状态到期恢复速度', () => {
@@ -153,8 +204,8 @@ test('医疗英雄仅治疗附近生还守卫，重炮英雄发范围炮弹且�
 });
 
 test('非法阶段/结算字段拒绝，旧灯级/库存/坐标不丢失，终局重试没有新资源', () => {
-  for (const invalid of [-1, 4, 1.5, '2', null]) assert.throws(() => decodeCampaign(JSON.stringify({ ...newCampaign(), clearedStage: invalid })));
+  for (const invalid of [-1, 6, 1.5, '2', null]) assert.throws(() => decodeCampaign(JSON.stringify({ ...newCampaign(), clearedStage: invalid })));
   const b = new BaseWorld(campaign()); b.build('flame', { x: 1728, y: 1056 }); b.finish(); const raw = JSON.stringify(b.campaign); assert.deepEqual(decodeCampaign(raw), b.campaign);
-  const bad = JSON.parse(raw); bad.base.stage = 4; assert.throws(() => decodeCampaign(JSON.stringify(bad)));
+  const bad = JSON.parse(raw); bad.base.stage = 6; assert.throws(() => decodeCampaign(JSON.stringify(bad)));
   assert.ok(BASE_WIDTH >= 2048 && BASE_HEIGHT >= 1408); assert.ok(NIGHT_LIMITS.enemies <= 96 && BUILDINGS.sniper.energy > BUILDINGS.arrowtower.energy);
 });

@@ -7,7 +7,7 @@ async function click(page: Page, x: number, y: number, button: 'left' | 'right' 
   await page.mouse.click(b.x + x / 1280 * b.width, b.y + y / 720 * b.height, { button }); await page.clock.runFor(80);
 }
 async function ready(page: Page, mode = '') {
-  await page.clock.install(); await page.goto(`/?test=1${mode ? `&mode=${mode}` : ''}`);
+  await page.clock.install(); await page.goto(`/?play=1&test=1${mode ? `&mode=${mode}` : ''}`);
   await page.waitForFunction(() => Boolean((window as any).__lastLight?.snapshot().ready || (window as any).__baseLight?.snapshot().ready || (window as any).__nightLight?.snapshot().ready));
   await page.clock.runFor(100);
 }

@@ -91,7 +91,7 @@ test('重新探索真实生成新种子和支线摆位，保留主线物资、�
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); await page.clock.install();
   const seeds = new Set<number>(), shapes = new Set<string>();
   for (let i = 0; i < 3; i++) {
-    await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
+    await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
     const s = await state(page), e = s.expedition; seeds.add(e.layout.seed); shapes.add(JSON.stringify(e.layout.debris));
     expect(e.caches.find((c: any) => c.id === 'salvage')).toMatchObject({ x: 1056, y: 736, opened: false });
     expect(e.caches.find((c: any) => c.id === 'room-1')).toMatchObject({ x: 1024, y: 432 });

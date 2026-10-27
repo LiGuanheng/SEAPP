@@ -48,10 +48,10 @@ test('夜战禁铺墙和出售，正常出售按实际支付回收且不可重�
   assert.equal(b.demolish(id).ok, false); assert.equal(b.campaign.depot.materials, 17);
 });
 
-test('三阶段兵力增加，首夜第二波有空军；同批集中在同一方向推进', () => {
-  const totals = ([1, 2, 3] as const).map(s => wavesForStage(s).reduce((n, w) => n + w.bosses.length + MOB_KINDS.reduce((m, k) => m + w[k], 0), 0));
-  assert.deepEqual(totals, [139, 250, 345]); assert.ok(wavesForStage(1)[1].crow > 0);
-  for (const stage of [1, 2, 3] as const) {
+test('五阶段兵力递增，首夜第二波有空军；同批集中在同一方向推进', () => {
+  const totals = ([1, 2, 3, 4, 5] as const).map(s => wavesForStage(s).reduce((n, w) => n + w.bosses.length + MOB_KINDS.reduce((m, k) => m + w[k], 0), 0));
+  assert.deepEqual(totals.slice(0, 3), [139, 250, 345]); assert.ok(totals.every((n, i) => i === 0 || n > totals[i - 1])); assert.ok(wavesForStage(1)[1].crow > 0);
+  for (const stage of [1, 2, 3, 4, 5] as const) {
     const c = newCampaign(); c.clearedStage = stage - 1; const w = new NightWorld(c);
     w.elapsed = 3; w.step(); assert.equal(w.enemies.length, ASSAULT_TUNING[stage].batch);
     assert.equal(new Set(w.enemies.map(e => e.gate)).size, 1);

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BUILDINGS, BUILDING_KEYS, saleRefund, buildingStats, refitFor, REFITS, type BuildingKind } from '../config/base.ts';
 import type { BaseWorld } from '../core/base-world.ts';
-import { STAGES } from '../config/progression.ts';
+import { STAGES, STAGE_COUNT } from '../config/progression.ts';
 
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class BaseHud {
@@ -34,7 +34,7 @@ export class BaseHud {
       this.root.add(bg); text(x, y, label, 12, '#e0d4a8').setOrigin(0.5);
     };
     const g = scene.add.graphics(); this.root.add(g);
-    g.fillStyle(0x0b1c24, 0.96).fillRect(0, 0, 1280, 94).fillRect(0, 596, 1280, 124).fillRect(1080, 94, 200, 502);
+    g.fillStyle(0x0b1c24, 0.96).fillRect(0, 0, 1280, 94).fillRect(0, 596, 1280, 124);
     g.lineStyle(1, 0x5b7161, 0.7).lineBetween(20, 94, 1260, 94).lineBetween(20, 596, 1260, 596);
     text(26, 17, 'THE LAST LIGHT / 最后一盏灯', 13, '#dfc68d').setLetterSpacing(2);
     text(26, 44, '北境灯塔 · 黄昏布防', 18, '#e8d59f');
@@ -75,12 +75,12 @@ export class BaseHud {
     back.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); explore(); });
     this.overlay.add([this.title, this.body, bg, this.buttonLabel, back]);
   }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x >= 1080 || y < 94 || y >= 596; }
+  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || x >= 1080 && y < 290 || y < 94 || y >= 596; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);
     this.info.setText(`营地库存　建材 ${c.depot.materials}　电力 ${c.depot.energy}　急救包 ${c.depot.medkits}`);
-    this.timer.setText(`阶段 ${world.stage}/3 ${STAGES[world.stage].name} · 布防 ${Math.ceil(world.remaining)}s · 设施 ${world.plan.buildings.length} · 守备 ${world.plan.soldiers.length}`);
+    this.timer.setText(`阶段 ${world.stage}/${STAGE_COUNT} ${STAGES[world.stage].name} · 布防 ${Math.ceil(world.remaining)}s · 设施 ${world.plan.buildings.length} · 守备 ${world.plan.soldiers.length}`);
     this.selection.setText(b ? `${buildingStats(b).name} · 耐久 ${Math.ceil(b.health)}/${buildingStats(b).health} · 射程 ${buildingStats(b).range}${b.upgrade ? ' · ' + REFITS[b.upgrade].description : ' · 出售返建材50%，电力不返'}` : buildKind ? `${BUILDINGS[buildKind].name} · ${BUILDINGS[buildKind].description} · 耐久${BUILDINGS[buildKind].health} / 射程${BUILDINGS[buildKind].range}` : ids.size ? `已选 ${ids.size} 名士兵 · 右键移动 / G驻守 · 英雄：重炮手慢速对地，医师180范围治疗` : '5拖建城墙 · 选中机枪/加农炮按U改装（阶段2/3） · X出售 · 留出对空火力');
     const refit = b && refitFor(b.kind);
     this.refit.setVisible(!!refit && !b?.upgrade && !paused && world.commanding);

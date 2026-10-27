@@ -4,6 +4,7 @@ import { BootScene } from './scenes/BootScene.ts';
 import { CombatScene } from './scenes/CombatScene.ts';
 import { BaseScene } from './scenes/BaseScene.ts';
 import { PrologueScene } from './scenes/PrologueScene.ts';
+import { MainMenuScene } from './scenes/MainMenuScene.ts';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -13,5 +14,5 @@ new Phaser.Game({
   pixelArt: true, roundPixels: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: false, pixelArt: true, roundPixels: true },
-  scene: [BootScene, PrologueScene, CombatScene, BaseScene],
+  scene: [BootScene, MainMenuScene, PrologueScene, CombatScene, BaseScene],
 });

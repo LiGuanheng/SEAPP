@@ -1,4 +1,4 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, REFITS, refitFor, buildingRect, overlaps, saleRefund, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, OUTER_ENTRY_AREAS, REFITS, refitFor, buildingRect, overlaps, saleRefund, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
 import { canOccupy, circleOverlapsRect, distance, moveWithCollision, normalized } from './geometry.ts';
 import { Navigation } from './navigation.ts';
@@ -56,6 +56,7 @@ export class BaseWorld {
     const area = this.buildArea;
     if (r.x < area.x || r.y < area.y || r.x + r.width > area.x + area.width || r.y + r.height > area.y + area.height) return { ok: false, message: '仅可在本阶段虚线布防区内建设；守夜胜利可扩建' };
     if (RESERVED_ROUTES.some(o => overlaps(r, o))) return { ok: false, message: '保留十字通道，不能封锁出入口' };
+    if (this.stage >= 4 && OUTER_ENTRY_AREAS.some(o => overlaps(r, o))) return { ok: false, message: '尸潮入口，必须留通道' };
     if (this.obstacles.some(o => overlaps(r, o))) return { ok: false, message: '地基与已有设施重叠' };
     if (this.plan.soldiers.some(s => circleOverlapsRect(s, 13, r))) return { ok: false, message: '地基上有士兵，请先移开' };
     if (this.plan.soldiers.some(s => s.destination && circleOverlapsRect(s.destination, 13, r))) return { ok: false, message: '地基占用了部队目的地，请先更改指令' };

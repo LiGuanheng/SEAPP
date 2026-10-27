@@ -104,7 +104,7 @@ export class NightWorld extends BaseWorld {
   }
   private spawnEnemy(kind: InfectedKind, p: Vec, level: number): boolean {
     if (this.enemies.length >= NIGHT_LIMITS.enemies || !canOccupy(p, INFECTED[kind].radius, INFECTED[kind].flying ? [] : this.obstacles, BASE_WIDTH, BASE_HEIGHT)) return false;
-    const stats = levelStats(kind, level, this.stage);
+    const stats = levelStats(kind, level, this.stage, this.difficulty);
     this.enemies.push({ ...p, id: this.nextEnemyId++, kind, health: stats.health, maxHealth: stats.health, level, aim: 0, moving: true, cooldown: 0, hurt: 0, skillCooldown: 3, summonCooldown: 6 });
     if (INFECTED[kind].boss) { this.bossesSeen.add(kind); this.events.push({ type: 'boss', ...p, kind }); }
     return true;
@@ -280,7 +280,7 @@ export class NightWorld extends BaseWorld {
       e.cooldown = Math.max(0, e.cooldown - dt); e.hurt = Math.max(0, e.hurt - dt);
       e.slowed = Math.max(0, (e.slowed ?? 0) - dt);
       if (e.windup) { e.moving = false; continue; }
-      const type = INFECTED[e.kind], stats = levelStats(e.kind, e.level, this.stage), lampPoint = edgePoint(e, LIGHTHOUSE_FOOT);
+      const type = INFECTED[e.kind], stats = levelStats(e.kind, e.level, this.stage, this.difficulty), lampPoint = edgePoint(e, LIGHTHOUSE_FOOT);
       if (e.slowed > 0) stats.speed *= 0.55;
       const soldier = this.livingSoldiers.filter(s => distance(e, s) < 115 && (type.flying || firstWall(e, s, obstacles) === null)).sort((a, b) => distance(e, a) - distance(e, b))[0];
       let building: BaseBuilding | undefined, nearest = (e.stalled ?? 0) > 0.7 ? 100 : 50;

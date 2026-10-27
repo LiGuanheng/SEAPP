@@ -31,7 +31,7 @@ async function walkExpedition(page: Page, x: number, y: number) {
 
 test('真实探索回营后进入基地，资源建设、选兵右键移动、驻守、框选、暂停与存档', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  await page.clock.install(); await page.goto('/?test=1&practice=base'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
+  await page.clock.install(); await page.goto('/?play=1&test=1&practice=base'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
   for (const p of [{ x: 1056, y: 736 }, { x: 1104, y: 852 }, { x: 920, y: 760 }]) { await walkExpedition(page, p.x, p.y); await page.clock.runFor(200); await page.keyboard.press('KeyE'); }
   await page.clock.runFor(100); expect(await page.evaluate(() => (window as any).__lastLight.snapshot().status)).toBe('complete');
   await page.keyboard.press('Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);

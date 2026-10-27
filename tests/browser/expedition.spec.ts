@@ -2,7 +2,7 @@ import { test, expect, type Page } from './fixtures.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => (window as any).__lastLight.snapshot());
 async function ready(page: Page) {
-  await page.clock.install(); await page.goto('/?test=1');
+  await page.clock.install(); await page.goto('/?play=1&test=1');
   await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready);
   await page.clock.runFor(100);
 }

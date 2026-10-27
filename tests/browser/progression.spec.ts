@@ -21,7 +21,7 @@ async function walk(page: Page, x: number, y: number) {
 test('首阶段锁定设施、胜利保存成长、直接进入第二阶段，也可选择探索', async ({ page }) => {
   test.setTimeout(150000); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, expeditions: 1, depot: { materials: 16, energy: 2, medkits: 0 }, survivors: ['engineer'], weapons: ['pistol', 'rifle'], lastSummary: null, base: null })); });
-  await page.clock.install(); await page.goto('/?test=1&mode=base'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
+  await page.clock.install(); await page.goto('/?play=1&test=1&mode=base'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
   const before = (await state(page)).campaign.depot; await key(page, 'Digit6'); expect((await state(page)).placement).toBe(null); expect((await state(page)).campaign.depot).toEqual(before);
   await page.screenshot({ path: 'artifacts/progression-stage-one.png' });
   for (const [code, x, y] of [['Digit2', 832, 352], ['Digit4', 608, 640], ['Digit4', 864, 640], ['Digit1', 960, 640]] as const) { await key(page, code); await click(page, x + 4, y + 4, true); await key(page, 'Escape'); }
@@ -44,7 +44,7 @@ test('首阶段锁定设施、胜利保存成长、直接进入第二阶段，�
 test('第二阶段真实进入维修站，英雄营救、伏击与护送返营，刷新保留英雄', async ({ page }) => {
   test.setTimeout(120000); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 1, lanternLevel: 2, expeditions: 1, depot: { materials: 0, energy: 0, medkits: 0 }, survivors: [], weapons: ['pistol'], lastSummary: null, base: null })); });
-  await page.clock.install(); await page.goto('/?test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
+  await page.clock.install(); await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
   await key(page, 'Digit3'); const box = (await page.locator('canvas').boundingBox())!; await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
   for (const [x, y] of [[624, 720], [624, 592], [272, 592], [272, 528], [272, 432], [352, 368]]) await walk(page, x, y);
   await page.mouse.up(); await page.screenshot({ path: 'artifacts/progression-hero-rescue.png' });

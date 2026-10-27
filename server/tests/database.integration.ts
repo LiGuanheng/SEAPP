@@ -14,7 +14,7 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
   const pool = createPool({ DATABASE_URL: raw, DATABASE_SSL: process.env.DATABASE_SSL === 'verify-full' ? 'verify-full' : 'disable' });
   t.after(() => pool.end()); await migrate(pool); const store = createStore(pool);
   await t.test('迁移可重复执行且保留版本校验和', async () => {
-    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 2);
+    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 3);
   });
   await t.test('空榜、真实写入读取、同昵称允许多次战役', async () => {
     await pool.query('TRUNCATE scores'); assert.deepEqual(await store.leaderboard('speed', 'normal', 20), []);
@@ -26,22 +26,37 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
     assert.equal(results.filter(r => r.created).length, 1); assert.equal(Number((await pool.query('SELECT count(*) FROM scores')).rows[0].count), 1);
     await assert.rejects(() => store.submit({ ...s, nickname: '改动昵称' }), ConflictError);
   });
-  await t.test('失败/主动结束/演示独立分榜，真实名次与幂等返回一致', async () => {
+  await t.test('失败/主动结束归挑战榜，完整通关榜独立，真实名次与幂等返回一致', async () => {
     await pool.query('TRUNCATE scores');
     const challenge = payload({ scope: 'challenge', outcome: 'defeat', completed: false, stages: [], durationMs: 1000 });
-    const demo = payload({ scope: 'demo', outcome: 'retired', completed: false, stages: [], durationMs: 2000, exploration: { kills: 10, caches: 1, rescued: 0 } });
-    const a = await store.submit(challenge), b = await store.submit(demo);
+    const retired = payload({ scope: 'challenge', outcome: 'retired', completed: false, stages: [], durationMs: 2000, exploration: { kills: 10, caches: 1, rescued: 0 } });
+    const a = await store.submit(challenge), b = await store.submit(retired);
     assert.deepEqual(a.ranks, { speed: null, score: 1 }); assert.deepEqual(b.ranks, { speed: null, score: 1 });
-    assert.deepEqual((await store.submit(demo)).ranks, b.ranks);
+    assert.deepEqual((await store.submit(retired)).ranks, b.ranks);
     assert.equal((await store.leaderboard('score', 'normal', 20)).length, 0);
-    assert.deepEqual((await store.leaderboard('score', 'normal', 20, 'demo')).map(r => r.id), [demo.runId]);
+    assert.deepEqual((await store.leaderboard('score', 'normal', 20, 'challenge')).map(r => r.id), [retired.runId, challenge.runId]);
     const high = payload({ ...challenge, runId: crypto.randomUUID(), score: undefined, exploration: { kills: 1, caches: 0, rescued: 0 } });
-    assert.equal((await store.submit(high)).ranks?.score, 1); assert.equal((await store.submit(challenge)).ranks?.score, 2);
+    assert.equal((await store.submit(high)).ranks?.score, 2); assert.equal((await store.submit(challenge)).ranks?.score, 3);
+  });
+  await t.test('游戏时长优先、实际时长只作末级并列排序，三难度隔离且旧记录保留不混榜', async () => {
+    await pool.query('TRUNCATE scores');
+    const slow = payload({ totalDurationMs: 900000 }), fast = payload({ totalDurationMs: 300000 });
+    await store.submit(slow); assert.equal((await store.submit(fast)).ranks?.speed, 1);
+    await store.submit(payload({ difficulty: 'easy' }));
+    assert.deepEqual((await store.leaderboard('speed', 'normal', 20)).map(r => r.id), [fast.runId, slow.runId]);
+    assert.equal((await store.leaderboard('score', 'easy', 20)).length, 1);
+    assert.equal((await store.leaderboard('score', 'normal', 20))[0].totalDurationMs, 300000);
+    await pool.query(`INSERT INTO scores (id,nickname,difficulty,duration_ms,total_duration_ms,score,max_speed,score_version,game_version,stages,scope,phase_times_ms)
+      VALUES ($1,'旧版记录','normal',480000,480000,18022,3,1,'0.12.0',$2::jsonb,'demo','{"day":480000,"base":0,"night":0}')`, [crypto.randomUUID(), JSON.stringify(payload().stages.slice(0, 3))]);
+    assert.equal(Number((await pool.query('SELECT count(*) FROM scores WHERE score_version=1')).rows[0].count), 1);
+    assert.equal((await store.leaderboard('score', 'normal', 20)).length, 2);
+    await assert.rejects(() => pool.query(`UPDATE scores SET phase_times_ms='{"day":0,"base":150000,"night":600000}' WHERE id=$1`, [fast.runId]));
+    assert.equal((await store.leaderboard('speed', 'normal', 20))[0].durationMs, 900000);
   });
   await t.test('双榜主要与次级排序、难度隔离、完全并列顺序稳定、最多20条', async () => {
     await pool.query('TRUNCATE scores');
-    const slowHigh = payload({ durationMs: 500000 }), fastLow = payload({ durationMs: 400000, stages: payload().stages.map(s => ({ ...s, kills: 0, bossKills: 0, lampHealth: 10 })) });
-    const fastHigh = payload({ durationMs: 400000 });
+    const slowHigh = payload({ durationMs: 1000000 }), fastLow = payload({ durationMs: 800000, stages: payload().stages.map(s => ({ ...s, kills: 0, bossKills: 0, lampHealth: 10 })) });
+    const fastHigh = payload({ durationMs: 800000 });
     // 相同分数但不同用时：超过效率奖励范围后，时长不再影响分数。
     const tieSlow = payload({ durationMs: 4000000 }), tieFast = payload({ durationMs: 3000000 });
     for (const s of [slowHigh, fastLow, fastHigh, tieSlow, tieFast, payload({ difficulty: 'hard' })]) await store.submit(s);
@@ -53,7 +68,7 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
     const a = await store.leaderboard('speed', 'normal', 20), b = await store.leaderboard('speed', 'normal', 20);
     assert.equal(a.length, 20); assert.deepEqual(a.map(x => x.id), b.map(x => x.id));
   });
-  await t.test('PostgreSQL约束拒绝越界值，演示种子的分数符合统一公式', async () => {
+  await t.test('PostgreSQL约束拒绝越界值，五阶段种子的分数符合统一公式', async () => {
     const row = payload(); await assert.rejects(() => pool.query('INSERT INTO scores (id,nickname,difficulty,duration_ms,score,max_speed,score_version,game_version,stages) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [row.runId, '非法', 'easy', 1, -1, 1, 1, '0.12.0', '[]']));
     await pool.query(await readFile(new URL('../sql/seed.sql', import.meta.url), 'utf8'));
     const seeds = await pool.query('SELECT stages, duration_ms, score FROM scores WHERE id::text LIKE $1', ['00000000-%']);

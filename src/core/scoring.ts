@@ -1,15 +1,19 @@
-/** 前后端共用的纯函数：只给三个阶段的首次胜利计分，不改变战斗规则。 */
-export const SCORE_VERSION = 2;
-export const GAME_VERSION = '0.13.0';
-export type RankDifficulty = 'normal' | 'hard';
+import { STAGE_COUNT, validStage, type StageId } from '../config/progression.ts';
+import type { Difficulty } from '../config/difficulty.ts';
+
+/** 前后端共用：五阶段首次胜利与探索计分，排行榜使用全部阶段的游戏时间。 */
+export const SCORE_VERSION = 3;
+export const GAME_VERSION = '0.14.0';
+export type RankDifficulty = Difficulty;
 export type BoardType = 'speed' | 'score';
-export type ScoreScope = 'clear' | 'challenge' | 'demo';
+export type ScoreScope = 'clear' | 'challenge';
 export type RunOutcome = 'victory' | 'defeat' | 'retired';
-export const SCOPE_NAMES: Record<ScoreScope, string> = { clear: '正式通关榜', challenge: '挑战成绩榜', demo: '课堂演示榜' };
+export const SCOPE_NAMES: Record<ScoreScope, string> = { clear: '完整通关榜', challenge: '挑战成绩榜' };
 export const OUTCOME_NAMES: Record<RunOutcome, string> = { victory: '完整通关', defeat: '本局失败', retired: '主动结算' };
 export interface ExplorationScore { kills: number; caches: number; rescued: number }
+export interface PhaseTimesMs { day: number; base: number; night: number }
 export interface StageScore {
-  stage: 1 | 2 | 3;
+  stage: StageId;
   kills: number;
   bossKills: number;
   lampHealth: number;
@@ -17,26 +21,36 @@ export interface StageScore {
   cleared?: boolean;
 }
 export const SCORE_RULES = {
-  victory: 10_000, kill: 5, killCaps: [120, 220, 340],
-  boss: 250, bossCaps: [1, 2, 5], lampPerStage: 1000,
-  soldier: 100, efficiency: 3000, maxDurationMs: 86_400_000,
+  victory: 14_000, stageVictory: 2000, fullVictory: 4000, kill: 5, killCaps: [120, 220, 340, 420, 520],
+  boss: 250, bossCaps: [1, 2, 5, 5, 6], lampPerStage: 1000,
+  soldier: 100, efficiency: 3000, maxDurationMs: 86_400_000, maxScore: 40_000,
 } as const;
 export interface ScoreBreakdown { victory: number; combat: number; bosses: number; lighthouse: number; defenders: number; exploration: number; efficiency: number; total: number }
 export function validStages(value: unknown, completed = true): value is StageScore[] {
-  return Array.isArray(value) && value.length <= 3 && (!completed || value.length === 3) && value.every((s: StageScore, i) =>
-    !!s && [1, 2, 3].includes(s.stage) && (i === 0 || s.stage > value[i - 1].stage) && (!completed || s.stage === i + 1 && s.cleared !== false) &&
+  return Array.isArray(value) && value.length <= STAGE_COUNT && (!completed || value.length === STAGE_COUNT) && value.every((s: StageScore, i) =>
+    !!s && validStage(s.stage) && (i === 0 || s.stage > value[i - 1].stage) && (!completed || s.stage === i + 1 && s.cleared !== false) &&
+    (s.cleared !== false || i === value.length - 1) &&
     (s.cleared === undefined || typeof s.cleared === 'boolean') && Number.isInteger(s.kills) && s.kills >= 0 && s.kills <= 1000 &&
     Number.isInteger(s.bossKills) && s.bossKills >= 0 && s.bossKills <= SCORE_RULES.bossCaps[s.stage - 1] && s.bossKills <= s.kills &&
     Number.isInteger(s.lampHealth) && s.lampHealth >= (s.cleared === false ? 0 : 1) && s.lampHealth <= 380 &&
     Number.isInteger(s.soldiers) && s.soldiers >= 0 && s.soldiers <= 8);
 }
-export function calculateScore(stages: StageScore[], durationMs: number, options: { completed?: boolean; exploration?: ExplorationScore } = {}): ScoreBreakdown {
+export function validPhaseTimes(value: unknown, durationMs: number, completed = false): value is PhaseTimesMs {
+  if (!value || typeof value !== 'object') return false;
+  const p = value as PhaseTimesMs;
+  return [p.day, p.base, p.night].every(n => Number.isSafeInteger(n) && n >= 0) && p.day <= SCORE_RULES.maxDurationMs &&
+    p.base <= STAGE_COUNT * 30_000 && p.night <= STAGE_COUNT * 120_000 && p.day + p.base + p.night === durationMs &&
+    (!completed || p.base === STAGE_COUNT * 30_000 && p.night === STAGE_COUNT * 120_000);
+}
+export function calculateScore(stages: StageScore[], durationMs: number, options: { completed?: boolean; exploration?: ExplorationScore; totalDurationMs?: number; phaseTimesMs?: PhaseTimesMs } = {}): ScoreBreakdown {
   const completed = options.completed ?? true, e = options.exploration ?? { kills: 0, caches: 0, rescued: 0 };
-  if (!validStages(stages, completed) || !Number.isSafeInteger(durationMs) || durationMs < (completed ? 120_000 : 0) || durationMs > SCORE_RULES.maxDurationMs ||
+  if (!validStages(stages, completed) || !Number.isSafeInteger(durationMs) || durationMs < 0 || durationMs > SCORE_RULES.maxDurationMs ||
+    options.totalDurationMs !== undefined && (!Number.isSafeInteger(options.totalDurationMs) || options.totalDurationMs < 0 || options.totalDurationMs > SCORE_RULES.maxDurationMs) ||
+    options.phaseTimesMs !== undefined && !validPhaseTimes(options.phaseTimesMs, durationMs, completed) ||
     ![e.kills, e.caches, e.rescued].every(n => Number.isSafeInteger(n) && n >= 0) || e.kills > 1000 || e.caches > 200 || e.rescued > 8) throw new Error('无效的战役成绩');
   const r = SCORE_RULES;
   const parts = {
-    victory: stages.filter(s => s.cleared !== false).length * 2000 + (completed ? 4000 : 0),
+    victory: stages.filter(s => s.cleared !== false).length * r.stageVictory + (completed ? r.fullVictory : 0),
     combat: stages.reduce((n, s) => n + Math.min(s.kills - s.bossKills, r.killCaps[s.stage - 1]) * r.kill, 0),
     bosses: stages.reduce((n, s) => n + s.bossKills * r.boss, 0),
     lighthouse: stages.reduce((n, s) => n + (s.cleared === false ? 0 : Math.floor(s.lampHealth * r.lampPerStage / 380)), 0),
@@ -49,13 +63,13 @@ export function calculateScore(stages: StageScore[], durationMs: number, options
 export function normalizeNickname(value: string): string { return value.normalize('NFKC').trim(); }
 export function validNickname(value: string): boolean { return /^[\p{L}\p{N}_\-· ]{2,16}$/u.test(value) && !/  /.test(value); }
 export interface ScoreSubmission {
-  runId: string; nickname: string; difficulty: RankDifficulty; durationMs: number;
+  runId: string; nickname: string; difficulty: RankDifficulty; durationMs: number; totalDurationMs: number; phaseTimesMs: PhaseTimesMs;
   score: number; stages: StageScore[]; maxSpeed: 1 | 2 | 3;
   completed: boolean; scope: ScoreScope; outcome: RunOutcome; exploration: ExplorationScore;
   scoreVersion: number; gameVersion: string;
 }
 export interface LeaderboardEntry {
-  id: string; nickname: string; difficulty: RankDifficulty; durationMs: number; score: number;
+  id: string; nickname: string; difficulty: RankDifficulty; durationMs: number; totalDurationMs?: number; score: number;
   maxSpeed: number; submittedAt: string;
   scope?: ScoreScope; outcome?: RunOutcome;
 }
