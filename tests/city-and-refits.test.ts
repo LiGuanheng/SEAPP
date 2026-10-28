@@ -9,7 +9,7 @@ import { roomDoor } from '../src/config/map.ts';
 import { buildingStats } from '../src/config/base.ts';
 const idle = { moveX: 0, moveY: 0, aim: CAMP, firing: false, sprinting: false };
 
-test('300种子城市有三种真实房间/街垒结构，所有门、奖励、人物均可达，回营保存种子且兼容旧档', () => {
+test('300种子新街区产生大量真实建筑组合，所有门、奖励、人物均可达，回营保存种子且兼容旧档', () => {
   const shapes = new Set(), events = new Set();
   for (let i = 0; i < 300; i++) {
     const seed = Math.imul(i + 7, 2654435761) >>> 0, c = newCampaign(); c.clearedStage = 2;
@@ -21,9 +21,9 @@ test('300种子城市有三种真实房间/街垒结构，所有门、奖励、�
       assert.ok(canOccupy(p, 10, w.obstacles, w.width, w.height), `${seed}: ${JSON.stringify(p)}`);
       assert.ok(w.navigation.field[Math.floor(p.y / 32) * w.navigation.cols + Math.floor(p.x / 32)] >= 0, `${seed}: 无法到达 ${JSON.stringify(p)}`);
     }
-    Object.assign(w.player, CAMP); w.finish('return'); assert.equal(decodeCampaign(JSON.stringify(w.campaign)).lastSummary!.seed, seed);
+    Object.assign(w.player, CAMP); w.finish('return'); assert.equal(decodeCampaign(JSON.stringify(w.campaign)).lastSummary!.seed, w.layout.seed);
   }
-  assert.equal(shapes.size, 3); assert.equal(events.size, 3); assert.ok(decodeCampaign(JSON.stringify(newCampaign())));
+  assert.ok(shapes.size > 250); assert.equal(events.size, 3); assert.ok(decodeCampaign(JSON.stringify(newCampaign())));
 });
 
 test('可选危险事件最多触发一次、最多16感染者；原短路线仍提供相同奖励与48负重', () => {

@@ -26,11 +26,11 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   test.setTimeout(150000); const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error' || /frame.*not found|missing.*texture/i.test(m.text())) errors.push(m.text()); });
   // 合法已解锁战役夹具；只通过键鼠施工和倍速，诊断接口保持只读。
-  await page.addInitScript(() => localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 2, expeditions: 4, depot: { materials: 100, energy: 40, medkits: 0 }, survivors: ['engineer', 'medic', 'captain', 'ranger', 'brawler', 'guardian', 'gunner'], weapons: ['pistol', 'rifle', 'axe', 'bow'], lastSummary: null, base: null })));
+  await page.addInitScript(() => localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 2, expeditions: 4, depot: { materials: 140, energy: 40, medkits: 0 }, survivors: ['engineer', 'medic', 'captain', 'ranger', 'brawler', 'guardian', 'gunner'], weapons: ['pistol', 'rifle', 'axe', 'bow'], lastSummary: null, base: null })));
   await page.clock.install(); await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
   // install 后时间仍自然流动；暂停后仅用 runFor 推进，CPU/截图耗时不再消耗30秒布防预算。
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000); await page.clock.runFor(100);
-  for (const [code, x, y] of [['Digit2', 832, 352], ['Digit3', 960, 352], ['Digit4', 608, 640], ['Digit4', 864, 640], ['Digit4', 608, 352], ['Digit6', 1024, 576], ['Digit7', 928, 736], ['Digit8', 576, 416], ['Digit9', 1056, 352], ['Digit2', 832, 800]] as const) { await key(page, code); if (y >= 800) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); } await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); if (y >= 800) await key(page, 'KeyC'); }
+  for (const [code, x, y] of [['Digit2', 832, 352], ['Digit3', 960, 352], ['Digit4', 608, 640], ['Digit4', 928, 640], ['Digit4', 608, 352], ['Digit6', 1024, 576], ['Digit7', 928, 736], ['Digit8', 576, 416], ['Digit9', 1056, 352], ['Digit2', 832, 800]] as const) { await key(page, code); if (y >= 800) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); } await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); if (y >= 800) await key(page, 'KeyC'); }
   for (const [code, x, y] of [['Digit3', 448, 352], ['Digit8', 576, 736], ['Digit8', 960, 800], ['Digit6', 544, 640]] as const) {
     await key(page, code); if (y >= 736) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); }
     await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); await key(page, 'KeyC');
@@ -45,7 +45,9 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
     }
     await key(page, 'Escape'); await key(page, 'KeyC');
   }
-  expect((await state(page)).plan.buildings).toHaveLength(32);
+  // 四趟补给夹具补足防空、地面交叉火力与南侧箭塔；仍通过实际施工扣费。
+  for (const [code, x, y] of [['Digit0', 608, 800], ['Digit2', 896, 352], ['Digit2', 640, 736], ['Digit4', 448, 640], ['Digit4', 832, 256], ['Digit4', 960, 256], ['Digit4', 1024, 736]] as const) { await key(page, code); await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); await key(page, 'KeyC'); }
+  expect((await state(page)).plan.buildings).toHaveLength(39);
   expect((await state(page)).plan.soldiers).toHaveLength(8);
   for (let i = 0; i < 8; i++) {
     const s = (await state(page)).plan.soldiers[i], points = [[688, 592], [848, 592], [688, 432], [848, 432], [656, 512], [880, 512], [768, 640], [768, 400]];
@@ -63,7 +65,7 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
     await page.clock.runFor(180); const s = await state(page);
     for (const e of s.enemies) kinds.add(e.kind);
     if (s.charges && s.supportCooldown === 0) {
-      const target = s.enemies.find((e: any) => ['bomber', 'blighter'].includes(e.kind) && e.health < 220 && Math.hypot(e.x - 768, e.y - 512) < 350);
+      const target = s.enemies.find((e: any) => ['tank', 'bomber', 'blighter'].includes(e.kind) && Math.hypot(e.x - 768, e.y - 512) < 350);
       if (target) { await key(page, 'KeyF'); await clickWorld(page, target.x, target.y); }
     }
     if (!capturedHorde && s.enemies.length >= 40) { await page.screenshot({ path: 'artifacts/assault-horde.png' }); capturedHorde = true; }

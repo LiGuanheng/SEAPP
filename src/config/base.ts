@@ -26,6 +26,7 @@ export const BUILDINGS = {
   repair: { name: '维修站', width: 64, height: 64, materials: 7, energy: 3, health: 125, range: 180, stage: 2, tint: 0x94cfb1, description: '支援 · 每3s修复附近其他设施8耐久 · 不修灯塔' },
   flame: { name: '火焰塔', width: 64, height: 64, materials: 8, energy: 3, health: 140, range: 145, stage: 3, tint: 0xe1a06b, description: '仅对地 · 每0.3s范围12伤害 · 克制密集蛛群' },
   sniper: { name: '狙击塔', width: 64, height: 64, materials: 10, energy: 4, health: 85, range: 520, stage: 3, tint: 0xb6b9d4, description: '对空/地 · 115伤害 / 2.4s · 优先Boss · 脆弱' },
+  antiair: { name: '防空导弹塔', width: 64, height: 64, materials: 9, energy: 4, health: 125, range: 430, stage: 2, tint: 0x9ccfe3, description: '仅对空 · 75伤害 / 0.9s · 70范围破片，不攻击地面' },
 } as const;
 export type BuildingKind = keyof typeof BUILDINGS;
 export const TOWER_ATTACKS = {
@@ -33,9 +34,10 @@ export const TOWER_ATTACKS = {
   cannon: { damage: 68, interval: 1.8, speed: 340, splash: 62, projectile: 'shell' },
   arrowtower: { damage: 32, interval: 0.72, speed: 760, splash: 0, projectile: 'arrow' },
   sniper: { damage: 115, interval: 2.4, speed: 1200, splash: 0, projectile: 'bullet' },
+  antiair: { damage: 75, interval: 0.9, speed: 720, splash: 70, projectile: 'flak' },
 } as const;
 export const FIELD_SYSTEMS = { grid: { interval: 0.6, damage: 4, slow: 0.9 }, flame: { interval: 0.3, damage: 12 }, repair: { interval: 3, heal: 8 } } as const;
-export const BUILDING_KEYS = ['barricade', 'turret', 'cannon', 'arrowtower', 'wall', 'grid', 'repair', 'flame', 'sniper'] as const;
+export const BUILDING_KEYS = ['barricade', 'turret', 'cannon', 'arrowtower', 'wall', 'grid', 'repair', 'flame', 'sniper', 'antiair'] as const;
 export const REFITS = {
   flak: { kind: 'turret', name: '双联高射炮', stage: 2, materials: 6, energy: 2, health: 125, range: 340, tint: 0xa8bfa9, description: '仅对空 · 28伤害/0.65秒 · 56范围破片' },
   howitzer: { kind: 'cannon', name: '重型榴弹炮', stage: 3, materials: 10, energy: 4, health: 145, range: 460, tint: 0xc9ae82, description: '仅对地 · 110伤害/3.2秒 · 100范围爆炸' },
@@ -45,7 +47,7 @@ export interface BaseBuilding { id: number; kind: BuildingKind; x: number; y: nu
 export const refitFor = (kind: BuildingKind): RefitKind | undefined => kind === 'turret' ? 'flak' : kind === 'cannon' ? 'howitzer' : undefined;
 export const buildingStats = (b: Pick<BaseBuilding, 'kind' | 'upgrade'>) => b.upgrade ? { ...BUILDINGS[b.kind], ...REFITS[b.upgrade] } : BUILDINGS[b.kind];
 export const saleRefund = (b: Pick<BaseBuilding, 'paid' | 'upgradePaid'>): number => Math.max(1, Math.floor((b.paid.materials + (b.upgradePaid?.materials ?? 0)) / 2));
-export interface Soldier extends Vec { id: number; destination: Vec | null; stance: 'move' | 'hold'; moving: boolean; aim: number; role?: 'rifle' | 'archer' | 'vanguard' | 'guardian' | 'gunner' }
+export interface Soldier extends Vec { id: number; destination: Vec | null; stance: 'move' | 'hold'; moving: boolean; aim: number; role?: 'rifle' | 'archer' | 'vanguard' | 'guardian' | 'gunner' | 'sentinel' | 'striker' }
 export interface BasePlan { version: 1; stage?: StageId; status: 'preparing' | 'ready'; elapsed: number; buildings: BaseBuilding[]; soldiers: Soldier[] }
 export function buildingRect(b: Pick<BaseBuilding, 'kind' | 'x' | 'y' | 'rotation'>): Rect {
   const c = BUILDINGS[b.kind], rotate = b.kind === 'barricade' && b.rotation === 1;
@@ -76,7 +78,7 @@ export function validBasePlan(value: unknown): value is BasePlan {
   }
   ids.clear();
   for (const s of p.soldiers) {
-    if (!s || !validPoint(s) || (s.role !== undefined && !['rifle', 'archer', 'vanguard', 'guardian', 'gunner'].includes(s.role)) || !Number.isSafeInteger(s.id) || s.id < 1 || s.id > p.soldiers.length || ids.has(s.id) || !['move', 'hold'].includes(s.stance) ||
+    if (!s || !validPoint(s) || (s.role !== undefined && !['rifle', 'archer', 'vanguard', 'guardian', 'gunner', 'sentinel', 'striker'].includes(s.role)) || !Number.isSafeInteger(s.id) || s.id < 1 || s.id > p.soldiers.length || ids.has(s.id) || !['move', 'hold'].includes(s.stance) ||
       (s.destination !== null && !validPoint(s.destination)) || typeof s.moving !== 'boolean' || !Number.isFinite(s.aim) ||
       (s.stance === 'hold' && (s.destination !== null || s.moving)) || (s.stance === 'move' && s.destination === null) || (p.status === 'ready' && s.moving) ||
       !canOccupy(s, 11, [...BASE_OBSTACLES, ...p.buildings.map(buildingRect)], BASE_WIDTH, BASE_HEIGHT) ||

@@ -5,6 +5,7 @@ import { BUILDINGS, WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
 import type { CombatWorld } from '../core/world.ts';
 import { CAMP, CAPACITY, ExpeditionWorld, SURVIVOR_PROFILES } from '../core/expedition.ts';
 import { WEAPONS } from '../config/weapons.ts';
+import { DISTRICTS, districtCount } from '../core/exploration-state.ts';
 
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class Hud {
@@ -109,9 +110,9 @@ export class Hud {
     this.caption.setText(`${world.weapon.name} / ${world.weaponId === 'axe' ? '70 像素范围 · 不耗弹药' : '无限备用弹药'}`);
     this.phase.setText(expedition ? `阶段${nextStage(expedition.campaign.clearedStage)} · ${STAGES[nextStage(expedition.campaign.clearedStage)].name} / ${expedition.layout.theme}` : '战斗训练 / 北境旧城');
     this.controls.setText('WASD 移动  SHIFT 冲刺  滚轮缩放  左键攻击  1手枪 2步枪 3斧 4弓  E互动  H治疗  TAB背包  F1指南');
-    this.mission.setText(expedition ? `${Math.ceil(expedition.remaining)}s  /  ${expedition.objective().text}` : '');
+    this.mission.setText(expedition ? `${DISTRICTS[expedition.district]} · ${Math.ceil(expedition.remaining)}s / ${expedition.objective().text}` : '');
     this.cargo.setText(expedition ? `建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　负重 ${expedition.weight}/${CAPACITY}　提灯 ${expedition.lanternLevel}级 / ${expedition.lightRadius}　随队 ${expedition.followers.length}` : '');
-    this.stats.setText(`击杀 ${String(world.kills).padStart(2, '0')}   /   存活 ${Math.floor(world.elapsed / 60)}:${String(Math.floor(world.elapsed % 60)).padStart(2, '0')}   /   在场感染者 ${world.zombies.length}`);
+    this.stats.setText(`击杀 ${String(world.kills).padStart(2, '0')} / 存活 ${Math.floor(world.elapsed / 60)}:${String(Math.floor(world.elapsed % 60)).padStart(2, '0')} / 感染者 ${world.zombies.length}${expedition ? ` / 开放街区 ${districtCount(nextStage(expedition.campaign.clearedStage))}/6 · 旧箱耗尽${expedition.caches.filter(c => c.depleted).length}` : ''}`);
     const reloadProgress = Math.max(0, Math.min(1, 1 - p.reload / world.reloadDuration));
     this.reload.setText(p.reload > 0 ? `正在换弹  ${(100 * reloadProgress).toFixed(0)}%` : '');
     if (p.reload > 0) { g.fillStyle(0x263c3a).fillRect(580, 537, 120, 3); g.fillStyle(0xe6c184).fillRect(580, 537, 120 * reloadProgress, 3); }

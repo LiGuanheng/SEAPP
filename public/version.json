@@ -1,5 +1,7 @@
 {
-  "gameVersion": "0.14.0",
-  "scoreVersion": 3,
-  "campaignStages": 5
+  "gameVersion": "0.15.0",
+  "scoreVersion": 4,
+  "campaignStages": 5,
+  "persistentExploration": true,
+  "heroes": 4
 }

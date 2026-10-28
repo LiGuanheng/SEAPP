@@ -51,7 +51,7 @@ export class NightWorld extends BaseWorld {
   constructor(campaign: Campaign, difficulty: Difficulty = 'normal') {
     super(campaign); super.finish();
     this.checkpoint = cloneCampaign(this.campaign);
-    for (const s of this.plan.soldiers) this.fighters.set(s.id, { health: 90, cooldown: 0, hurt: 0 });
+    for (const s of this.plan.soldiers) this.fighters.set(s.id, { health: this.maxSoldierHealth(s), cooldown: 0, hurt: 0 });
     for (const b of this.plan.buildings) if (BUILDINGS[b.kind].range) this.turrets.set(b.id, { cooldown: 0, aim: -Math.PI / 2 });
     this.charges = this.campaign.weapons.includes('rifle') ? 2 : 1;
     this.enemyNavigation = this.makeEnemyNavigation();
@@ -65,6 +65,7 @@ export class NightWorld extends BaseWorld {
   override get remaining(): number { return Math.max(0, NIGHT_SECONDS - this.elapsed); }
   override turretAim(id: number): number { return this.turrets.get(id)?.aim ?? -Math.PI / 2; }
   override turretRecoil(id: number): number { return this.turrets.get(id)?.recoil ?? 0; }
+  maxSoldierHealth(s: Soldier): number { return s.role === 'sentinel' ? 260 : s.role === 'guardian' ? 120 : s.role === 'gunner' ? 140 : s.role === 'striker' ? 110 : 90; }
   private makeEnemyNavigation(): Navigation {
     const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, this.obstacles, 11); nav.rebuild({ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 }); return nav;
   }
@@ -111,7 +112,7 @@ export class NightWorld extends BaseWorld {
   }
   private hurtSoldier(s: Soldier, amount: number): void {
     const f = this.fighters.get(s.id)!; if (f.health <= 0) return;
-    f.health = Math.max(0, f.health - Math.ceil(amount)); f.hurt = 0.2;
+    f.health = Math.max(0, f.health - Math.ceil(amount * (s.role === 'sentinel' ? 0.55 : 1) - 1e-9)); f.hurt = 0.2;
     if (f.health === 0) { s.destination = null; s.stance = 'hold'; s.moving = false; this.events.push({ type: 'unit-death', ...s }); }
   }
   private hurtBuilding(b: BaseBuilding, amount: number): boolean {
@@ -223,18 +224,19 @@ export class NightWorld extends BaseWorld {
     this.stepSoldiers(dt);
     for (const s of this.livingSoldiers) {
       const state = this.fighters.get(s.id)!; state.cooldown = Math.max(0, state.cooldown - dt); state.hurt = Math.max(0, state.hurt - dt);
-      const melee = s.role === 'vanguard', archer = s.role === 'archer', gunner = s.role === 'gunner', guardian = s.role === 'guardian';
-      const origin = { x: s.x, y: s.y - 16 }, target = this.target(origin, melee ? 72 : archer ? 310 : gunner ? 290 : 260, melee || gunner);
+      const melee = s.role === 'vanguard' || s.role === 'sentinel', archer = s.role === 'archer', gunner = s.role === 'gunner', guardian = s.role === 'guardian', striker = s.role === 'striker';
+      const origin = { x: s.x, y: s.y - 16 }, air = striker ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].flying && distance(origin, e) <= 420 && firstWall(origin, e, BASE_OBSTACLES) === null) : undefined;
+      const target = air ?? this.target(origin, melee ? 80 : striker ? 320 : archer ? 310 : gunner ? 290 : 260, melee || gunner);
       if (target) { s.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (state.cooldown === 0) {
-        if (melee) { this.events.push({ type: 'swing', ...origin, angle: s.aim }); for (const e of this.enemies) if (!INFECTED[e.kind].flying && distance(e, s) < 72 && firstWall(s, e, obstacles) === null) this.damageEnemy(e, 42); }
-        else this.fire(origin, target, gunner ? 55 : guardian ? 10 : archer ? 36 : 18, gunner ? 380 : archer ? 650 : 850, gunner ? 52 : 0, gunner ? 'shell' : archer ? 'arrow' : 'bullet'); state.cooldown = gunner ? 1.2 : guardian ? 0.9 : melee ? 0.7 : archer ? 0.85 : 0.5;
+        if (melee) { this.events.push({ type: 'swing', ...origin, angle: s.aim }); for (const e of this.enemies) if (!INFECTED[e.kind].flying && distance(e, s) < 80 && firstWall(s, e, obstacles) === null) this.damageEnemy(e, s.role === 'sentinel' ? 56 : 42); }
+        else this.fire(origin, target, gunner ? 55 : guardian ? 10 : striker ? 38 : archer ? 36 : 18, gunner ? 380 : archer ? 650 : 850, gunner ? 52 : air ? 38 : 0, gunner ? 'shell' : air ? 'flak' : archer ? 'arrow' : 'bullet'); state.cooldown = gunner ? 1.2 : guardian ? 0.9 : s.role === 'sentinel' ? 0.95 : melee ? 0.7 : striker ? 0.6 : archer ? 0.85 : 0.5;
       } }
     }
-    for (const b of this.plan.buildings) if (b.kind === 'turret' || b.kind === 'cannon' || b.kind === 'arrowtower' || b.kind === 'sniper') {
+    for (const b of this.plan.buildings) if (b.kind === 'turret' || b.kind === 'cannon' || b.kind === 'arrowtower' || b.kind === 'sniper' || b.kind === 'antiair') {
       const config = b.upgrade === 'flak' ? { damage: 28, interval: 0.65, speed: 1000, splash: 56, projectile: 'flak' as const } : b.upgrade === 'howitzer' ? { damage: 110, interval: 3.2, speed: 340, splash: 100, projectile: 'shell' as const } : TOWER_ATTACKS[b.kind];
       const turret = this.turrets.get(b.id)!, origin = { x: b.x + 32, y: b.y + 12 };
       const priority = b.kind === 'sniper' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].boss && distance(e, origin) <= BUILDINGS[b.kind].range && firstWall(origin, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null) : undefined;
-      const target = b.upgrade === 'flak' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].flying && distance(e, origin) <= buildingStats(b).range && firstWall(origin, e, BASE_OBSTACLES) === null) : priority ?? this.target(origin, buildingStats(b).range, b.kind === 'cannon');
+      const target = b.upgrade === 'flak' || b.kind === 'antiair' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].flying && distance(e, origin) <= buildingStats(b).range && firstWall(origin, e, BASE_OBSTACLES) === null) : priority ?? this.target(origin, buildingStats(b).range, b.kind === 'cannon');
       turret.cooldown = Math.max(0, turret.cooldown - dt);
       turret.recoil = Math.max(0, (turret.recoil ?? 0) - dt * 8);
       if (target) { turret.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (turret.cooldown === 0) { this.fire(origin, target, config.damage, config.speed, config.splash, config.projectile); turret.cooldown = config.interval; turret.recoil = 1; } }
@@ -262,7 +264,7 @@ export class NightWorld extends BaseWorld {
     for (const bullet of this.bullets) {
       const end = { x: bullet.x + bullet.vx * dt, y: bullet.y + bullet.vy * dt };
       let closest = firstWall(bullet, end, BASE_OBSTACLES) ?? Infinity, victim: NightEnemy | undefined;
-      for (const e of this.enemyIndex.near(bullet, 50 + Math.hypot(bullet.vx, bullet.vy) * dt)) if (e.health > 0 && (bullet.projectile !== 'shell' || !INFECTED[e.kind].flying) && (bullet.projectile !== 'flak' || INFECTED[e.kind].flying)) { const t = segmentCircle(bullet, end, { x: e.x, y: e.y - 16 }, INFECTED[e.kind].boss ? 24 : e.kind === 'brute' ? 20 : 14); if (t !== null && t < closest) { closest = t; victim = e; } }
+      for (const e of this.enemyIndex.near(bullet, 50 + Math.hypot(bullet.vx, bullet.vy) * dt)) if (e.health > 0 && (bullet.projectile !== 'shell' || !INFECTED[e.kind].flying) && (bullet.projectile !== 'flak' || INFECTED[e.kind].flying)) { const t = segmentCircle(bullet, end, { x: e.x, y: e.y - 16 }, INFECTED[e.kind].boss ? 24 : e.kind === 'brute' || e.kind === 'tank' ? 22 : 14); if (t !== null && t < closest) { closest = t; victim = e; } }
       if (closest !== Infinity) {
         bullet.x += (end.x - bullet.x) * closest; bullet.y += (end.y - bullet.y) * closest; bullet.life = 0;
         if (bullet.splash) { for (const e of this.enemies) if ((bullet.projectile === 'flak' ? INFECTED[e.kind].flying : !INFECTED[e.kind].flying) && distance({ x: e.x, y: e.y - 16 }, bullet) <= bullet.splash && firstWall(bullet, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null) this.damageEnemy(e, bullet.damage); this.events.push({ type: 'explosion', x: bullet.x, y: bullet.y, projectile: bullet.projectile }); }
@@ -291,7 +293,7 @@ export class NightWorld extends BaseWorld {
       const target = soldier ?? (building ? edgePoint(e, buildingRect(building)) : lampPoint);
       const inRange = distance(e, target) <= (type.flying ? 55 : soldier ? 27 : 24);
       let direction = type.flying || soldier || building ? normalized(target.x - e.x, target.y - e.y) : this.enemyNavigation.direction(e, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
-      if (!type.flying && !soldier && !building && (Math.abs(direction.x) + Math.abs(direction.y) < 0.01 || (e.stalled ?? 0) > 0.7 || e.kind === 'brute')) direction = this.siegeNavigation.direction(e, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
+      if (!type.flying && !soldier && !building && (Math.abs(direction.x) + Math.abs(direction.y) < 0.01 || (e.stalled ?? 0) > 0.7 || e.kind === 'brute' || e.kind === 'tank')) direction = this.siegeNavigation.direction(e, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
       e.aim = Math.atan2(direction.y, direction.x); e.moving = !inRange;
       if (!inRange) {
         const x = e.x, y = e.y;
@@ -324,13 +326,13 @@ export class NightWorld extends BaseWorld {
     if (this.heroHealTimer <= 0) {
       this.heroHealTimer = 6;
       for (const hero of this.livingSoldiers.filter(s => s.role === 'guardian')) for (const s of this.livingSoldiers) if (distance(hero, s) <= 180) {
-        const f = this.fighters.get(s.id)!; if (f.health < 90) { f.health = Math.min(90, f.health + 10); this.events.push({ type: 'heal', ...s }); }
+        const f = this.fighters.get(s.id)!; if (f.health < this.maxSoldierHealth(s)) { f.health = Math.min(this.maxSoldierHealth(s), f.health + 10); this.events.push({ type: 'heal', ...s }); }
       }
     }
     this.healTimer -= dt;
     if (this.healTimer <= 0 && this.campaign.survivors.includes('medic')) {
-      const s = this.livingSoldiers.filter(s => this.fighters.get(s.id)!.health < 90).sort((a, b) => this.fighters.get(a.id)!.health - this.fighters.get(b.id)!.health)[0];
-      if (s) { const f = this.fighters.get(s.id)!; f.health = Math.min(90, f.health + 8); this.events.push({ type: 'heal', ...s }); }
+      const s = this.livingSoldiers.filter(s => this.fighters.get(s.id)!.health < this.maxSoldierHealth(s)).sort((a, b) => this.fighters.get(a.id)!.health - this.fighters.get(b.id)!.health)[0];
+      if (s) { const f = this.fighters.get(s.id)!; f.health = Math.min(this.maxSoldierHealth(s), f.health + 8); this.events.push({ type: 'heal', ...s }); }
       this.healTimer = 8;
     }
     if (this.remaining < 1e-6) this.end('victory');

@@ -11,3 +11,5 @@ This does not relicense third-party assets or the game source code.
 
 Progression expansion: weapons/grid.svg, repair.svg, flame.svg, sniper.svg;
 enemies/blighter.svg, bomber.svg. Original grid-vector art, CC0 1.0, 2026-10-25.
+
+Persistent exploration update (2026-10-27): heroes/guardian.svg, gunner.svg, sentinel.svg, striker.svg; weapons/antiair.svg; enemies/tank.svg. Original pixel-vector sprite artwork, CC0 1.0. Reproducible using scripts/generate-v015-art.mjs.

@@ -114,7 +114,7 @@ export class NightView {
     for (const e of world.enemies) {
       let v = this.enemies.get(e.id);
       if (!v) {
-        const config = INFECTED[e.kind]; v = { sprite: this.scene.add.sprite(e.x, e.y, config.texture, 1).setOrigin(0.5, config.texture === 'zombie' || config.texture === 'zombie-alt' ? 0.95 : 0.82).setScale(config.scale), shadow: this.scene.add.ellipse(e.x, e.y, config.boss ? 62 : 28, config.boss ? 22 : 11, 0x020c13, 0.5) };
+        const config = INFECTED[e.kind], large = config.boss || e.kind === 'tank'; v = { sprite: this.scene.add.sprite(e.x, e.y, config.texture, 1).setOrigin(0.5, config.texture === 'zombie' || config.texture === 'zombie-alt' ? 0.95 : 0.82).setScale(config.scale), shadow: this.scene.add.ellipse(e.x, e.y, large ? 62 : 28, large ? 22 : 11, 0x020c13, 0.5) };
         this.root.add([v.sprite, v.shadow]); this.enemies.set(e.id, v);
       }
       this.syncEnemy(v, e, paused || !world.commanding);
@@ -122,10 +122,10 @@ export class NightView {
       // Distant silhouettes remain real enemies: no decorative fake horde or target reveal.
       v.sprite.setVisible(true);
       if (!visible) v.sprite.setDepth(7100 + e.y / BASE_HEIGHT).setTintFill(0x596360).setAlpha(world.status === 'victory' ? 0.2 * (1 - dawn) : 0.48);
-      const max = e.maxHealth ?? INFECTED[e.kind].health, boss = INFECTED[e.kind].boss, width = boss ? 70 : 32, y = e.y - (boss ? 108 : 60);
+      const max = e.maxHealth ?? INFECTED[e.kind].health, boss = INFECTED[e.kind].boss, width = boss ? 70 : e.kind === 'tank' ? 56 : 32, y = e.y - (e.kind === 'tank' ? 118 : boss ? 108 : 60);
       if (visible && boss) g.lineStyle(2, 0xd6a776, 0.7).strokeEllipse(e.x, e.y + 2, 72, 26);
       if (visible && (e.slowed ?? 0) > 0) g.lineStyle(2, 0x80c9d0, 0.8).strokeEllipse(e.x, e.y + 3, 32, 12);
-      if (visible && (e.health < max || e.kind === 'brute' || boss)) g.fillStyle(0x2c3833).fillRect(e.x - width / 2, y, width, 4).fillStyle(boss ? 0xd28188 : 0xb7957d).fillRect(e.x - width / 2, y, width * e.health / max, 4);
+      if (visible && (e.health < max || e.kind === 'brute' || e.kind === 'tank' || boss)) g.fillStyle(0x2c3833).fillRect(e.x - width / 2, y, width, 4).fillStyle(boss ? 0xd28188 : e.kind === 'tank' ? 0xabc1a1 : 0xb7957d).fillRect(e.x - width / 2, y, width * e.health / max, 4);
       if (e.windup && world.canSee(e.windup.point)) {
         const w = e.windup, p = w.point, t = Math.max(0, w.remaining / w.duration), color = w.kind === 'slam' || w.kind === 'detonate' ? 0xf1a16f : w.kind === 'poison' ? 0xb1d077 : w.kind === 'web' ? 0xd5b6d4 : 0xb18feb;
         g.fillStyle(color, 0.09).fillCircle(p.x, p.y, w.radius).lineStyle(2, color, 0.9).strokeCircle(p.x, p.y, w.radius);
@@ -139,7 +139,7 @@ export class NightView {
       for (let r = 22; r < h.radius; r += 22) g.strokeCircle(h.x, h.y, r);
       for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + (h.kind === 'storm' ? this.age * 2 : 0); g.lineBetween(h.x, h.y, h.x + Math.cos(a) * h.radius, h.y + Math.sin(a) * h.radius); }
     }
-    for (const s of world.livingSoldiers) { const f = world.fighters.get(s.id)!; if (f.health < 90) g.fillStyle(0x34473c).fillRect(s.x - 16, s.y - 63, 32, 3).fillStyle(f.hurt > 0 ? 0xe5a38b : 0xb4d29f).fillRect(s.x - 16, s.y - 63, 32 * f.health / 90, 3); }
+    for (const s of world.livingSoldiers) { const f = world.fighters.get(s.id)!, max = world.maxSoldierHealth(s), y = s.role === 'guardian' || s.role === 'gunner' || s.role === 'sentinel' || s.role === 'striker' ? s.y - 77 : s.y - 63; if (f.health < max) g.fillStyle(0x34473c).fillRect(s.x - 16, y, 32, 3).fillStyle(f.hurt > 0 ? 0xe5a38b : 0xb4d29f).fillRect(s.x - 16, y, 32 * f.health / max, 3); }
     for (const b of world.plan.buildings) if (b.health < buildingStats(b).health) { const r = buildingRect(b); g.fillStyle(0x31423e).fillRect(b.x, b.y - 20, r.width, 4).fillStyle(0xd8b478).fillRect(b.x, b.y - 20, r.width * b.health / buildingStats(b).health, 4); }
     const bulletIds = new Set(world.bullets.map(b => b.id));
     for (const [id, image] of this.bullets) if (!bulletIds.has(id)) { image.destroy(); this.bullets.delete(id); }

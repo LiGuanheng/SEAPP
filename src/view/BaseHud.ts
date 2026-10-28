@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BUILDINGS, BUILDING_KEYS, saleRefund, buildingStats, refitFor, REFITS, type BuildingKind } from '../config/base.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { STAGES, STAGE_COUNT } from '../config/progression.ts';
+import { HERO_IDS, SURVIVOR_PROFILES } from '../config/survivors.ts';
 
 const font = 'Consolas, Microsoft YaHei, sans-serif';
 export class BaseHud {
@@ -11,6 +12,7 @@ export class BaseHud {
   private selection: Phaser.GameObjects.Text;
   private timer: Phaser.GameObjects.Text;
   private storage: Phaser.GameObjects.Text;
+  private heroes: Phaser.GameObjects.Text;
   private costs = new Map<BuildingKind, Phaser.GameObjects.Text>();
   private mode: Phaser.GameObjects.Text;
   private toast: Phaser.GameObjects.Text;
@@ -41,6 +43,7 @@ export class BaseHud {
     this.info = text(440, 23, '', 12, '#c9d1b3');
     this.timer = text(440, 51, '', 12, '#cfbb8d');
     this.storage = text(440, 78, '', 10, '#e4a689');
+    this.heroes = text(26, 78, '', 10, '#bcdac8');
     button(1198, 27, 110, '暂停 [P]', pause);
     button(1198, 70, 110, '再次探索', explore);
     this.selection = text(26, 609, '', 13, '#e5d09a');
@@ -53,8 +56,8 @@ export class BaseHud {
     this.refitLabel = scene.add.text(0, 0, '', { fontFamily: font, fontSize: '11px', color: '#e0d4a8' }).setOrigin(0.5);
     this.refit = scene.add.container(880, 610, [refitBg, this.refitLabel]).setVisible(false); this.root.add(this.refit);
     BUILDING_KEYS.forEach((kind, i) => {
-      const x = 65 + i * 112;
-      button(x, 665, 106, `[${i + 1}] ${BUILDINGS[kind].name}`, () => build(kind));
+      const x = 59 + i * 98;
+      button(x, 665, 92, `[${i === 9 ? 0 : i + 1}] ${BUILDINGS[kind].name}`, () => build(kind));
       this.costs.set(kind, text(x, 691, '', 10, '#a9b8a0').setOrigin(0.5));
     });
     button(1128, 641, 238, '完成布防 [Enter]', finish);
@@ -79,6 +82,7 @@ export class BaseHud {
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);
+    const heroes = HERO_IDS.filter(id => c.survivors.includes(id)); this.heroes.setText(`英雄 ${heroes.length}/4${heroes.length ? ' · ' + heroes.map(id => SURVIVOR_PROFILES[id].name).join(' / ') : ' · 阶段2起逐关解锁搜救'}`);
     this.info.setText(`营地库存　建材 ${c.depot.materials}　电力 ${c.depot.energy}　急救包 ${c.depot.medkits}`);
     this.timer.setText(`阶段 ${world.stage}/${STAGE_COUNT} ${STAGES[world.stage].name} · 布防 ${Math.ceil(world.remaining)}s · 设施 ${world.plan.buildings.length} · 守备 ${world.plan.soldiers.length}`);
     this.selection.setText(b ? `${buildingStats(b).name} · 耐久 ${Math.ceil(b.health)}/${buildingStats(b).health} · 射程 ${buildingStats(b).range}${b.upgrade ? ' · ' + REFITS[b.upgrade].description : ' · 出售返建材50%，电力不返'}` : buildKind ? `${BUILDINGS[buildKind].name} · ${BUILDINGS[buildKind].description} · 耐久${BUILDINGS[buildKind].health} / 射程${BUILDINGS[buildKind].range}` : ids.size ? `已选 ${ids.size} 名士兵 · 右键移动 / G驻守 · 英雄：重炮手慢速对地，医师180范围治疗` : '5拖建城墙 · 选中机枪/加农炮按U改装（阶段2/3） · X出售 · 留出对空火力');

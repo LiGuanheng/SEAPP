@@ -5,6 +5,7 @@ import { Navigation } from './navigation.ts';
 import type { Rect, Vec } from './types.ts';
 import type { ActionResult } from './expedition.ts';
 import { nextStage, STAGES, type StageId } from '../config/progression.ts';
+import { HERO_IDS, isHero } from '../config/survivors.ts';
 
 export class BaseWorld {
   readonly campaign: Campaign;
@@ -20,16 +21,24 @@ export class BaseWorld {
     ] };
     this.plan.stage ??= nextStage(campaign.clearedStage);
     const recruit = (role: NonNullable<Soldier['role']>) => {
+      if (this.plan.soldiers.length >= 8) {
+        // 保持八人编制与旧存档/计分兼容，英雄优先替换一名普通步枪手。
+        if (isHero(role)) { const reserve = [...this.plan.soldiers].reverse().find(s => !s.role || s.role === 'rifle'); if (reserve) reserve.role = role; }
+        return;
+      }
       const id = this.plan.soldiers.length + 1;
       const candidate = { id, x: 880, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold' as const, moving: false, role };
       // 旧阵地可能已占用新兵集结点；寻找真实可通行位置。
-      const free = (p: Vec) => canOccupy(p, 13, this.obstacles, BASE_WIDTH, BASE_HEIGHT) && this.plan.soldiers.every(s => distance(s, p) > 28);
-      if (!free(candidate)) for (let y = 592, found = false; y <= 752 && !found; y += 32) for (let x = 336; x <= 1200; x += 32) if (free({ x, y })) { candidate.x = x; candidate.y = y; found = true; break; }
+      const free = (p: Vec) => canOccupy(p, 13, this.obstacles, BASE_WIDTH, BASE_HEIGHT) && this.plan.soldiers.every(s => distance(s, p) > (isHero(role) || isHero(s.role) ? 48 : 28));
+      if (!free(candidate)) for (let radius = 32, found = false; radius <= 320 && !found; radius += 32) for (let n = 0; n < 8; n++) {
+        const p = { x: 880 + Math.cos(n * Math.PI / 4) * radius, y: 624 + Math.sin(n * Math.PI / 4) * radius };
+        if (free(p)) { candidate.x = p.x; candidate.y = p.y; found = true; break; }
+      }
       if (this.plan.soldiers.length < 8) this.plan.soldiers.push(candidate);
     };
     if (this.campaign.survivors.includes('captain') && this.plan.soldiers.filter(s => !s.role || s.role === 'rifle').length < 4) recruit('rifle');
     for (const [profile, role] of [['ranger', 'archer'], ['brawler', 'vanguard']] as const) if (this.campaign.survivors.includes(profile) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
-    for (const role of ['guardian', 'gunner'] as const) if (this.campaign.survivors.includes(role) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
+    for (const role of HERO_IDS) if (this.campaign.survivors.includes(role) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
     this.campaign.base = this.plan;
     this.nextId = Math.max(0, ...this.plan.buildings.map(b => b.id)) + 1;
     this.rebuildNavigation();

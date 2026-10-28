@@ -3,6 +3,7 @@ import { validBasePlan, type BasePlan } from '../config/base.ts';
 import type { NightResult } from './night-world.ts';
 import { SURVIVOR_IDS } from '../config/survivors.ts';
 import { STAGE_COUNT, validStage } from '../config/progression.ts';
+import { validExplorationState, type ExplorationState } from './exploration-state.ts';
 
 export interface Cargo { materials: number; energy: number; medkits: number }
 export interface ExpeditionSummary {
@@ -17,6 +18,7 @@ export interface Campaign {
   nightsWon?: number; lastNight?: NightResult | null;
   lanternLevel?: number;
   clearedStage?: number;
+  exploration?: ExplorationState;
 }
 export const SAVE_KEY = 'last-light.campaign.v2';
 export const emptyCargo = (): Cargo => ({ materials: 0, energy: 0, medkits: 0 });
@@ -33,6 +35,7 @@ export function decodeCampaign(raw: string | null): Campaign {
   if (c.version !== 2 || !count(c.expeditions) || !cargoValid(c.depot) ||
       !idsValid(c.survivors, SURVIVOR_IDS) || !idsValid(c.weapons, ['pistol', 'rifle', 'axe', 'bow']) || !c.weapons.includes('pistol')) throw new Error('存档结构不匹配');
   const s = c.lastSummary;
+  if (c.exploration !== undefined && !validExplorationState(c.exploration)) throw new Error('探索世界记录无效');
   if (s !== null && (!s || !['return', 'sunset'].includes(s.reason) || !Number.isFinite(s.duration) || s.duration < 0 || s.duration > 90.1 ||
     !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || (s.seed !== undefined && (!Number.isInteger(s.seed) || s.seed < 0 || s.seed > 4294967295)) || (s.specialistBonus !== undefined && s.specialistBonus !== 3) || !cargoValid(s.cargo) || !idsValid(s.rescued, SURVIVOR_IDS))) throw new Error('结算记录无效');
   if (c.base !== undefined && c.base !== null && !validBasePlan(c.base)) throw new Error('基地布防存档无效');

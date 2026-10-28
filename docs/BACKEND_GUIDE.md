@@ -1,20 +1,20 @@
 # 《最后一盏灯》后端、源码学习与答辩指南
 
-版本：v0.14.0；当前玩法、五阶段、三档难度和计时以 [v0.14说明](21-v0.14-game.md) 为准。游戏先发布到GitHub Pages，API/数据库按用户选择稍后配置。验收见 [BACKEND_VALIDATION.md](BACKEND_VALIDATION.md)，后端部署见 [BACKEND_DEPLOYMENT.md](BACKEND_DEPLOYMENT.md)，六天安排见 [BACKEND_STUDY_PLAN.md](BACKEND_STUDY_PLAN.md)。
+版本：v0.15.0、评分版本4；持续探索、四英雄与新单位见 [v0.15说明](22-v0.15-world.md)，五阶段、三档难度和计时见 [v0.14说明](21-v0.14-game.md)。后端增加004版本迁移。游戏先发布到GitHub Pages，API/数据库按用户选择稍后配置。验收见 [BACKEND_VALIDATION.md](BACKEND_VALIDATION.md)，后端部署见 [BACKEND_DEPLOYMENT.md](BACKEND_DEPLOYMENT.md)，六天安排见 [BACKEND_STUDY_PLAN.md](BACKEND_STUDY_PLAN.md)。
 
 ## 1. 先认识这个游戏与本轮边界
 
 审查时工作区干净，本地 v0.11 已有 Phaser 实时探索、90 秒白天、30 秒布防、120 秒夜战、三阶段成长、Boss、建造、炮塔改装、普通/困难、1–3 倍速、暂停与入夜检查点。远程 `HEAD` 查询仍指向旧的 `codex/expedition-stage-2`（`baa1804`），所以不能直接 clone 默认分支作为最新版本。
 
-游戏不是无限生存榜。实际阶段固定为：余烬初守、雾潮围城、长夜决战。每夜持续到模拟第 120 秒且灯塔存活即胜利；同一步灯塔归零优先失败。前两夜胜利可直接进入下一阶段布防或选择探索；阶段5胜利、任意死亡或主动结束均进入本局成绩。
+游戏不是无限生存榜。实际为五阶段战役：余烬初守、雾潮围城、腐羽侵袭、熔潮突围、破晓终战。每夜持续到模拟第120秒且灯塔存活即胜利；同一步灯塔归零优先失败。前四夜胜利可直接进入下一阶段布防或选择探索；阶段5胜利、任意死亡或主动结束均进入本局成绩。
 
-本轮增加一个匿名双排行榜：极速榜按实际用时升序、同时间按得分降序；得分榜按分数降序、同分按实际用时升序。两者都按普通/困难隔离，默认前 20 条。完全并列时按提交时间、UUID 排序，显示稳定的顺序名次，不合并名次。同一昵称可以有多条独立战役成绩。
+匿名双排行榜：极速榜按游戏总用时升序、同时间按得分降序；得分榜按分数降序、同分按游戏总用时升序。均按简单/普通/困难隔离，默认前20条。实际活动用时仅作末级并列排序，再按提交时间、UUID稳定排序。同一昵称可以有多条独立战役成绩。
 
 ### 普通营地和排名战役
 
 - 原入口继续读取 `last-light.campaign.v2`，保留营地存档。已结算的历史阶段不会补记到新会话；缺少同一会话五次首胜时只能结算挑战成绩。
 - 底部“排行榜”内可开始普通或困难排名战役（`?ranked=1&difficulty=normal`）。从空营地开始，阶段推进和资源规则与原游戏相同。
-- 必须在同一页面会话依次完成三个阶段首胜。死亡终止该局并结算挑战成绩；重复已胜阶段不追加得分。
+- 必须依次完成五个阶段首胜。死亡终止该局并结算挑战成绩；重复已胜阶段不追加得分。主菜单继续/阶段重开恢复阶段起点的战役与计分检查点。
 - 排名战役的营地快照单独写 `last-light.ranked.campaign.v1`，用于本地留存；**当前不提供该快照续接排名资格，刷新/离开后重新开局**。这样避免把原有入夜前存档误当作完整计时存档。普通营地仍按原规则续玩。
 - `mode=combat/base/night`练习入口只能进入挑战榜，不再提供课堂演示入口或演示分榜。修改浏览器数据仍能伪造成绩，这些机制只是减少正常使用中的误提交。
 - 最终成绩、第一次提交的固定载荷和提交结果保存在 `last-light.pending-score.v1`；刷新后可从“本局成绩”重新提交。只保留最近一场结果，开始新战役前建议先处理上一场成绩。存储不可用时只能在当前页面重试。
@@ -52,7 +52,7 @@ SEAPP/
       night-world.ts              夜战、Boss、胜负和首胜奖励
       campaign.ts                 原 v2 营地存档的校验和读写
     + scoring.ts                  前后端共用的评分、昵称规则和接口类型
-    + ranking.ts                  单调时钟、三阶段成绩累积
+    + ranking.ts                  单调时钟、五阶段成绩累积
     scenes/
       BootScene.ts                素材加载并选择序章/游戏/训练入口
     ~ CombatScene.ts              城市输入与暂停，接入实际计时
@@ -120,8 +120,9 @@ SEAPP/
 | 指挥守卫 | `src/core/base-world.ts` | `move/hold/stepSoldiers` | 选兵/右键 → 路径 → 行军或驻守 |
 | 资源结算 | `src/core/expedition.ts` | `interact`、私有 `finish` | 回营或黄昏 → 入库、营救、提灯升级 |
 | 阶段通关判定 | `src/core/night-world.ts` | `step`、私有 `end`、`resultCampaign` | 先检查灯塔归零，再检查 120 秒；首胜推进 `clearedStage` |
-| 完整战役判定 | `src/core/ranking.ts`、`src/scenes/BaseScene.ts` | `RankedRun.finishNight`、`BaseScene.persist` | 每次夜战结算 → 按 1/2/3 顺序记录首胜 → 最终结果 |
-| 通关时间 | `src/core/ranking.ts`、`src/services/game-session.ts` | `ActivePlayClock.update/read`、`updateRun` | Scene 活动/暂停/退出事件 → `performance.now()` 差值 |
+| 完整战役判定 | `src/core/ranking.ts`、`src/scenes/BaseScene.ts` | `RankedRun.finishNight`、`BaseScene.persist` | 每次夜战结算 → 按1至5顺序记录首胜 → 最终结果 |
+| 通关时间 | `src/core/ranking.ts`、`src/services/game-session.ts` | `advanceRun`、`RankedRun.advancePhase` | 累计探索、布防、守夜；实际活动时钟另记 |
+| 持续探索 | `src/core/exploration-state.ts`、`src/core/expedition.ts` | `chooseDistrict`、`districtSeed`、`finish` | 选街区 → 固定布局/过滤旧发现 → 成功返营提交记录 |
 | 综合分数 | `src/core/scoring.ts` | `calculateScore`、`SCORE_RULES` | 前端展示 + 后端 `submissionSchema` 重算同一个函数 |
 | 本地存档 | `src/core/campaign.ts`、`src/services/game-session.ts` | `decodeCampaign/loadCampaign/saveCampaign`、`loadGameCampaign/saveGameCampaign` | 普通营地沿用 v2；排名另存快照 |
 | 昵称输入 | `src/view/LeaderboardPanel.ts`、`src/core/scoring.ts` | `renderResult`、`normalizeNickname/validNickname` | DOM input → NFKC 归一化 → 本地保存与提交 |
@@ -146,7 +147,7 @@ P/Esc、背包、F1 指南、排行榜、失焦和隐藏页面都会停止活动
 
 死亡立即冻结成绩，进入新排名战役新建UUID和空时钟。时长上限24小时；异常数据拒绝提交。主动结算、失败和练习会话也生成成绩，并按范围隔离。
 
-### 评分公式（版本 3）
+### 评分公式（版本4，公式沿用版本3）
 
 完整通关取五个阶段首胜；失败和主动结束也可取部分阶段与当前未通过阶段的击杀，探索成绩单独累计。设`K`为该阶段总击杀（含Boss），`B`为Boss击杀，`H`为灯塔耐久，`S`为生还守卫：
 
@@ -184,8 +185,8 @@ API要求三段时间之和精确等于游戏总时长，完整通关必须记�
 
 | 接口 | 参数 | 成功结果 |
 | --- | --- | --- |
-| GET `/api/health` | 无 | 200 `{status:"ok",database:"ready",scoreVersion:3}`；真实查询成绩表，不只检查进程 |
-| GET `/api/leaderboard` | `board=speed/score`、`difficulty=easy/normal/hard`、`scope=clear/challenge/demo`、`limit=1..20` | 200 `{board,difficulty,scope,scoreVersion,entries:[...]}`；speed仅支持clear |
+| GET `/api/health` | 无 | 200 `{status:"ok",database:"ready",scoreVersion:4}`；真实查询成绩表，不只检查进程 |
+| GET `/api/leaderboard` | `board=speed/score`、`difficulty=easy/normal/hard`、`scope=clear/challenge`、`limit=1..20` | 200 `{board,difficulty,scope,scoreVersion,entries:[...]}`；speed仅支持clear |
 | POST `/api/scores` | 下方 JSON | 201 或幂等重放 200，`{entry,duplicate}` |
 
 其他状态：400 输入错误；403 不允许的 Origin；404 路由不存在；409 战役载荷冲突；413 请求体过大；415 非支持的媒体类型；429 限流并带 Retry-After；503 数据库/服务暂不可用。错误结构是 `{error:{code,message,fields?}}`，不返回 SQL、连接串或密码。
@@ -206,8 +207,8 @@ API要求三段时间之和精确等于游戏总时长，完整通关必须记�
   "phaseTimesMs": {"day":150000,"base":150000,"night":600000},
   "score": 26520,
   "maxSpeed": 3,
-  "scoreVersion": 3,
-  "gameVersion": "0.14.0",
+  "scoreVersion": 4,
+  "gameVersion": "0.15.0",
   "stages": [
     {"stage":1,"kills":50,"bossKills":1,"lampHealth":300,"soldiers":3},
     {"stage":2,"kills":100,"bossKills":1,"lampHealth":300,"soldiers":3},
@@ -380,11 +381,11 @@ ROLLBACK;
 1. **程序是什么架构？** 浏览器运行 Phaser 游戏，单独的 Fastify 后端提供 JSON API，PostgreSQL 存成绩。前后端通过 HTTP 分离，断网仍能玩单机。
 2. **为什么不直接用 Pages 存排行榜？** Pages 只发静态文件，没有可长期写入的数据库服务。浏览器本地存档也只属于当前电脑，不能成为大家共享的榜单。
 3. **怎样定位角色移动代码？** CombatScene 的 inputState 读取键鼠，把方向交给 CombatWorld.step，后者处理移动与碰撞；画面再读取模型位置。
-4. **哪里判断胜负？** NightWorld.step 先检查灯塔是否归零，再检查是否到 120 秒。RankedRun.finishNight 另外要求依次获得三个阶段首胜，才算完整上榜战役。
-5. **为什么不用生存天数排名？** 这个版本固定三个阶段，完成的人天数相同。改用实际用时和综合分数更有区分度。
+4. **哪里判断胜负？** NightWorld.step先检查灯塔是否归零，再检查是否到120秒。RankedRun.finishNight另外要求依次获得五个阶段首胜，才算完整上榜战役。
+5. **为什么不用生存天数排名？** 固定五阶段，完成的人天数相同。使用探索、布防与守夜总用时和综合分数区分；布防守夜固定，所以探索效率影响主要用时。
 6. **暂停时计时怎么办？** 场景暂停会调用 updateRun(false)，活动时钟停止；恢复从 performance.now 的新时间点继续。不会把背包、指南、失焦或结算等待算进去。
-7. **为什么又加了一个计时器？** 原 elapsed 是受倍速影响的模拟秒。排行榜要记录实际活动时间，所以独立使用单调时钟，两者用途不同。
-8. **分数怎么算，能无限刷吗？** 完整通关奖励加五次首胜的击杀、Boss、灯塔、守卫和效率。击杀有每阶段上限，未通过阶段只计击杀，死亡冻结成绩；完整、挑战和演示分榜。
+7. **为什么又加了一个计时器？** 主要用时累计模拟推进量，倍速仍完整计入每夜120秒。另用单调时钟记录实际活动用时，作为附加信息和末级并列排序。
+8. **分数怎么算，能无限刷吗？** 完整通关奖励加五次首胜的击杀、Boss、灯塔、守卫和效率。击杀有每阶段上限，未通过阶段只计击杀，死亡冻结成绩；完整与挑战分榜，已移除演示分榜。
 9. **成绩怎样到数据库？** submitScore 用 fetch 发 JSON，app.ts 的 POST 路由校验，再由 db.ts 通过 pg 执行带占位符的 INSERT。
 10. **为什么不要求注册？** 本期只做简单排行榜，昵称是公开显示名称，不是可靠身份。同名可以共存，也没有找回账号功能。
 11. **超时后再点会写两条吗？** 同一战役重用同一 UUID，数据库主键只允许一条。同内容重放返回成功，修改内容则返回 409。

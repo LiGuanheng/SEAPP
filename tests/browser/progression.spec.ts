@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures.ts';
+import { Navigation } from '../../src/core/navigation.ts';
 
 const state = (page: Page): Promise<any> => page.evaluate(() => ((window as any).__nightLight ?? (window as any).__baseLight ?? (window as any).__lastLight).snapshot());
 async function key(page: Page, code: string) { await page.keyboard.press(code); await page.clock.runFor(60); }
@@ -7,11 +8,13 @@ async function click(page: Page, x: number, y: number, world = false) {
   const box = (await page.locator('canvas').boundingBox())!; await page.mouse.click(box.x + x / 1280 * box.width, box.y + y / 720 * box.height); await page.clock.runFor(80);
 }
 async function walk(page: Page, x: number, y: number) {
-  for (let i = 0; i < 80; i++) {
+  const first = await state(page), goal = { x, y }, nav = new Navigation(2048, 1408, 32, first.expedition.layout.obstacles, 12); nav.rebuild(goal);
+  for (let i = 0; i < 350; i++) {
     const s = await state(page), p = s.player, dx = x - p.x, dy = y - p.y;
-    if (Math.hypot(dx, dy) < 7) return;
-    const code = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'KeyD' : 'KeyA' : dy > 0 ? 'KeyS' : 'KeyW';
-    await page.keyboard.down(code); await page.clock.runFor(Math.min(150, Math.max(20, Math.max(Math.abs(dx), Math.abs(dy)) / 168 * 1000))); await page.keyboard.up(code);
+    if (s.status !== 'playing') throw new Error(`探索在抵达目标前结束: ${s.status}`);
+    if (Math.hypot(dx, dy) < 25) return;
+    const d = nav.direction(p, goal), keys = [Math.abs(d.x) > .1 ? d.x > 0 ? 'KeyD' : 'KeyA' : '', Math.abs(d.y) > .1 ? d.y > 0 ? 'KeyS' : 'KeyW' : ''].filter(Boolean);
+    for (const code of keys) await page.keyboard.down(code); await page.clock.runFor(100); for (const code of keys) await page.keyboard.up(code);
     const z = s.zombies.filter((z: any) => s.expedition.vision.visibleEnemies.includes(z.id)).sort((a: any, b: any) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
     if (z) { const box = (await page.locator('canvas').boundingBox())!; await page.mouse.move(box.x + (z.x - s.camera.x) * (s.camera.zoom ?? 1) / 1280 * box.width, box.y + (z.y - 16 - s.camera.y) * (s.camera.zoom ?? 1) / 720 * box.height); }
   }
@@ -34,22 +37,23 @@ test('首阶段锁定设施、胜利保存成长、直接进入第二阶段，�
   await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await key(page, 'Enter'); await click(page, 1198, 70);
   await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(200);
   expect((await state(page)).expedition.survivors.some((s: any) => s.id === 'guardian')).toBe(true);
-  await walk(page, 1056, 736); await key(page, 'KeyE'); await walk(page, 920, 760); await key(page, 'KeyE'); await key(page, 'Enter');
+  // 后续探索允许空手回营；此例验证阶段分支，不把随机搜救战斗混进施工解锁断言。
+  await walk(page, 920, 760); await key(page, 'KeyE'); expect((await state(page)).status).toBe('complete'); await key(page, 'Enter');
   await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); expect((await state(page)).plan.stage).toBe(2);
   await key(page, 'Digit6'); expect((await state(page)).placement).toBe('grid'); await click(page, 1028, 580, true); await key(page, 'Escape');
   expect((await state(page)).plan.buildings.some((b: any) => b.kind === 'grid')).toBe(true);
   await page.screenshot({ path: 'artifacts/progression-stage-two.png' }); expect(errors).toEqual([]);
 });
 
-test('第二阶段真实进入维修站，英雄营救、伏击与护送返营，刷新保留英雄', async ({ page }) => {
+test('第二阶段真实进入新街区房屋，英雄营救、伏击与护送返营，刷新保留英雄', async ({ page }) => {
   test.setTimeout(120000); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 1, lanternLevel: 2, expeditions: 1, depot: { materials: 0, energy: 0, medkits: 0 }, survivors: [], weapons: ['pistol'], lastSummary: null, base: null })); });
+  await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 1, lanternLevel: 2, expeditions: 1, depot: { materials: 0, energy: 0, medkits: 0 }, survivors: [], weapons: ['pistol', 'rifle'], lastSummary: null, base: null })); });
   await page.clock.install(); await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
-  await key(page, 'Digit3'); const box = (await page.locator('canvas').boundingBox())!; await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
-  for (const [x, y] of [[624, 720], [624, 592], [272, 592], [272, 528], [272, 432], [352, 368]]) await walk(page, x, y);
+  await key(page, 'Digit2'); const box = (await page.locator('canvas').boundingBox())!; await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  const hero = (await state(page)).expedition.survivors.find((s: any) => s.id === 'guardian'); await walk(page, hero.x, hero.y);
   await page.mouse.up(); await page.screenshot({ path: 'artifacts/progression-hero-rescue.png' });
   await key(page, 'KeyE'); expect((await state(page)).expedition.survivors.find((s: any) => s.id === 'guardian').state).toBe('following');
-  await page.mouse.down(); for (const [x, y] of [[272, 432], [272, 528], [272, 592], [624, 592], [624, 720], [920, 760]]) await walk(page, x, y); await page.mouse.up();
+  await page.mouse.down(); await walk(page, 920, 760); await page.mouse.up();
   await page.clock.runFor(1200); await key(page, 'KeyE'); expect((await state(page)).expedition.summary.rescued).toContain('guardian');
   await key(page, 'Enter'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
   expect((await state(page)).plan.soldiers.filter((s: any) => s.role === 'guardian')).toHaveLength(1);

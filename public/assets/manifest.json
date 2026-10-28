@@ -1,5 +1,5 @@
 {
-  "verifiedOn": "2026-10-25",
+  "verifiedOn": "2026-10-27",
   "assets": [
     {
       "file": "characters/survivor.png",
@@ -78,8 +78,8 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 859,
-      "sha256": "01c85305ece39cd806657f6a9814371de99d2a7eef83d62959f6174ef3c5f041"
+      "bytes": 1100,
+      "sha256": "13a109dfee0385de3842b6ef63a1e70442e10a2f2657026e205f73b77b1f33c6"
     },
     {
       "file": "weapons/arrow.svg",
@@ -210,6 +210,36 @@
       "file": "enemies/bomber.svg",
       "bytes": 2596,
       "sha256": "da4bc66487631007a595c764edd2230017d8f5dc9be959c4da6dd8b03f6d4c31"
+    },
+    {
+      "file": "heroes/guardian.svg",
+      "bytes": 3279,
+      "sha256": "923ba5ff71d3f57965416db60e7da398d65aa24a22b5fe84148ca6422ae00a0d"
+    },
+    {
+      "file": "heroes/gunner.svg",
+      "bytes": 3489,
+      "sha256": "c60c2e3879d0e50f6795716bbc5b9af103a3fec2b40a0d7f442108faab983e96"
+    },
+    {
+      "file": "heroes/sentinel.svg",
+      "bytes": 3441,
+      "sha256": "ede940befd09631ed054d08007393a3c45b54b7e88c3d8f74b92c08a7d0d766f"
+    },
+    {
+      "file": "heroes/striker.svg",
+      "bytes": 3126,
+      "sha256": "76353005a213a1ba99377cea1f47eba496ab0f7c59463e294ad89d053cdb02b7"
+    },
+    {
+      "file": "weapons/antiair.svg",
+      "bytes": 1186,
+      "sha256": "6321e8d434eaa9c1e77a70f77eaf93f2a4fd9148c4d5b9ae12096aaded57dab8"
+    },
+    {
+      "file": "enemies/tank.svg",
+      "bytes": 3207,
+      "sha256": "fa48912be52b72166fc40ab760b5eb914ac9e102a46126ad69d565c4d87096ff"
     }
   ]
 }

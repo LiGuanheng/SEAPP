@@ -180,7 +180,7 @@ export class CombatScene extends Phaser.Scene {
     if (this.scored) return;
     this.scored = true;
     const w = this.world;
-    rankedRun.recordExploration(w.kills, w instanceof ExpeditionWorld ? w.caches.filter(c => c.opened).length : 0, w instanceof ExpeditionWorld ? w.summary?.rescued ?? [] : []);
+    rankedRun.recordExploration(w.kills, w instanceof ExpeditionWorld ? w.summary?.caches ?? w.caches.filter(c => c.opened && !c.depleted).length : 0, w instanceof ExpeditionWorld ? w.summary?.rescued ?? [] : []);
   }
   private endRun(): void {
     this.setPaused(true); this.recordExploration(); rankedRun.finishRun('retired', performance.now());

@@ -15,8 +15,8 @@ let campaign = newCampaign(); campaign.survivors = ['engineer']; campaign.weapon
 const ranking = new RankedRun('model-fixture', 'normal');
 const builds = [
   [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640], ['barricade', 960, 640]],
-  [['grid', 1024, 576], ['repair', 928, 736], ['cannon', 960, 352], ['arrowtower', 608, 352], ['cannon', 448, 352], ['arrowtower', 480, 640]],
-  [['flame', 576, 416], ['sniper', 1056, 352], ['turret', 832, 800], ['wall', 576, 256], ['wall', 608, 256], ['wall', 640, 256], ['flame', 576, 736], ['flame', 960, 800], ['grid', 544, 640]],
+  [['grid', 1024, 576], ['repair', 928, 736], ['cannon', 960, 352], ['arrowtower', 608, 352], ['cannon', 448, 352], ['arrowtower', 480, 640], ['antiair', 1024, 352]],
+  [['flame', 576, 416], ['sniper', 1120, 352], ['turret', 832, 800], ['wall', 576, 256], ['wall', 608, 256], ['wall', 640, 256], ['flame', 576, 736], ['flame', 960, 800], ['grid', 544, 640], ['antiair', 608, 800]],
 ];
 for (let stage = 1; stage <= STAGE_COUNT; stage++) {
   ranking.update(true, (stage - 1) * 100000, 3);
@@ -24,6 +24,7 @@ for (let stage = 1; stage <= STAGE_COUNT; stage++) {
   ranking.advancePhase('base', 30);
   campaign.depot.materials += stage === 1 ? 16 : stage === 3 ? 36 : 24; campaign.depot.energy += stage === 1 ? 2 : stage === 3 ? 12 : 10;
   if (stage === 2) campaign.survivors.push('guardian', 'medic'); if (stage === 3) campaign.survivors.push('gunner', 'captain', 'ranger', 'brawler');
+  if (stage === 4) campaign.survivors.push('sentinel'); if (stage === 5) campaign.survivors.push('striker');
   const base = new BaseWorld(campaign); base.resume();
   for (const [kind, x, y] of builds[stage - 1] ?? []) { const r = base.build(kind, { x, y }, kind === 'barricade' ? 1 : 0); if (!r.ok) throw new Error(`${kind}: ${r.message}`); }
   if (stage === 3) {
@@ -35,6 +36,8 @@ for (let stage = 1; stage <= STAGE_COUNT; stage++) {
     for (const x of [416, 1152]) for (let y = 288; y <= 448; y += 32) base.build('wall', { x, y });
     for (const x of [896, 928, 960, 992, 1024, 1056]) base.build('wall', { x, y: 864 });
     for (const x of [352, 384, 416, 448, 1056, 1088]) base.build('wall', { x, y: 256 });
+    // 新增重甲会吸收地面火力，余下库存用于补机枪交叉火力，不虚增资源。
+    for (const [x, y] of [[896, 352], [640, 736], [960, 704], [416, 640], [1088, 704]]) base.build('turret', { x, y });
   }
   if (stage >= 4) {
     // 后两阶段在基础一趟之外增加三趟探索物资（各36建材/12电力）；计时共360秒，不作为键鼠通关证据。

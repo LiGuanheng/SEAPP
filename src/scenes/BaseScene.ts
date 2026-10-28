@@ -103,7 +103,7 @@ export class BaseScene extends Phaser.Scene {
       if (this.paused || !this.world.commanding) return;
       if (e.code === 'KeyC') { this.home(); return; }
       if (e.code === 'KeyT') { this.cycleSpeed(); return; }
-      const buildIndex = /^Digit[1-9]$/.test(e.code) ? Number(e.code.slice(-1)) - 1 : -1;
+      const buildIndex = e.code === 'Digit0' ? 9 : /^Digit[1-9]$/.test(e.code) ? Number(e.code.slice(-1)) - 1 : -1;
       if (buildIndex >= 0) this.setKind(BUILDING_KEYS[buildIndex]);
       if (e.code === 'KeyR' && this.kind === 'barricade') this.rotation = this.rotation === 0 ? 1 : 0;
       if (e.code === 'Space') { this.selected = new Set(this.world.livingSoldiers.map(s => s.id)); this.kind = null; this.wallStroke = null; this.selectedBuilding = null; this.support = false; }

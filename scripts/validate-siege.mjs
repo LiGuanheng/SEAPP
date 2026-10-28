@@ -22,6 +22,10 @@ export function siegeFixture(name, stage = 3) {
     // Guard the core from four angles; neither teleport nor grant combat health.
     b.plan.soldiers.forEach((s, i) => { const points = [[688, 592], [848, 592], [688, 432], [848, 432], [656, 512], [880, 512], [768, 640], [768, 400]], p = { x: points[i][0], y: points[i][1] }; if (canOccupy(p, 13, b.obstacles, 2048, 1408)) Object.assign(s, p); });
   }
+  if (!ordinary) {
+    // 新重甲波次下，用真实施工补足独立防空与地面交叉火力；夹具库存统一扣费。
+    for (const [kind, x, y] of [['antiair', 608, 800], ['antiair', 960, 704], ['turret', 896, 352], ['turret', 640, 736], ['turret', 832, 704]]) { if (b.plan.buildings.length >= 120) break; b.build(kind, { x, y }); }
+  }
   if (!ordinary) for (const kind of ['turret', 'cannon']) { const tower = b.plan.buildings.find(b => b.kind === kind); if (tower) b.refit(tower.id); }
   b.finish(); decodeCampaign(JSON.stringify(b.campaign)); return b.campaign;
 }

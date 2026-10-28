@@ -14,7 +14,7 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
   const pool = createPool({ DATABASE_URL: raw, DATABASE_SSL: process.env.DATABASE_SSL === 'verify-full' ? 'verify-full' : 'disable' });
   t.after(() => pool.end()); await migrate(pool); const store = createStore(pool);
   await t.test('迁移可重复执行且保留版本校验和', async () => {
-    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 3);
+    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 4);
   });
   await t.test('空榜、真实写入读取、同昵称允许多次战役', async () => {
     await pool.query('TRUNCATE scores'); assert.deepEqual(await store.leaderboard('speed', 'normal', 20), []);
@@ -49,6 +49,10 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
     await pool.query(`INSERT INTO scores (id,nickname,difficulty,duration_ms,total_duration_ms,score,max_speed,score_version,game_version,stages,scope,phase_times_ms)
       VALUES ($1,'旧版记录','normal',480000,480000,18022,3,1,'0.12.0',$2::jsonb,'demo','{"day":480000,"base":0,"night":0}')`, [crypto.randomUUID(), JSON.stringify(payload().stages.slice(0, 3))]);
     assert.equal(Number((await pool.query('SELECT count(*) FROM scores WHERE score_version=1')).rows[0].count), 1);
+    // 五阶段v3历史成绩也应保留，而当前v4榜单不能混入它。
+    await pool.query(`INSERT INTO scores (id,nickname,difficulty,duration_ms,total_duration_ms,score,max_speed,score_version,game_version,stages,scope,phase_times_ms)
+      VALUES ($1,'上版记录','normal',900000,500000,$2,3,3,'0.14.0',$3::jsonb,'clear','{"day":150000,"base":150000,"night":600000}')`, [crypto.randomUUID(), fast.score, JSON.stringify(fast.stages)]);
+    assert.equal(Number((await pool.query('SELECT count(*) FROM scores WHERE score_version=3')).rows[0].count), 1);
     assert.equal((await store.leaderboard('score', 'normal', 20)).length, 2);
     await assert.rejects(() => pool.query(`UPDATE scores SET phase_times_ms='{"day":0,"base":150000,"night":600000}' WHERE id=$1`, [fast.runId]));
     assert.equal((await store.leaderboard('speed', 'normal', 20))[0].durationMs, 900000);

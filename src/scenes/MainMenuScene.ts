@@ -5,6 +5,7 @@ import { STAGES, STAGE_COUNT } from '../config/progression.ts';
 import { STORY_CHAPTERS, hasSeenStory } from '../config/story.ts';
 import { canContinue, difficulty, loadContinue, savedStage, startNewGame, updateRun } from '../services/game-session.ts';
 import { onlinePanel } from '../view/LeaderboardPanel.ts';
+import { HERO_IDS, SURVIVOR_PROFILES } from '../config/survivors.ts';
 
 /** 游戏入口与辅助阅读使用 DOM，保留键盘焦点和小屏滚动。游戏模拟只在开始后创建。 */
 export class MainMenuScene extends Phaser.Scene {
@@ -56,6 +57,10 @@ export class MainMenuScene extends Phaser.Scene {
     const list = document.createElement('ol');
     for (const [id, stage] of Object.entries(STAGES)) { const li = document.createElement('li'); li.innerHTML = `<span>${id.padStart(2, '0')}</span><strong>${stage.name}</strong>`; list.append(li); }
     progress.append(list); shell.append(progress);
+    const heroes = document.createElement('section'); heroes.className = 'menu-heroes'; const heroTitle = document.createElement('h2'); heroTitle.textContent = '搜救英雄 · 第2—5阶段逐一开放'; heroes.append(heroTitle);
+    const heroList = document.createElement('div'); heroList.className = 'menu-hero-list';
+    for (const id of HERO_IDS) { const p = SURVIVOR_PROFILES[id], card = document.createElement('div'); card.title = p.ability; const art = document.createElement('span'); art.className = 'menu-hero-portrait'; art.style.backgroundImage = `url("${import.meta.env.BASE_URL}assets/heroes/${id}.svg")`; art.setAttribute('aria-hidden', 'true'); const name = document.createElement('strong'), role = document.createElement('small'); name.textContent = p.name; role.textContent = `阶段${p.stage} · ${p.role.replace('英雄·', '')}`; card.append(art, name, role); heroList.append(card); }
+    heroes.append(heroList); shell.append(heroes);
     const footer = document.createElement('footer'); footer.className = 'menu-footer'; footer.textContent = `v${GAME_VERSION} · 完成 ${STAGE_COUNT} 个阶段即通关 · 进度保存在当前浏览器`; shell.append(footer);
     this.root.append(shell); document.body.append(this.root);
     const key = (event: KeyboardEvent) => { if (onlinePanel.visible) return; event.stopImmediatePropagation(); if (event.key === 'Escape') { event.preventDefault(); this.closeDialog(); } };
@@ -84,8 +89,8 @@ export class MainMenuScene extends Phaser.Scene {
   }
   private showGuide(): void {
     this.showDialog('操作指南', [
-      '白天探索\nWASD移动，Shift冲刺；鼠标瞄准、左键射击。E搜刮/营救/回营，R换弹，1–4切武器，H使用急救包，Tab背包。探索最多90秒，可提前返营。',
-      '黄昏布防\n数字1–9选设施，左键建设；5可拖动铺墙。框选/Space全选守卫，右键移动，G驻守，R旋转沙袋，U改装，X拆除。金色边界外尚未开放，通关逐步扩建。30秒倒计时后自动入夜。',
+      '白天探索\nWASD移动，Shift冲刺；鼠标瞄准、左键射击。E搜刮/营救/回营，R换弹，1–4切武器，H使用急救包，Tab背包。探索最多90秒，可提前返营；已救人物与已搜箱子不会刷新，街区逐关开放。',
+      '黄昏布防\n数字1–9与0选设施，左键建设；5可拖动铺墙。框选/Space全选守卫，右键移动，G驻守，R旋转沙袋，U改装，X拆除。0建防空导弹塔；金线外尚未开放，通关逐步扩建。30秒倒计时后自动入夜。',
       '夜晚守灯\n守军自动攻击，调动队形、按F选择支援落点。守住120秒进入下一阶段；前四夜可直接布防或选择回城探索，第五夜胜利后通关结算。',
       '镜头与进度\n灯塔默认居中。WASD或小地图可临时浏览，C锁回灯塔，滚轮缩放。P/Esc暂停、F1指南、T倍速、M静音、L配乐、V减少动态。底部可重开本阶段、主动结算或返回主菜单。',
       '榜单规则\n通关用时包含探索、布防与守夜的游戏内活动时间；暂停不计，倍速不减少同一守夜的计入时长。总用时与综合得分分别排行，各难度独立。重新开始阶段会放弃本阶段物资、建设、击杀和用时，保留已过阶段。',

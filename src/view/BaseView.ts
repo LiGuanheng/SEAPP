@@ -3,8 +3,9 @@ import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILD_AREA, BUILDINGS, GRID, L
 import type { BaseWorld } from '../core/base-world.ts';
 import type { Rect, Vec } from '../core/types.ts';
 import { facing } from './ActorView.ts';
+import { isHero, SURVIVOR_PROFILES } from '../config/survivors.ts';
 
-interface SoldierView { sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Ellipse; helmet: Phaser.GameObjects.Image; gun: Phaser.GameObjects.Image }
+interface SoldierView { sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Ellipse; helmet: Phaser.GameObjects.Image; gun: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text }
 export interface Placement { kind: BuildingKind; point: Vec; rotation: 0 | 1 }
 export class BaseView {
   readonly root: Phaser.GameObjects.Container;
@@ -62,25 +63,28 @@ export class BaseView {
     for (let x = area.x; x < area.x + area.width; x += 32) g.lineBetween(x, area.y, x + 16, area.y).lineBetween(x, area.y + area.height, x + 16, area.y + area.height);
     for (let y = area.y; y < area.y + area.height; y += 32) g.lineBetween(area.x, y, area.x, y + 16).lineBetween(area.x + area.width, y, area.x + area.width, y + 16);
     const living = new Set(world.livingSoldiers.map(s => s.id));
-    for (const [id, v] of this.soldiers) if (!living.has(id)) { v.sprite.destroy(); v.shadow.destroy(); v.helmet.destroy(); v.gun.destroy(); this.soldiers.delete(id); }
+    for (const [id, v] of this.soldiers) if (!living.has(id)) { v.sprite.destroy(); v.shadow.destroy(); v.helmet.destroy(); v.gun.destroy(); v.label.destroy(); this.soldiers.delete(id); }
     for (const s of world.livingSoldiers) {
+      const hero = isHero(s.role) ? SURVIVOR_PROFILES[s.role] : null;
       let v = this.soldiers.get(s.id);
       if (!v) {
-        v = { sprite: this.scene.add.sprite(s.x, s.y, 'player', 1).setOrigin(0.5, 0.95).setScale(1.2).setTint(0x9eaf91),
-          shadow: this.scene.add.ellipse(0, 0, 30, 12, 0x0a2026, 0.45), helmet: this.scene.add.image(0, 0, 'helmet').setScale(1.1), gun: this.scene.add.image(0, 0, 'rifle').setScale(0.72).setOrigin(0.15, 0.5) };
-        this.root.add([v.shadow, v.sprite, v.helmet, v.gun]); this.soldiers.set(s.id, v);
+        v = { sprite: this.scene.add.sprite(s.x, s.y, hero?.texture ?? 'player', 1).setOrigin(0.5, 0.95).setScale(hero ? 0.95 : 1.2).setTint(hero ? 0xffffff : 0x9eaf91),
+          shadow: this.scene.add.ellipse(0, 0, 30, 12, 0x0a2026, 0.45), helmet: this.scene.add.image(0, 0, 'helmet').setScale(1.1), gun: this.scene.add.image(0, 0, 'rifle').setScale(0.72).setOrigin(0.15, 0.5),
+          label: this.scene.add.text(0, 0, '', { fontFamily: 'Microsoft YaHei', fontSize: '11px', color: '#eddaab', backgroundColor: '#10272a', padding: { x: 5, y: 3 } }).setOrigin(0.5) };
+        this.root.add([v.shadow, v.sprite, v.helmet, v.gun, v.label]); this.soldiers.set(s.id, v);
       }
       v.sprite.setPosition(s.x, s.y).setDepth(s.y);
       v.shadow.setPosition(s.x, s.y + 2).setDepth(s.y - 2);
-      v.helmet.setPosition(s.x, s.y - 37).setDepth(s.y + 1);
-      v.gun.setTexture(s.role === 'gunner' ? 'cannon-barrel' : s.role === 'guardian' ? 'pistol' : s.role === 'archer' ? 'bow' : s.role === 'vanguard' ? 'axe' : 'rifle').setPosition(s.x, s.y - 16).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
-      v.sprite.setTint(s.role === 'guardian' ? 0x8bd6bc : s.role === 'gunner' ? 0xdca077 : s.role === 'archer' ? 0xa5c182 : s.role === 'vanguard' ? 0xd0a087 : 0x9eaf91);
-      if (s.role === 'guardian' || s.role === 'gunner') g.lineStyle(2, s.role === 'guardian' ? 0x8bd6bc : 0xdca077, 0.85).strokeRect(s.x - 5, s.y - 65, 10, 10);
+      v.helmet.setPosition(s.x, s.y - 37).setDepth(s.y + 1).setVisible(!hero);
+      v.gun.setTexture(s.role === 'gunner' ? 'cannon-barrel' : s.role === 'guardian' ? 'lantern' : s.role === 'striker' || s.role === 'archer' ? 'bow' : s.role === 'sentinel' || s.role === 'vanguard' ? 'axe' : 'rifle').setPosition(s.x, s.y - (hero ? 29 : 16)).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
+      v.sprite.setTint(hero ? 0xffffff : s.role === 'archer' ? 0xa5c182 : s.role === 'vanguard' ? 0xd0a087 : 0x9eaf91).setFlipX(!!hero && Math.cos(s.aim) < 0);
+      v.label.setText(hero ? `★ ${hero.name}` : '').setPosition(s.x, s.y - 89).setDepth(s.y + 4).setVisible(!!hero);
+      if (hero) g.lineStyle(2, hero.tint, 0.8).strokeEllipse(s.x, s.y + 2, 43, 20);
       if (paused || !world.commanding) v.sprite.anims.pause();
       else {
         v.sprite.anims.resume();
-        if (s.moving) v.sprite.play(`player-walk-${facing(s.aim)}`, true);
-        else { v.sprite.anims.stop(); v.sprite.setFrame(facing(s.aim) * 3 + 1); }
+        if (s.moving) v.sprite.play(hero ? `${hero.texture}-walk` : `player-walk-${facing(s.aim)}`, true);
+        else { v.sprite.anims.stop(); v.sprite.setFrame(hero ? 1 : facing(s.aim) * 3 + 1); }
       }
       if (selected.has(s.id)) {
         g.lineStyle(2, 0xd7d89c, 0.95).strokeEllipse(s.x, s.y + 1, 38, 17);

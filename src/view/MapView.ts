@@ -54,6 +54,7 @@ export class MapView {
       tile(car.x + 1, car.y + 1, 622, depth + 1, 0x747e78).setAlpha(0.25);
     }
     for (const { x, y, kind } of DECORATIONS) {
+      if (layout && (roomAt({ x: x * TILE + 16, y: y * TILE + 16 }, this.buildings) >= 0 || this.buildings.some(b => Math.hypot(roomDoor(b).x - (x * TILE + 16), roomDoor(b).y - (y * TILE + 16)) < 82))) continue;
       if (kind === 'tree') {
         tile(x, y - 1, 403, y * TILE, 0x697f66); tile(x, y, 440, y * TILE, 0x697f66);
       } else if (kind === 'bin') tile(x, y, 496, y * TILE, 0x7c847a);
