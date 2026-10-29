@@ -30,8 +30,8 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
   await page.clock.install(); await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
   // install 后时间仍自然流动；暂停后仅用 runFor 推进，CPU/截图耗时不再消耗30秒布防预算。
   await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 1000); await page.clock.runFor(100);
-  for (const [code, x, y] of [['Digit2', 832, 352], ['Digit3', 960, 352], ['Digit4', 608, 640], ['Digit4', 928, 640], ['Digit4', 608, 352], ['Digit6', 1024, 576], ['Digit7', 928, 736], ['Digit8', 576, 416], ['Digit9', 1056, 352], ['Digit2', 832, 800]] as const) { await key(page, code); if (y >= 800) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); } await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); if (y >= 800) await key(page, 'KeyC'); }
-  for (const [code, x, y] of [['Digit3', 448, 352], ['Digit8', 576, 736], ['Digit8', 960, 800], ['Digit6', 544, 640]] as const) {
+  for (const [code, x, y] of [['Digit2', 1088, 544], ['Digit3', 1216, 544], ['Digit4', 864, 832], ['Digit4', 1184, 832], ['Digit4', 864, 544], ['Digit6', 1280, 768], ['Digit7', 1184, 928], ['Digit8', 832, 608], ['Digit3', 1312, 544], ['Digit2', 1088, 992]] as const) { await key(page, code); if (y >= 800) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); } await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); if (y >= 800) await key(page, 'KeyC'); }
+  for (const [code, x, y] of [['Digit3', 704, 544], ['Digit8', 832, 928], ['Digit8', 1216, 992], ['Digit6', 800, 832]] as const) {
     await key(page, code); if (y >= 736) { await page.keyboard.down('KeyS'); await page.clock.runFor(300); await page.keyboard.up('KeyS'); }
     await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); await key(page, 'KeyC');
   }
@@ -46,11 +46,11 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
     await key(page, 'Escape'); await key(page, 'KeyC');
   }
   // 四趟补给夹具补足防空、地面交叉火力与南侧箭塔；仍通过实际施工扣费。
-  for (const [code, x, y] of [['Digit0', 608, 800], ['Digit2', 896, 352], ['Digit2', 640, 736], ['Digit4', 448, 640], ['Digit4', 832, 256], ['Digit4', 960, 256], ['Digit4', 1024, 736]] as const) { await key(page, code); await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); await key(page, 'KeyC'); }
+  for (const [code, x, y] of [['Digit0', 864, 992], ['Digit2', 1152, 544], ['Digit2', 896, 928], ['Digit4', 704, 832], ['Digit4', 1088, 448], ['Digit4', 1216, 448], ['Digit4', 1280, 928]] as const) { await key(page, code); await clickWorld(page, x + 4, y + 4); await key(page, 'Escape'); await key(page, 'KeyC'); }
   expect((await state(page)).plan.buildings).toHaveLength(39);
   expect((await state(page)).plan.soldiers).toHaveLength(8);
   for (let i = 0; i < 8; i++) {
-    const s = (await state(page)).plan.soldiers[i], points = [[688, 592], [848, 592], [688, 432], [848, 432], [656, 512], [880, 512], [768, 640], [768, 400]];
+    const s = (await state(page)).plan.soldiers[i], points = [[944,784],[1104,784],[944,624],[1104,624],[912,704],[1136,704],[1024,832],[1024,592]];
     const p = s.role === 'gunner' ? [768, 400] : s.role === 'guardian' ? [768, 608] : points[i];
     await clickWorld(page, s.x, s.y - 16); await clickWorld(page, p[0], p[1], 'right');
   }
@@ -65,7 +65,7 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
     await page.clock.runFor(180); const s = await state(page);
     for (const e of s.enemies) kinds.add(e.kind);
     if (s.charges && s.supportCooldown === 0) {
-      const target = s.enemies.find((e: any) => ['tank', 'bomber', 'blighter'].includes(e.kind) && Math.hypot(e.x - 768, e.y - 512) < 350);
+      const target = s.enemies.find((e: any) => ['tank', 'bomber', 'blighter'].includes(e.kind) && Math.hypot(e.x - 1024, e.y - 704) < 350);
       if (target) { await key(page, 'KeyF'); await clickWorld(page, target.x, target.y); }
     }
     if (!capturedHorde && s.enemies.length >= 40) { await page.screenshot({ path: 'artifacts/assault-horde.png' }); capturedHorde = true; }
@@ -76,7 +76,7 @@ test('第三阶段五位Boss逐波/双Boss登场，范围技能与新素材无�
         await page.clock.runFor(2000); expect(await state(page)).toEqual(paused); await key(page, 'KeyP'); checkedPause = true;
       }
     }
-    if (!capturedNewBoss && s.enemies.some((e: any) => ['bomber', 'blighter'].includes(e.kind) && Math.hypot(e.x - 768, e.y - 512) < 390)) {
+    if (!capturedNewBoss && s.enemies.some((e: any) => ['bomber', 'blighter'].includes(e.kind) && Math.hypot(e.x - 1024, e.y - 704) < 390)) {
       await page.screenshot({ path: 'artifacts/progression-new-boss.png' }); capturedNewBoss = true;
     }
     expect(s.enemies.length).toBeLessThanOrEqual(96); expect(s.hazards.length).toBeLessThanOrEqual(8);

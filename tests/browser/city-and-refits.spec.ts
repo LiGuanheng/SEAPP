@@ -1,17 +1,19 @@
 import { test, expect, type Page } from './fixtures.ts';
+import { Navigation } from '../../src/core/navigation.ts';
 const state = (p: Page): Promise<any> => p.evaluate(() => ((window as any).__baseLight ?? (window as any).__nightLight ?? (window as any).__lastLight).snapshot());
 async function key(p: Page, code: string) { await p.keyboard.press(code); await p.clock.runFor(60); }
 async function clickWorld(p: Page, x: number, y: number) { const s = await state(p), b = (await p.locator('canvas').boundingBox())!; await p.mouse.click(b.x + (x - s.camera.x) * s.camera.zoom / 1280 * b.width, b.y + (y - s.camera.y) * s.camera.zoom / 720 * b.height); await p.clock.runFor(80); }
 async function walk(p: Page, x: number, y: number) {
-  for (let i = 0; i < 100; i++) {
+  const snapshot = await state(p), target = { x, y }, nav = new Navigation(2048, 1408, 32, snapshot.expedition.layout.obstacles, 12); nav.rebuild(target);
+  for (let i = 0; i < 300; i++) {
     const s = await state(p), dx = x - s.player.x, dy = y - s.player.y;
     if (s.status !== 'playing') throw Error('城市路线途中失守：' + JSON.stringify(s.player));
     const enemy = s.zombies.filter((z: any) => Math.hypot(z.x - s.player.x, z.y - s.player.y) < 140).sort((a: any, b: any) => Math.hypot(a.x - s.player.x, a.y - s.player.y) - Math.hypot(b.x - s.player.x, b.y - s.player.y))[0];
     if (enemy) { const box = (await p.locator('canvas').boundingBox())!; await p.mouse.move(box.x + (enemy.x - s.camera.x) * s.camera.zoom / 1280 * box.width, box.y + (enemy.y - 16 - s.camera.y) * s.camera.zoom / 720 * box.height); }
-    if (Math.hypot(dx, dy) < 12) return;
-    const codes = [Math.abs(dx) > 8 ? dx > 0 ? 'KeyD' : 'KeyA' : '', Math.abs(dy) > 8 ? dy > 0 ? 'KeyS' : 'KeyW' : ''].filter(Boolean);
+    if (Math.hypot(dx, dy) < 24) return;
+    const d = nav.direction(s.player, target), codes = [Math.abs(d.x) > .1 ? d.x > 0 ? 'KeyD' : 'KeyA' : '', Math.abs(d.y) > .1 ? d.y > 0 ? 'KeyS' : 'KeyW' : ''].filter(Boolean);
     for (const k of codes) await p.keyboard.down(k);
-    await p.clock.runFor(Math.min(150, Math.max(30, Math.hypot(dx, dy) / 168 * 700)));
+    await p.clock.runFor(100);
     for (const k of codes) await p.keyboard.up(k);
   }
   throw Error('城市实际路线受阻：' + JSON.stringify((await state(p)).player));
@@ -25,7 +27,7 @@ test('三个种子真实走入不同街区门口与室内，轮廓/入口/道路
     await key(page, 'Digit3'); await page.mouse.move(600, 360); await page.mouse.down();
     const s = await state(page), room = s.expedition.layout.buildings[3], door = { x: (room.x + (room.doorColumn ?? Math.floor(room.width / 2)) + 0.5) * 32, y: (room.y + room.height) * 32 };
     templates.add(s.expedition.layout.template); shapes.add(JSON.stringify(room));
-    for (const p of [[800, 736], [704, 736], [704, 1312], [door.x, 1312], [door.x, door.y + 36]]) await walk(page, p[0], p[1]);
+    for (const p of [[door.x, door.y + 36]]) await walk(page, p[0], p[1]);
     await page.screenshot({ path: `artifacts/v011/city-${seed}-entrance.png` });
     await walk(page, door.x, door.y - 48); expect((await state(page)).expedition.currentRoom).toBe(3);
     expect((await state(page)).expedition.vision.explored).toBeGreaterThan(s.expedition.vision.explored);
@@ -39,10 +41,10 @@ test('真实库存改装两种炮塔、刷新保留、暂停不误扣，夜战�
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, clearedStage: 2, expeditions: 0, depot: { materials: 100, energy: 30, medkits: 0 }, survivors: ['engineer'], weapons: ['pistol'], lastSummary: null, base: null })); });
   await page.clock.install(); await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
-  await key(page, 'Digit2'); await clickWorld(page, 420, 644); await key(page, 'Escape'); await clickWorld(page, 448, 672);
+  await key(page, 'Digit2'); await clickWorld(page, 676, 836); await key(page, 'Escape'); await clickWorld(page, 704, 864);
   await key(page, 'KeyP'); await key(page, 'KeyU'); expect((await state(page)).campaign.depot.materials).toBe(95); await key(page, 'KeyP');
   await key(page, 'KeyU'); expect((await state(page)).plan.buildings[0].upgrade).toBe('flak'); expect((await state(page)).campaign.depot.materials).toBe(90);
-  await key(page, 'Digit3'); await clickWorld(page, 580, 356); await key(page, 'Escape'); await clickWorld(page, 608, 384); await key(page, 'KeyU');
+  await key(page, 'Digit3'); await clickWorld(page, 836, 548); await key(page, 'Escape'); await clickWorld(page, 864, 576); await key(page, 'KeyU');
   expect((await state(page)).plan.buildings[1].upgrade).toBe('howitzer'); expect((await state(page)).campaign.depot).toMatchObject({ materials: 75, energy: 19 });
   await page.screenshot({ path: 'artifacts/v011/refit-defenses.png' });
   await page.reload(); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); expect((await state(page)).plan.buildings.map((b: any) => b.upgrade)).toEqual(['flak', 'howitzer']);

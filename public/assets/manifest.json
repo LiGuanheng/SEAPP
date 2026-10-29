@@ -1,5 +1,5 @@
 {
-  "verifiedOn": "2026-10-27",
+  "verifiedOn": "2026-10-29",
   "assets": [
     {
       "file": "characters/survivor.png",
@@ -78,8 +78,8 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 1100,
-      "sha256": "13a109dfee0385de3842b6ef63a1e70442e10a2f2657026e205f73b77b1f33c6"
+      "bytes": 1264,
+      "sha256": "80a2a9a488124ae9d58b834f1ac2d9a22a701116b6c79d59afb9e7ed97a11a60"
     },
     {
       "file": "weapons/arrow.svg",
@@ -240,6 +240,21 @@
       "file": "enemies/tank.svg",
       "bytes": 3207,
       "sha256": "fa48912be52b72166fc40ab760b5eb914ac9e102a46126ad69d565c4d87096ff"
+    },
+    {
+      "file": "weapons/pounder.svg",
+      "bytes": 746,
+      "sha256": "71447757892d82cdac574271c7d2e46c63b95dc71df4998c732cc00e4fbdaa95"
+    },
+    {
+      "file": "weapons/inferno.svg",
+      "bytes": 607,
+      "sha256": "c26d6740350cdd34b8328b146d7193a92cc75c26cac4adf73ffcbdceb753e8e0"
+    },
+    {
+      "file": "weapons/eagle.svg",
+      "bytes": 715,
+      "sha256": "c9b6116d2fb123636dacbd68080cc85ba9be4d20d6c57f1250c12f94bd6c005b"
     }
   ]
 }

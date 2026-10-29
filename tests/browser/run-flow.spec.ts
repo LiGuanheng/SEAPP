@@ -13,7 +13,7 @@ function camp(clearedStage = 0): Campaign {
   const c = newCampaign(); c.clearedStage = clearedStage; c.depot = { materials: 60, energy: 20, medkits: 2 };
   c.survivors = ['engineer', 'captain', 'medic']; c.weapons = ['pistol', 'rifle'];
   const b = new BaseWorld(c);
-  for (const [kind, x, y] of [['turret', 832, 352], ['arrowtower', 608, 640], ['arrowtower', 864, 640], ['barricade', 960, 640]] as const) {
+  for (const [kind, x, y] of [['turret', 1088, 544], ['arrowtower', 864, 832], ['arrowtower', 1120, 832], ['barricade', 1216, 832]] as const) {
     const result = b.build(kind, { x, y }, kind === 'barricade' ? 1 : 0); if (!result.ok) throw new Error(result.message);
   }
   return b.campaign;
@@ -40,12 +40,12 @@ test('主菜单提供难度、新游戏、背景、指南与排行榜，没有�
 
 test('灯塔视觉中心在整个战场正中，缩放/回中保持居中；黑雾外不能施工', async ({ page }) => {
   await prepared(page);
-  const centered = (s: any) => { expect((768 - s.camera.x) * s.camera.zoom).toBeCloseTo(640, 0); expect((480 - s.camera.y) * s.camera.zoom).toBeCloseTo(345, 0); };
+  const centered = (s: any) => { expect((1024 - s.camera.x) * s.camera.zoom).toBeCloseTo(640, 0); expect((672 - s.camera.y) * s.camera.zoom).toBeCloseTo(345, 0); };
   centered(await state(page));
   await page.mouse.move(500, 400); for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 200); await page.clock.runFor(20); }
   expect((await state(page)).camera.zoom).toBe(0.5); centered(await state(page));
   const before = await state(page); await key(page, 'Digit2'); const s = await state(page);
-  await click(page, (1508 - s.camera.x) * s.camera.zoom, (640 - s.camera.y) * s.camera.zoom);
+  await click(page, (1808 - s.camera.x) * s.camera.zoom, (832 - s.camera.y) * s.camera.zoom);
   expect((await state(page)).plan.buildings).toHaveLength(before.plan.buildings.length); expect((await state(page)).campaign.depot).toEqual(before.campaign.depot);
   await key(page, 'Escape'); await key(page, 'KeyD'); await key(page, 'KeyC'); centered(await state(page));
   await page.screenshot({ path: 'artifacts/v014-centered-battlefield.png' });
@@ -53,16 +53,16 @@ test('灯塔视觉中心在整个战场正中，缩放/回中保持居中；黑�
 
 test('首夜胜利可跳过街区，直接扩建布防；30秒倒计时自动开启第二夜', async ({ page }) => {
   test.setTimeout(150000); await prepared(page, 'night'); await key(page, 'KeyT'); await key(page, 'KeyT');
-  const initial = await state(page); expect(initial.lightRadius).toBe(390);
+  const initial = await state(page); expect(initial.lightRadius).toBe(480);
   for (let i = 0; i < 28 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(1600);
   expect((await state(page)).status).toBe('victory'); await page.clock.runFor(2600);
   await key(page, 'Enter'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
-  const next = await state(page); expect(next.plan.stage).toBe(2); expect(next.remaining).toBeGreaterThan(29); expect(next.lightRadius).toBe(530); expect(next.buildArea.width).toBeGreaterThan(initial.buildArea.width);
+  const next = await state(page); expect(next.plan.stage).toBe(2); expect(next.plan.status).toBe('preparing'); expect(next.lightRadius).toBe(640); expect(next.buildArea.width).toBeGreaterThan(initial.buildArea.width);
   expect(next.campaign.expeditions).toBe(initial.campaign.expeditions); expect(next.plan.buildings).toHaveLength(initial.plan.buildings.length); expect(next.campaign.depot.materials).toBe(initial.campaign.depot.materials + 24);
-  expect(next.ranking.phaseTimesMs.night).toBe(120000); expect(next.ranking.elapsedMs).toBeGreaterThanOrEqual(120000); expect(next.ranking.elapsedMs).toBeLessThan(120500);
+  expect(next.ranking.phaseTimesMs.night).toBe(120000); expect(next.ranking.elapsedMs).toBeGreaterThanOrEqual(120000); expect(next.ranking.elapsedMs).toBe(next.ranking.phaseTimesMs.night + next.ranking.phaseTimesMs.base);
   await page.screenshot({ path: 'artifacts/v014-next-stage-preparation.png' });
-  await key(page, 'KeyT'); await key(page, 'KeyT'); await page.clock.runFor(10500); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready);
-  expect((await state(page)).stage).toBe(2); expect((await state(page)).status).toBe('playing'); expect((await state(page)).ranking.phaseTimesMs.base).toBe(30000);
+  await key(page, 'KeyT'); await key(page, 'KeyT'); await page.clock.runFor(10500); expect((await state(page)).plan.status).toBe('preparing'); await key(page,'Enter'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready);
+  expect((await state(page)).stage).toBe(2); expect((await state(page)).status).toBe('playing'); expect((await state(page)).ranking.phaseTimesMs.base).toBeGreaterThan(10000);
 });
 
 test('主动结束：暂停/取消/结算，真实提交挑战名次，完整通关榜隔离', async ({ page }) => {
@@ -88,11 +88,11 @@ test('主动结束：暂停/取消/结算，真实提交挑战名次，完整通
 
 test('重新开始阶段丢弃本阶段施工与耗时，保留此前阶段进度', async ({ page }) => {
   await prepared(page, 'base', 2); const before = await state(page);
-  await key(page, 'Digit2'); const p = await state(page); await click(page, (960 - p.camera.x) * p.camera.zoom, (352 - p.camera.y) * p.camera.zoom); await key(page, 'Escape');
+  await key(page, 'Digit2'); const p = await state(page); await click(page, (1216 - p.camera.x) * p.camera.zoom, (544 - p.camera.y) * p.camera.zoom); await key(page, 'Escape');
   expect((await state(page)).plan.buildings).toHaveLength(before.plan.buildings.length + 1); await page.clock.runFor(2000);
   await page.getByRole('button', { name: '重新开始阶段', exact: true }).click(); await expect(page.getByRole('heading', { name: '重新开始本阶段？' })).toBeVisible();
   await page.getByRole('button', { name: '确认重新开始本阶段', exact: true }).click(); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(100);
-  const restored = await state(page); expect(restored.plan.stage).toBe(3); expect(restored.campaign.clearedStage).toBe(2); expect(restored.plan.buildings).toHaveLength(before.plan.buildings.length); expect(restored.campaign.depot).toEqual(before.campaign.depot); expect(restored.remaining).toBeGreaterThan(29); expect(restored.ranking.elapsedMs).toBeLessThan(before.ranking.elapsedMs);
+  const restored = await state(page); expect(restored.plan.stage).toBe(3); expect(restored.campaign.clearedStage).toBe(2); expect(restored.plan.buildings).toHaveLength(before.plan.buildings.length); expect(restored.campaign.depot).toEqual(before.campaign.depot); expect(restored.plan.status).toBe('preparing'); expect(restored.ranking.elapsedMs).toBeLessThan(before.ranking.elapsedMs);
   await page.screenshot({ path: 'artifacts/v014-stage-restart.png' });
 });
 
@@ -124,13 +124,13 @@ test('继续合法第四阶段存档，守住第五夜才完成五阶段通关�
   await page.clock.install(); await page.goto('/?test=1&intro=0'); await expect(page.getByRole('main', { name: '主菜单' })).toBeVisible(); await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 100);
   await page.getByRole('button', { name: '继续游戏', exact: true }).click(); await page.clock.runFor(120); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
   expect((await state(page)).plan.stage).toBe(5); expect((await state(page)).ranking.clearedStages).toBe(4);
-  await key(page, 'KeyT'); await key(page, 'KeyT'); await page.clock.runFor(10500); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready);
+  await key(page, 'KeyT'); await key(page, 'KeyT'); await page.clock.runFor(10500); expect((await state(page)).plan.status).toBe('preparing'); await key(page,'Enter'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready);
   await key(page, 'KeyT'); await key(page, 'KeyT');
   for (let i = 0; i < 28 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(1600);
   expect((await state(page)).stage).toBe(5); expect((await state(page)).status).toBe('victory'); await page.clock.runFor(2600);
   await expect(page.getByRole('heading', { name: /灯火长明/ })).toBeVisible();
   const result = await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.pending-score.v1')!).result);
   expect(result.completed).toBe(true); expect(result.outcome).toBe('victory'); expect(result.scope).toBe('clear'); expect(result.stages.map((s: any) => s.stage)).toEqual([1, 2, 3, 4, 5]);
-  expect(result.phaseTimesMs.night).toBe(600000); expect(result.phaseTimesMs.base).toBe(150000); expect(result.durationMs).toBe(830000);
+  expect(result.phaseTimesMs.night).toBe(600000); expect(result.phaseTimesMs.base).toBeGreaterThan(130000); expect(result.durationMs).toBe(result.phaseTimesMs.day + result.phaseTimesMs.base + result.phaseTimesMs.night);
   await page.screenshot({ path: 'artifacts/v014-five-stage-victory.png' });
 });

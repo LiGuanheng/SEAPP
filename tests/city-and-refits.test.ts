@@ -51,7 +51,7 @@ test('危险地点的随机武器须真实互动取得，超重不吞奖励，�
 
 function base(stage = 3) { const c = newCampaign(); c.clearedStage = stage - 1; c.depot = { materials: 100, energy: 30, medkits: 0 }; c.survivors = ['engineer']; return new BaseWorld(c); }
 test('两种改装接入阶段、真实费用、原子失败、一次性升级、维修耐久、存档与出售回收', () => {
-  const b = base(1); b.build('turret', { x: 960, y: 352 }); const before = structuredClone(b.campaign);
+  const b = base(1); b.build('turret', { x: 1216, y: 544 }); const before = structuredClone(b.campaign);
   assert.equal(b.refit(1).ok, false); assert.deepEqual(b.campaign, before);
   b.campaign.clearedStage = 2; b.finish(); b.resume(); b.campaign.depot.energy = 0; assert.equal(b.refit(1).ok, false); assert.equal(b.plan.buildings[0].upgrade, undefined);
   b.campaign.depot.energy = 30; const materials = b.campaign.depot.materials;
@@ -59,15 +59,15 @@ test('两种改装接入阶段、真实费用、原子失败、一次性升级�
   const once = structuredClone(b.campaign); assert.equal(b.refit(1).ok, false); assert.deepEqual(b.campaign, once); assert.deepEqual(decodeCampaign(JSON.stringify(once)), once);
   assert.throws(() => decodeCampaign(JSON.stringify({ ...once, base: { ...once.base, buildings: [{ ...once.base!.buildings[0], kind: 'wall' }] } })));
   b.demolish(1); assert.equal(b.campaign.depot.materials, materials); assert.equal(b.campaign.depot.energy, 28);
-  b.build('cannon', { x: 960, y: 640 }); const id = b.plan.buildings[0].id; assert.ok(b.refit(id).ok); assert.equal(b.plan.buildings[0].upgrade, 'howitzer');
+  b.build('cannon', { x: 1216, y: 832 }); const id = b.plan.buildings[0].id; assert.ok(b.refit(id).ok); assert.equal(b.plan.buildings[0].upgrade, 'howitzer');
   b.finish(); const w = new NightWorld(b.campaign); assert.equal(w.refit(id).ok, false); assert.deepEqual(decodeCampaign(JSON.stringify(w.checkpoint)), w.checkpoint);
 });
 
 test('高射炮真实破片只命中空中敌群；榴弹炮延迟实弹范围伤害不对空', () => {
   for (const kind of ['turret', 'cannon'] as const) {
-    const b = base(); b.build(kind, { x: 960, y: 640 }); b.refit(1); const w = new NightWorld(b.campaign);
+    const b = base(); b.build(kind, { x: 1216, y: 832 }); b.refit(1); const w = new NightWorld(b.campaign);
     for (const f of w.fighters.values()) f.health = 0;
-    const entities = [false, true, true].map((air, i) => ({ id: 1000 + i, kind: air ? 'crow' as const : 'brute' as const, x: 1100 + i * 12, y: 670, health: 2000, maxHealth: 2000, aim: 0, moving: false, cooldown: 999, hurt: 0 }));
+    const entities = [false, true, true].map((air, i) => ({ id: 1000 + i, kind: air ? 'crow' as const : 'brute' as const, x: 1356 + i * 12, y: 862, health: 2000, maxHealth: 2000, aim: 0, moving: false, cooldown: 999, hurt: 0 }));
     w.enemies.push(...entities); let projectile = false;
     for (let i = 0; i < 24; i++) { w.step(); projectile ||= w.bullets.some(p => p.projectile === (kind === 'turret' ? 'flak' : 'shell')); }
     assert.ok(projectile);

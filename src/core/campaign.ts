@@ -1,3 +1,4 @@
+import { migrateBase } from './base-migration.ts';
 import type { WeaponId } from '../config/weapons.ts';
 import { validBasePlan, type BasePlan } from '../config/base.ts';
 import type { NightResult } from './night-world.ts';
@@ -19,6 +20,7 @@ export interface Campaign {
   lanternLevel?: number;
   clearedStage?: number;
   exploration?: ExplorationState;
+  reserves?: { rifle: number; archer: number; vanguard: number };
 }
 export const SAVE_KEY = 'last-light.campaign.v2';
 export const emptyCargo = (): Cargo => ({ materials: 0, energy: 0, medkits: 0 });
@@ -34,17 +36,19 @@ export function decodeCampaign(raw: string | null): Campaign {
   const c = data as Campaign;
   if (c.version !== 2 || !count(c.expeditions) || !cargoValid(c.depot) ||
       !idsValid(c.survivors, SURVIVOR_IDS) || !idsValid(c.weapons, ['pistol', 'rifle', 'axe', 'bow']) || !c.weapons.includes('pistol')) throw new Error('存档结构不匹配');
+  if (c.reserves !== undefined && (!c.reserves || !['rifle', 'archer', 'vanguard'].every(k => count(c.reserves![k as keyof typeof c.reserves])))) throw new Error('预备队记录无效');
   const s = c.lastSummary;
   if (c.exploration !== undefined && !validExplorationState(c.exploration)) throw new Error('探索世界记录无效');
   if (s !== null && (!s || !['return', 'sunset'].includes(s.reason) || !Number.isFinite(s.duration) || s.duration < 0 || s.duration > 90.1 ||
     !count(s.kills) || !count(s.caches) || !count(s.engineerBonus) || (s.seed !== undefined && (!Number.isInteger(s.seed) || s.seed < 0 || s.seed > 4294967295)) || (s.specialistBonus !== undefined && s.specialistBonus !== 3) || !cargoValid(s.cargo) || !idsValid(s.rescued, SURVIVOR_IDS))) throw new Error('结算记录无效');
+  if (c.base && c.base.version === 1) c.base = migrateBase(c.base);
   if (c.base !== undefined && c.base !== null && !validBasePlan(c.base)) throw new Error('基地布防存档无效');
   if (c.nightsWon !== undefined && !count(c.nightsWon)) throw new Error('守夜次数无效');
   if (c.clearedStage !== undefined && (!count(c.clearedStage) || c.clearedStage > STAGE_COUNT)) throw new Error('战役阶段无效');
   if (c.lanternLevel !== undefined && (!count(c.lanternLevel) || c.lanternLevel > 2)) throw new Error('提灯升级无效');
   const n = c.lastNight;
   if (n !== undefined && n !== null && (!n || !['victory', 'defeat'].includes(n.outcome) || !Number.isFinite(n.duration) || n.duration < 0 || n.duration > 120 ||
-    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 8 || !count(n.buildings) || !count(n.strikes) || n.strikes > 2 ||
+    !count(n.kills) || !count(n.lampHealth) || n.lampHealth > 380 || !count(n.soldiers) || n.soldiers > 12 || !count(n.buildings) || !count(n.strikes) || n.strikes > 2 ||
     (n.stage !== undefined && !validStage(n.stage)) || (n.bossKills !== undefined && (!count(n.bossKills) || n.bossKills > 6)) || (n.outcome === 'victory' && (n.duration !== 120 || n.lampHealth === 0)) || (n.outcome === 'defeat' && n.lampHealth !== 0))) throw new Error('守夜结算无效');
   return cloneCampaign({ ...c, base: c.base ?? null });
 }

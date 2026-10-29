@@ -45,7 +45,7 @@ test('非法昵称、分数、时间、失败、旧版本、重复阶段、额�
   }
   const normalized = await app.inject({ method: 'POST', url: '/api/scores', payload: payload({ nickname: '  ＡＢ守灯人  ' }) }); assert.equal(normalized.json().entry.nickname, 'AB守灯人');
 });
-test('五阶段通关的主要用时包含固定布防和守夜，实际墙钟可受三倍速缩短', async t => {
+test('五阶段通关支持实际不限时布防，守夜固定，实际墙钟可受三倍速缩短', async t => {
   const app = await buildApp(memoryStore(), { logger: false }); t.after(() => app.close());
   for (const difficulty of ['easy', 'normal', 'hard'] as const) {
     const s = payload({ difficulty, totalDurationMs: 300000, maxSpeed: 3 });
@@ -53,6 +53,8 @@ test('五阶段通关的主要用时包含固定布防和守夜，实际墙钟�
   }
   const broken = payload(); const { phaseTimesMs: _phase, ...missing } = broken;
   assert.equal((await app.inject({ method: 'POST', url: '/api/scores', payload: missing })).statusCode, 400);
+  const long = payload({ durationMs: 1150000, phaseTimesMs: {day:100000,base:450000,night:600000}, stages:payload().stages.map(s=>({...s,soldiers:12})) });
+  assert.equal((await app.inject({ method: 'POST', url: '/api/scores', payload: long })).statusCode, 201);
 });
 test('只允许准确来源，正确预检，不信任伪造的转发地址', async t => {
   const app = await buildApp(memoryStore(), { logger: false, submitLimit: 1 }); t.after(() => app.close());

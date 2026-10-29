@@ -113,11 +113,11 @@ export class LeaderboardPanel {
     const select = document.createElement('select'); select.setAttribute('aria-label', '游戏难度');
     for (const [id, preset] of Object.entries(DIFFICULTIES)) { const o = document.createElement('option'); o.value = id; o.textContent = preset.name; select.append(o); }
     select.value = this.difficulty; select.addEventListener('change', () => { this.difficulty = select.value as RankDifficulty; this.render(); }); label.append(select); this.tabs.append(label);
-    const intro = document.createElement('p'); intro.className = 'online-note'; intro.textContent = '前 20 名 · 总用时包含探索、布防和守夜的游戏内进度；暂停、失焦和结算等待不计时。倍速不减少固定守夜用时。'; this.content.append(intro);
+    const intro = document.createElement('p'); intro.className = 'online-note'; intro.textContent = '前 20 名 · 总用时包含探索与守夜进度，加上实际布防时间；暂停、失焦和结算等待不计时。倍速不减少固定守夜用时。'; this.content.append(intro);
     const status = document.createElement('p'); status.className = 'online-status'; status.role = 'status'; status.textContent = '正在连接灯塔档案…'; this.content.append(status);
     this.content.append(this.button('刷新榜单', () => this.render()));
     const links = document.createElement('div'); links.className = 'online-start';
-    const note = document.createElement('p'); note.textContent = '五阶段战役 · 通关用时包含探索、布防与守夜 · 暂停不计时，倍速不降低固定阶段用时'; links.append(note);
+    const note = document.createElement('p'); note.textContent = '五阶段战役 · 通关用时包含探索、布防与守夜 · 暂停不计时，布防按实际用时计入，倍速不降低固定守夜用时'; links.append(note);
     for (const [id, preset] of Object.entries(DIFFICULTIES)) {
       const name = preset.name;
       const a = document.createElement('a'); a.textContent = `开始${name}排名战役 →`; const url = new URL(location.href); url.search = new URLSearchParams({ ranked: '1', difficulty: id, intro: '0' }).toString(); a.href = url.toString(); links.append(a);

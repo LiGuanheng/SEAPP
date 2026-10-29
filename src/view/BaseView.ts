@@ -78,7 +78,7 @@ export class BaseView {
       v.helmet.setPosition(s.x, s.y - 37).setDepth(s.y + 1).setVisible(!hero);
       v.gun.setTexture(s.role === 'gunner' ? 'cannon-barrel' : s.role === 'guardian' ? 'lantern' : s.role === 'striker' || s.role === 'archer' ? 'bow' : s.role === 'sentinel' || s.role === 'vanguard' ? 'axe' : 'rifle').setPosition(s.x, s.y - (hero ? 29 : 16)).setRotation(s.aim).setFlipY(Math.cos(s.aim) < 0).setDepth(s.y + 2);
       v.sprite.setTint(hero ? 0xffffff : s.role === 'archer' ? 0xa5c182 : s.role === 'vanguard' ? 0xd0a087 : 0x9eaf91).setFlipX(!!hero && Math.cos(s.aim) < 0);
-      v.label.setText(hero ? `★ ${hero.name}` : '').setPosition(s.x, s.y - 89).setDepth(s.y + 4).setVisible(!!hero);
+      v.label.setText(hero ? `★ ${hero.name} Lv.${world.stage}` : '').setPosition(s.x, s.y - 89).setDepth(s.y + 4).setVisible(!!hero);
       if (hero) g.lineStyle(2, hero.tint, 0.8).strokeEllipse(s.x, s.y + 2, 43, 20);
       if (paused || !world.commanding) v.sprite.anims.pause();
       else {

@@ -58,7 +58,7 @@ export class ExpeditionView {
         if (s.moving) view.sprite.play(profile.hero ? `${profile.texture}-walk` : `player-walk-${facing(s.aim)}`, true);
         else { view.sprite.anims.stop(); view.sprite.setFrame(profile.hero ? 1 : facing(s.aim) * 3 + 1); }
       }
-      view.label.setText(`${s.state === 'waiting' ? profile.hero ? '★ 高危搜救' : '◇' : '✓'} ${profile.name} · ${profile.role}`).setColor(profile.hero ? '#efd29c' : '#d7d5ae');
+      view.label.setText(`${s.state === 'waiting' ? profile.hero ? '★ 高危搜救' : '◇' : '✓'} ${s.name ?? profile.name} · ${profile.role}`).setColor(profile.hero ? '#efd29c' : '#d7d5ae');
     }
     this.prompt.setPosition(world.player.x, world.player.y + 65).setText(world.prompt()).setVisible(!paused && world.status === 'playing' && !!world.prompt());
   }

@@ -14,7 +14,7 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
   const pool = createPool({ DATABASE_URL: raw, DATABASE_SSL: process.env.DATABASE_SSL === 'verify-full' ? 'verify-full' : 'disable' });
   t.after(() => pool.end()); await migrate(pool); const store = createStore(pool);
   await t.test('迁移可重复执行且保留版本校验和', async () => {
-    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 4);
+    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 5);
   });
   await t.test('空榜、真实写入读取、同昵称允许多次战役', async () => {
     await pool.query('TRUNCATE scores'); assert.deepEqual(await store.leaderboard('speed', 'normal', 20), []);
@@ -25,6 +25,11 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
     await pool.query('TRUNCATE scores'); const s = payload(); const results = await Promise.all(Array.from({ length: 8 }, () => store.submit(s)));
     assert.equal(results.filter(r => r.created).length, 1); assert.equal(Number((await pool.query('SELECT count(*) FROM scores')).rows[0].count), 1);
     await assert.rejects(() => store.submit({ ...s, nickname: '改动昵称' }), ConflictError);
+  });
+  await t.test('新版450秒实际布防与12人守军可以入库，不伪造固定布防时间', async () => {
+    const s=payload({durationMs:1150000,phaseTimesMs:{day:100000,base:450000,night:600000},stages:payload().stages.map(s=>({...s,soldiers:12}))});
+    const saved=await store.submit(s);assert.equal(saved.created,true);assert.equal(saved.entry.durationMs,1150000);
+    const row=(await pool.query('SELECT phase_times_ms FROM scores WHERE id=$1',[s.runId])).rows[0];assert.equal(row.phase_times_ms.base,450000);
   });
   await t.test('失败/主动结束归挑战榜，完整通关榜独立，真实名次与幂等返回一致', async () => {
     await pool.query('TRUNCATE scores');

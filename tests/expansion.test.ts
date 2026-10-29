@@ -10,7 +10,7 @@ import { decodeCampaign, newCampaign } from '../src/core/campaign.ts';
 import { canOccupy, distance, firstWall } from '../src/core/geometry.ts';
 import type { InputState, Zombie } from '../src/core/types.ts';
 
-const idle: InputState = { moveX: 0, moveY: 0, firing: false, sprinting: false, aim: { x: 1000, y: 184 } };
+const idle: InputState = { moveX: 0, moveY: 0, firing: false, sprinting: false, aim: { x: 1256, y: 376 } };
 const zombie = (id: number, x: number, y: number): Zombie => ({ id, x, y, health: 64, aim: 0, moving: false, attackCooldown: 0, hurt: 0, knockX: 0, knockY: 0, skin: 0 });
 function rich() { const c = newCampaign(); c.depot = { materials: 100, energy: 20, medkits: 0 }; return c; }
 function enemy(w: NightWorld, x: number, y: number): NightEnemy { const e: NightEnemy = { id: 1000 + w.enemies.length, x, y, health: 60, kind: 'walker', aim: 0, moving: false, cooldown: 0, hurt: 0 }; w.enemies.push(e); return e; }
@@ -55,19 +55,19 @@ test('近战和弓手救援后协助战斗，返营解锁不同兵种；旧档�
 
 test('夜战先锋真实挥斧且有冷却，不能隔着城墙近战伤敌', () => {
   const b = new BaseWorld(rich()); b.campaign.survivors.push('brawler'); const w = new NightWorld(b.campaign);
-  const s = w.plan.soldiers.find(s => s.role === 'vanguard')!; Object.assign(s, { x: 900, y: 624 });
+  const s = w.plan.soldiers.find(s => s.role === 'vanguard')!; Object.assign(s, { x: 1156, y: 816 });
   for (const [id, f] of w.fighters) if (id !== s.id) f.health = 0;
-  const z = enemy(w, 950, 624); w.step(); assert.equal(z.health, 18); assert.ok(w.events.some(e => e.type === 'swing'));
+  const z = enemy(w, 1206, 816); w.step(); assert.equal(z.health, 18); assert.ok(w.events.some(e => e.type === 'swing'));
   w.step(); assert.equal(z.health, 18);
-  const fort = new BaseWorld(rich()); fort.campaign.survivors.push('brawler'); assert.equal(fort.build('wall', { x: 928, y: 608 }).ok, true);
-  const blocked = new NightWorld(fort.campaign), guard = blocked.plan.soldiers.find(s => s.role === 'vanguard')!; Object.assign(guard, { x: 916, y: 624 });
+  const fort = new BaseWorld(rich()); fort.campaign.survivors.push('brawler'); assert.equal(fort.build('wall', { x: 1184, y: 800 }).ok, true);
+  const blocked = new NightWorld(fort.campaign), guard = blocked.plan.soldiers.find(s => s.role === 'vanguard')!; Object.assign(guard, { x: 1172, y: 816 });
   for (const [id, f] of blocked.fighters) if (id !== guard.id) f.health = 0;
-  const behind = enemy(blocked, 972, 624); blocked.step(); assert.equal(behind.health, 60);
+  const behind = enemy(blocked, 1228, 816); blocked.step(); assert.equal(behind.health, 60);
 });
 
 test('低价城墙可建设超过十四段，工程师不使其免费，真实敌人可以破墙', () => {
   const c = rich(); c.survivors = ['engineer']; const b = new BaseWorld(c); assert.equal(b.cost('wall').materials, 1);
-  for (let i = 0; i < 16; i++) assert.equal(b.build('wall', { x: 320 + i % 10 * 32, y: 256 + Math.floor(i / 10) * 32 }).ok, true);
+  for (let i = 0; i < 16; i++) assert.equal(b.build('wall', { x: 576 + i % 10 * 32, y: 448 + Math.floor(i / 10) * 32 }).ok, true);
   assert.equal(b.plan.buildings.length, 16); assert.ok(validBasePlan(b.plan));
   const w = new NightWorld(b.campaign); for (const f of w.fighters.values()) f.health = 0;
   const wall = w.plan.buildings[0]; enemy(w, wall.x + 16, wall.y - 12); for (let i = 0; i < 12 * 60 && w.plan.buildings.includes(wall); i++) w.step();
@@ -76,9 +76,9 @@ test('低价城墙可建设超过十四段，工程师不使其免费，真实�
 
 test('加农炮真实弹体范围杀伤，箭塔单体高射程，两者保存与读档有效', () => {
   for (const kind of ['cannon', 'arrowtower'] as const) {
-    const b = new BaseWorld(rich()); assert.equal(b.build(kind, { x: 832, y: 352 }).ok, true); assert.ok(decodeCampaign(JSON.stringify(b.campaign)));
+    const b = new BaseWorld(rich()); assert.equal(b.build(kind, { x: 1088, y: 544 }).ok, true); assert.ok(decodeCampaign(JSON.stringify(b.campaign)));
     const w = new NightWorld(b.campaign); for (const f of w.fighters.values()) f.health = 0;
-    const a = enemy(w, 860, 290), nearby = enemy(w, 893, 293); assert.ok(distance(a, nearby) < 62);
+    const a = enemy(w, 1116, 482), nearby = enemy(w, 1149, 485); assert.ok(distance(a, nearby) < 62);
     let shots = 0, explosions = 0;
     for (let i = 0; i < 45; i++) { w.step(); shots += w.events.filter(e => e.type === 'fire').length; explosions += w.events.filter(e => e.type === 'explosion').length; }
     assert.ok(shots > 0);

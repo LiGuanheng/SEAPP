@@ -57,7 +57,7 @@ test('实机可建六十段墙，正常扣费、保存并刷新，原四十座�
   await page.addInitScript(() => { if (!localStorage.getItem('last-light.campaign.v2')) localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, expeditions: 1, depot: { materials: 100, energy: 0, medkits: 0 }, survivors: [], weapons: ['pistol'], lastSummary: null, base: null })); });
   await page.clock.install(); await page.goto('/?mode=base&test=1'); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready); await page.clock.runFor(850); await key(page, 'Digit5');
   for (let i = 0; i < 60; i++) {
-    const s = await page.evaluate(() => (window as any).__baseLight.snapshot()), x = 368 + i % 10 * 32, y = 272 + Math.floor(i / 10) * 32;
+    const s = await page.evaluate(() => (window as any).__baseLight.snapshot()), x = 624 + i % 10 * 32, y = 464 + Math.floor(i / 10) * 32;
     await click(page, (x - s.camera.x) * s.camera.zoom, (y - s.camera.y) * s.camera.zoom);
   }
   const result = await page.evaluate(() => (window as any).__baseLight.snapshot()); expect(result.plan.buildings).toHaveLength(60); expect(result.campaign.depot.materials).toBe(40);

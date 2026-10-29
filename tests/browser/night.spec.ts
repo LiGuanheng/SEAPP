@@ -24,28 +24,28 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
   await page.clock.install(); await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);
   for (const p of [{ x: 1056, y: 736 }, { x: 1200, y: 780 }, { x: 1264, y: 704 }, { x: 1104, y: 852 }, { x: 920, y: 760 }]) { await walk(page, p.x, p.y); await page.clock.runFor(200); await key(page, 'KeyE'); }
   await key(page, 'Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
-  await key(page, 'Digit2'); await clickWorld(page, 836, 356, true);
-  await key(page, 'Digit1'); await key(page, 'KeyR'); await page.clock.runFor(50); await clickWorld(page, 964, 644, true); await key(page, 'Escape');
-  await key(page, 'Digit4'); await clickWorld(page, 612, 644, true); await clickWorld(page, 868, 644, true); await key(page, 'Escape');
+  await key(page, 'Digit2'); await clickWorld(page, 1092, 548, true);
+  await key(page, 'Digit1'); await key(page, 'KeyR'); await page.clock.runFor(50); await clickWorld(page, 1220, 836, true); await key(page, 'Escape');
+  await key(page, 'Digit4'); await clickWorld(page, 868, 836, true); await clickWorld(page, 1124, 836, true); await key(page, 'Escape');
   expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.buildings).toHaveLength(4);
   expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.buildings[1].rotation).toBe(1);
-  await page.clock.runFor(30000); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await page.clock.runFor(100);
+  await page.clock.runFor(30000); expect((await page.evaluate(() => (window as any).__baseLight.snapshot())).plan.status).toBe('preparing'); await key(page,'Enter'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await page.clock.runFor(100);
   expect(await page.evaluate(() => '__baseLight' in window)).toBe(false);
   expect((await state(page)).status).toBe('playing'); expect((await state(page)).charges).toBe(2);
   await key(page, 'KeyM'); await page.clock.runFor(50); expect((await state(page)).muted).toBe(true); await key(page, 'KeyM'); await page.clock.runFor(50); expect((await state(page)).muted).toBe(false);
   await page.clock.runFor(6000); await page.screenshot({ path: 'artifacts/phase4-night.png' });
-  await clickWorld(page, 688, 604); await clickWorld(page, 688, 592, false, 'right'); await page.clock.runFor(300); await key(page, 'KeyG');
-  await key(page, 'Space'); expect((await state(page)).selected).toHaveLength(3);
+  await clickWorld(page, 944, 796); await clickWorld(page, 944, 784, false, 'right'); await page.clock.runFor(300); await key(page, 'KeyG');
+  await key(page, 'Space'); expect((await state(page)).selected).toHaveLength(4);
   await key(page, 'KeyP'); await page.clock.runFor(100); const paused = await state(page); expect(paused.paused).toBe(true);
   const covered = await screen(page, 350, 663); await page.mouse.click(covered.x, covered.y); await page.clock.runFor(3000); expect(await state(page)).toEqual(paused);
-  await key(page, 'KeyP'); await key(page, 'KeyF'); await clickWorld(page, 920, 592); expect((await state(page)).charges).toBe(1);
+  await key(page, 'KeyP'); await key(page, 'KeyF'); await clickWorld(page, 1176, 784); expect((await state(page)).charges).toBe(1);
   await page.clock.runFor(650); await page.screenshot({ path: 'artifacts/phase4-explosion.png' });
   let capturedHorde = false;
   for (let i = 0; i < 32; i++) {
     const s = await state(page); if (s.status !== 'playing') break;
     if (s.elapsed > 107 && !capturedHorde) { await page.screenshot({ path: 'artifacts/phase4-horde.png' }); capturedHorde = true; }
     if (s.elapsed > 55 && s.charges && s.supportCooldown === 0) {
-      const e = s.enemies.find((e: any) => e.kind === 'brute' && Math.hypot(e.x - 768, e.y - 512) < 360);
+      const e = s.enemies.find((e: any) => e.kind === 'brute' && Math.hypot(e.x - 1024, e.y - 704) < 360);
       if (e) { await key(page, 'KeyF'); await clickWorld(page, e.x, e.y); }
     }
     await page.clock.runFor(4000);
@@ -57,7 +57,7 @@ test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开�
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!)); expect(saved.nightsWon).toBe(1); expect(saved.lastNight.outcome).toBe('victory');
   expect(saved.base.buildings).toHaveLength(4);
   await key(page, 'Enter'); await page.clock.runFor(200); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
-  const next = await page.evaluate(() => (window as any).__baseLight.snapshot()); expect(next.plan.stage).toBe(2); expect(next.remaining).toBeGreaterThan(29); expect(next.lightRadius).toBe(530);
+  const next = await page.evaluate(() => (window as any).__baseLight.snapshot()); expect(next.plan.stage).toBe(2); expect(next.plan.status).toBe('preparing'); expect(next.lightRadius).toBe(640);
   expect((await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.campaign.v2')!))).nightsWon).toBe(1);
   expect(errors).toEqual([]);
 });

@@ -24,9 +24,10 @@ export interface RunCheckpoint {
   rescued: string[]; phaseTimesMs: PhaseTimesMs; totalMs: number; maxSpeed: 1 | 2 | 3;
 }
 export class RankedRun {
-  /** 实际活动墙钟用于附加展示，排行榜主要时长由模型推进量累计。 */
+  /** 总活动墙钟另作展示；排名时长累计探索/夜战模型推进量及实际布防时间。 */
   readonly clock = new ActivePlayClock();
   readonly totalClock = this.clock;
+  private sample: { active: boolean; now: number; phase: RunPhase } | null = null;
   private phaseTotals: PhaseTimesMs = { day: 0, base: 0, night: 0 };
   readonly stages: StageScore[] = [];
   maxSpeed: 1 | 2 | 3 = 1;
@@ -40,6 +41,8 @@ export class RankedRun {
   constructor(runId: string, difficulty: RankDifficulty, practice = false) { this.runId = runId; this.difficulty = difficulty; this.practice = practice; }
   update(active: boolean, now: number, speed: 1 | 2 | 3 = 1, _phase: RunPhase = 'day'): void {
     if (this.result) return;
+    if (this.sample?.active && this.sample.phase === 'base') this.phaseTotals.base += Math.max(0, now - this.sample.now);
+    this.sample = { active, now, phase: _phase };
     this.clock.update(active, now);
     if (active) this.maxSpeed = Math.max(this.maxSpeed, speed) as 1 | 2 | 3;
   }
@@ -63,7 +66,7 @@ export class RankedRun {
     if (this.result) return;
     this.exploration.kills = Math.min(1000, this.exploration.kills + kills);
     this.exploration.caches = Math.min(200, this.exploration.caches + caches);
-    rescued.forEach(id => this.rescued.add(id)); this.exploration.rescued = Math.min(8, this.rescued.size);
+    rescued.forEach(id => { if (this.rescued.size < 8) this.rescued.add(id); }); this.exploration.rescued = this.rescued.size;
   }
   checkpoint(now?: number): RunCheckpoint {
     return { version: 2, difficulty: this.difficulty, stages: structuredClone(this.stages), exploration: { ...this.exploration },
@@ -76,6 +79,7 @@ export class RankedRun {
       snapshot.exploration?.rescued !== snapshot.rescued.length) throw new Error('无效的阶段成绩检查点');
     const p = snapshot.phaseTimesMs, durationMs = p?.day + p?.base + p?.night;
     calculateScore(snapshot.stages, durationMs, { completed: false, exploration: snapshot.exploration, totalDurationMs: snapshot.totalMs, phaseTimesMs: p });
+    this.sample = null;
     this.clock.restore(snapshot.totalMs, now); this.phaseTotals = { ...p };
     this.stages.splice(0, this.stages.length, ...structuredClone(snapshot.stages));
     Object.assign(this.exploration, snapshot.exploration); this.rescued = new Set(snapshot.rescued); this.maxSpeed = snapshot.maxSpeed;

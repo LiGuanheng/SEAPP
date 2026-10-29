@@ -68,8 +68,9 @@ export function updateRun(active: boolean, speed: 1 | 2 | 3 = 1, phase: GamePhas
   rankedRun.update(active && !document.hidden, performance.now(), speed, phase);
 }
 export function advanceRun(phase: GamePhase, seconds: number): void {
-  if (phase !== 'day' && stageCheckpoint) {
-    const limit = phase === 'base' ? 30_000 : 120_000;
+  if (phase === 'base') return; // 实际布防时间由活动时钟累计，倍速不改变。
+  if (phase === 'night' && stageCheckpoint) {
+    const limit = 120_000;
     const start = stageCheckpoint.run.phaseTimesMs[phase];
     seconds = Math.min(seconds, Math.max(0, (start + limit - rankedRun.phaseTimesMs[phase]) / 1000));
   }
@@ -79,3 +80,4 @@ export function rankingSnapshot() {
   const times = rankedRun.phaseTimesMs;
   return { elapsedMs: times.day + times.base + times.night, dayElapsedMs: times.day, phaseTimesMs: { ...times }, totalElapsedMs: rankedRun.totalClock.read(performance.now()), clearedStages: rankedRun.stages.filter(s => s.cleared !== false).length };
 }
+export function stagePreparationMs(): number { return Math.max(0, rankedRun.phaseTimesMs.base - (stageCheckpoint?.run.phaseTimesMs.base ?? 0)); }

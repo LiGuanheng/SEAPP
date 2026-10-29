@@ -2,8 +2,8 @@ import { STAGE_COUNT, validStage, type StageId } from '../config/progression.ts'
 import type { Difficulty } from '../config/difficulty.ts';
 
 /** 前后端共用：五阶段首次胜利与探索计分，排行榜使用全部阶段的游戏时间。 */
-export const SCORE_VERSION = 4;
-export const GAME_VERSION = '0.15.0';
+export const SCORE_VERSION = 5;
+export const GAME_VERSION = '0.16.0';
 export type RankDifficulty = Difficulty;
 export type BoardType = 'speed' | 'score';
 export type ScoreScope = 'clear' | 'challenge';
@@ -23,7 +23,7 @@ export interface StageScore {
 export const SCORE_RULES = {
   victory: 14_000, stageVictory: 2000, fullVictory: 4000, kill: 5, killCaps: [120, 220, 340, 420, 520],
   boss: 250, bossCaps: [1, 2, 5, 5, 6], lampPerStage: 1000,
-  soldier: 100, efficiency: 3000, maxDurationMs: 86_400_000, maxScore: 40_000,
+  soldier: 100, efficiency: 3000, maxDurationMs: 86_400_000, maxScore: 48_000,
 } as const;
 export interface ScoreBreakdown { victory: number; combat: number; bosses: number; lighthouse: number; defenders: number; exploration: number; efficiency: number; total: number }
 export function validStages(value: unknown, completed = true): value is StageScore[] {
@@ -33,14 +33,14 @@ export function validStages(value: unknown, completed = true): value is StageSco
     (s.cleared === undefined || typeof s.cleared === 'boolean') && Number.isInteger(s.kills) && s.kills >= 0 && s.kills <= 1000 &&
     Number.isInteger(s.bossKills) && s.bossKills >= 0 && s.bossKills <= SCORE_RULES.bossCaps[s.stage - 1] && s.bossKills <= s.kills &&
     Number.isInteger(s.lampHealth) && s.lampHealth >= (s.cleared === false ? 0 : 1) && s.lampHealth <= 380 &&
-    Number.isInteger(s.soldiers) && s.soldiers >= 0 && s.soldiers <= 8);
+    Number.isInteger(s.soldiers) && s.soldiers >= 0 && s.soldiers <= 12);
 }
 export function validPhaseTimes(value: unknown, durationMs: number, completed = false): value is PhaseTimesMs {
   if (!value || typeof value !== 'object') return false;
   const p = value as PhaseTimesMs;
   return [p.day, p.base, p.night].every(n => Number.isSafeInteger(n) && n >= 0) && p.day <= SCORE_RULES.maxDurationMs &&
-    p.base <= STAGE_COUNT * 30_000 && p.night <= STAGE_COUNT * 120_000 && p.day + p.base + p.night === durationMs &&
-    (!completed || p.base === STAGE_COUNT * 30_000 && p.night === STAGE_COUNT * 120_000);
+    p.base <= SCORE_RULES.maxDurationMs && p.night <= STAGE_COUNT * 120_000 && p.day + p.base + p.night === durationMs &&
+    (!completed || p.night === STAGE_COUNT * 120_000);
 }
 export function calculateScore(stages: StageScore[], durationMs: number, options: { completed?: boolean; exploration?: ExplorationScore; totalDurationMs?: number; phaseTimesMs?: PhaseTimesMs } = {}): ScoreBreakdown {
   const completed = options.completed ?? true, e = options.exploration ?? { kills: 0, caches: 0, rescued: 0 };

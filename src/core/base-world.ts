@@ -1,10 +1,12 @@
-import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, PREPARATION_SECONDS, RESERVED_ROUTES, OUTER_ENTRY_AREAS, REFITS, refitFor, buildingRect, overlaps, saleRefund, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
+import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, GRID, LIGHTHOUSE, RESERVED_ROUTES, OUTER_ENTRY_AREAS, REFITS, refitFor, buildingRect, overlaps, saleRefund, type BasePlan, type BuildingKind, type Soldier, validPoint } from '../config/base.ts';
 import { cloneCampaign, type Campaign } from './campaign.ts';
 import { canOccupy, circleOverlapsRect, distance, moveWithCollision, normalized } from './geometry.ts';
 import { Navigation } from './navigation.ts';
 import type { Rect, Vec } from './types.ts';
 import type { ActionResult } from './expedition.ts';
 import { nextStage, STAGES, type StageId } from '../config/progression.ts';
+import { migrateBase } from './base-migration.ts';
+import { armyLimit } from '../config/growth.ts';
 import { HERO_IDS, isHero } from '../config/survivors.ts';
 
 export class BaseWorld {
@@ -14,36 +16,37 @@ export class BaseWorld {
   private nextId = 1;
   constructor(campaign: Campaign) {
     this.campaign = cloneCampaign(campaign);
-    this.plan = this.campaign.base ?? { version: 1, status: 'preparing', elapsed: 0, buildings: [], soldiers: [
-      { id: 1, x: 688, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
-      { id: 2, x: 752, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
-      { id: 3, x: 816, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
+    this.plan = this.campaign.base ? migrateBase(this.campaign.base) : { version: 2, status: 'preparing', elapsed: 0, buildings: [], soldiers: [
+      { id: 1, x: LIGHTHOUSE.x - 80, y: LIGHTHOUSE.y + 112, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
+      { id: 2, x: LIGHTHOUSE.x - 16, y: LIGHTHOUSE.y + 112, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
+      { id: 3, x: LIGHTHOUSE.x + 48, y: LIGHTHOUSE.y + 112, aim: -Math.PI / 2, destination: null, stance: 'hold', moving: false },
     ] };
     this.plan.stage ??= nextStage(campaign.clearedStage);
     const recruit = (role: NonNullable<Soldier['role']>) => {
-      if (this.plan.soldiers.length >= 8) {
-        // 保持八人编制与旧存档/计分兼容，英雄优先替换一名普通步枪手。
+      if (this.plan.soldiers.length >= armyLimit(this.stage)) {
+        // 满编时英雄优先替换一名普通步枪手，保留独有英雄。
         if (isHero(role)) { const reserve = [...this.plan.soldiers].reverse().find(s => !s.role || s.role === 'rifle'); if (reserve) reserve.role = role; }
         return;
       }
       const id = this.plan.soldiers.length + 1;
-      const candidate = { id, x: 880, y: 624, aim: -Math.PI / 2, destination: null, stance: 'hold' as const, moving: false, role };
+      const candidate = { id, x: LIGHTHOUSE.x + 112, y: LIGHTHOUSE.y + 112, aim: -Math.PI / 2, destination: null, stance: 'hold' as const, moving: false, role };
       // 旧阵地可能已占用新兵集结点；寻找真实可通行位置。
       const free = (p: Vec) => canOccupy(p, 13, this.obstacles, BASE_WIDTH, BASE_HEIGHT) && this.plan.soldiers.every(s => distance(s, p) > (isHero(role) || isHero(s.role) ? 48 : 28));
       if (!free(candidate)) for (let radius = 32, found = false; radius <= 320 && !found; radius += 32) for (let n = 0; n < 8; n++) {
-        const p = { x: 880 + Math.cos(n * Math.PI / 4) * radius, y: 624 + Math.sin(n * Math.PI / 4) * radius };
+        const p = { x: LIGHTHOUSE.x + 112 + Math.cos(n * Math.PI / 4) * radius, y: LIGHTHOUSE.y + 112 + Math.sin(n * Math.PI / 4) * radius };
         if (free(p)) { candidate.x = p.x; candidate.y = p.y; found = true; break; }
       }
-      if (this.plan.soldiers.length < 8) this.plan.soldiers.push(candidate);
+      if (free(candidate) && this.plan.soldiers.length < armyLimit(this.stage)) this.plan.soldiers.push(candidate);
     };
     if (this.campaign.survivors.includes('captain') && this.plan.soldiers.filter(s => !s.role || s.role === 'rifle').length < 4) recruit('rifle');
     for (const [profile, role] of [['ranger', 'archer'], ['brawler', 'vanguard']] as const) if (this.campaign.survivors.includes(profile) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
     for (const role of HERO_IDS) if (this.campaign.survivors.includes(role) && !this.plan.soldiers.some(s => s.role === role)) recruit(role);
+    if (this.campaign.reserves) for (const role of ['rifle', 'archer', 'vanguard'] as const) while (this.campaign.reserves[role] > 0 && this.plan.soldiers.length < armyLimit(this.stage)) { const before = this.plan.soldiers.length; recruit(role); if (this.plan.soldiers.length === before) break; this.campaign.reserves[role]--; }
     this.campaign.base = this.plan;
     this.nextId = Math.max(0, ...this.plan.buildings.map(b => b.id)) + 1;
     this.rebuildNavigation();
   }
-  get remaining(): number { return Math.max(0, PREPARATION_SECONDS - this.plan.elapsed); }
+  get remaining(): number { return 0; }
   get stage(): StageId { return this.plan.stage ?? nextStage(this.campaign.clearedStage); }
   get buildArea(): Rect { return STAGES[this.stage].area; }
   get lightRadius(): number { return STAGES[this.stage].lightRadius; }
@@ -76,7 +79,7 @@ export class BaseWorld {
   build(kind: BuildingKind, point: Vec, rotation: 0 | 1 = 0): ActionResult {
     const valid = this.preview(kind, point, rotation); if (!valid.ok) return valid;
     const candidate = buildingRect({ kind, ...point, rotation });
-    const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, [...this.obstacles, candidate], 11); nav.rebuild({ x: LIGHTHOUSE.x, y: 592 });
+    const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, [...this.obstacles, candidate], 11); nav.rebuild({ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
     if (this.plan.soldiers.some(s => nav.field[Math.floor(s.y / GRID) * nav.cols + Math.floor(s.x / GRID)] < 0)) return { ok: false, message: '此处建设会困住士兵，请保留通路' };
     const paid = this.cost(kind);
     this.campaign.depot.materials -= paid.materials; this.campaign.depot.energy -= paid.energy;
@@ -151,15 +154,15 @@ export class BaseWorld {
   }
   finish(): void {
     if (this.plan.status !== 'preparing') return;
-    this.plan.elapsed = PREPARATION_SECONDS; this.plan.status = 'ready';
+    this.plan.status = 'ready';
     for (const s of this.plan.soldiers) s.moving = false;
   }
-  resume(): void { this.plan.status = 'preparing'; this.plan.elapsed = 0; this.plan.stage = nextStage(this.campaign.clearedStage); }
+  resume(): void { this.plan.status = 'preparing'; this.plan.stage = nextStage(this.campaign.clearedStage); }
   step(dt = 1 / 60): void {
     if (this.plan.status !== 'preparing' || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(dt, 0.05); this.plan.elapsed += dt;
     this.stepSoldiers(dt);
-    if (this.remaining < 1e-6) this.finish();
+
   }
   protected stepSoldiers(dt: number): void {
     const obstacles = this.obstacles;

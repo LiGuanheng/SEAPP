@@ -8,6 +8,7 @@ import { CombatWorld } from './world.ts';
 import { explorationLayout, freeLayoutPoint, type ExplorationLayout } from './exploration-layout.ts';
 import { ExplorationVision, LIGHT_RADII } from './exploration-vision.ts';
 import { SURVIVOR_PROFILES, type SurvivorId } from '../config/survivors.ts';
+import { capacityFor, lootMultiplier } from '../config/growth.ts';
 import { nextStage } from '../config/progression.ts';
 import { DIFFICULTIES, type Difficulty } from '../config/difficulty.ts';
 import { chooseDistrict, districtCount, districtSeed, DISTRICTS, explorationState, type ExplorationState } from './exploration-state.ts';
@@ -16,7 +17,7 @@ export { SURVIVOR_PROFILES, type SurvivorId } from '../config/survivors.ts';
 export const EXPEDITION_SECONDS = 90;
 export const CAPACITY = 48;
 export const CAMP = { x: 920, y: 760, radius: 66 };
-export interface Survivor extends Vec { id: SurvivorId; state: 'waiting' | 'following' | 'secured'; moving: boolean; aim: number }
+export interface Survivor extends Vec { id: SurvivorId; name?: string; state: 'waiting' | 'following' | 'secured'; moving: boolean; aim: number }
 export interface Cache extends Vec { id: string; name: string; cargo: Cargo; rifle?: boolean; weapon?: WeaponId; lampLevel?: 1 | 2; opened: boolean; depleted?: boolean }
 export interface ActionResult { ok: boolean; message: string }
 export const cargoWeight = (c: Cargo): number => c.materials + c.energy + c.medkits * 2;
@@ -86,8 +87,14 @@ export class ExpeditionWorld extends CombatWorld {
         if (c.id.startsWith('room-') || c.id.startsWith('scout-') || c.id === 'event') return;
         const d = roomDoor(layout.buildings[(i + district) % layout.buildings.length]); c.x = d.x + (i % 2 ? 44 : -44); c.y = d.y - 62;
       });
-      this.survivors.forEach((s, i) => { const d = roomDoor(layout.buildings[(i + district) % layout.buildings.length]); s.x = d.x + (i % 2 ? 36 : -36); s.y = d.y - 118 - Math.floor(i / 6) * 80; });
+      this.survivors.forEach((s, i) => { const d = roomDoor(layout.buildings[(i + district + (SURVIVOR_PROFILES[s.id].hero ? 0 : campaign.expeditions)) % layout.buildings.length]); s.x = d.x + (i % 2 ? 36 : -36); s.y = d.y - 118 - Math.floor(i / 6) * 80; });
     }
+    // 首趟教学保留；之后每趟普通人员换到其他房屋，英雄始终唯一。
+    if (district === 0 && campaign.expeditions > 0) this.survivors.forEach((s, i) => { if (!SURVIVOR_PROFILES[s.id].hero) { const d = roomDoor(layout.buildings[(i + campaign.expeditions) % layout.buildings.length]); s.x = d.x; s.y = d.y - 112; } });
+    for (const s of this.survivors) if (!SURVIVOR_PROFILES[s.id].hero) s.name = `${SURVIVOR_PROFILES[s.id].name}·搜救队${campaign.expeditions + 1}`;
+    const multiplier = lootMultiplier(stage);
+    for (const cache of this.caches) { cache.cargo.materials = Math.round(cache.cargo.materials * multiplier); cache.cargo.energy = Math.round(cache.cargo.energy * multiplier); }
+    this.caches.push({ id: `stage-${stage}`, name: '阶段战略储备', x: CAMP.x - 96, y: CAMP.y + 80, cargo: { materials: stage * 6, energy: stage * 2, medkits: 0 }, opened: false });
     for (const p of [...this.caches, ...this.survivors]) if (!canOccupy(p, 12, this.obstacles, this.width, this.height)) Object.assign(p, freeLayoutPoint(p, this.obstacles));
     for (let i = 0; i < this.survivors.length; i++) {
       const person = this.survivors[i], free = (p: Vec) => canOccupy(p, 12, this.obstacles, this.width, this.height) && this.survivors.slice(0, i).every(s => distance(s, p) >= 36) && this.caches.every(c => distance(c, p) >= 20);
@@ -96,7 +103,7 @@ export class ExpeditionWorld extends CombatWorld {
     // 先为完整人员表确定落点，再隐藏已救/未解锁人物；救走一人不会挪动其他人的位置。
     for (let i = this.survivors.length - 1; i >= 0; i--) {
       const s = this.survivors[i];
-      if (SURVIVOR_PROFILES[s.id].stage > stage || campaign.survivors.includes(s.id)) this.survivors.splice(i, 1);
+      if (SURVIVOR_PROFILES[s.id].stage > stage || SURVIVOR_PROFILES[s.id].hero && campaign.survivors.includes(s.id)) this.survivors.splice(i, 1);
     }
     const spent = new Set(state.looted[district]); for (const c of this.caches) { c.opened = spent.has(c.id); c.depleted = c.opened; }
     this.lanternLevel = campaign.lanternLevel ?? 0;
@@ -109,6 +116,7 @@ export class ExpeditionWorld extends CombatWorld {
   protected override get spawnInterval(): number { return (6 - (nextStage(this.campaign?.clearedStage) - 1) * 0.6) / DIFFICULTIES[this.difficulty].count; }
   protected override get maxZombies(): number { return this.enemiesEnabled ? Math.round((10 + (nextStage(this.campaign.clearedStage) - 1) * 2) * DIFFICULTIES[this.difficulty].count) : 0; }
   override get reloadDuration(): number { return this.weapon.reload * (this.campaign.survivors.includes('captain') || this.survivors.some(s => s.id === 'captain' && s.state === 'following') ? 0.8 : 1); }
+  get capacity(): number { return capacityFor(nextStage(this.campaign.clearedStage)); }
   get remaining(): number { return Math.max(0, EXPEDITION_SECONDS - this.elapsed); }
   get weight(): number { return cargoWeight(this.inventory); }
   get followers(): Survivor[] { return this.survivors.filter(s => s.state === 'following'); }
@@ -141,7 +149,7 @@ export class ExpeditionWorld extends CombatWorld {
     if (this.status !== 'playing') return { ok: false, message: '本次探索已结束' };
     const item = this.nearby();
     if (item && 'cargo' in item) {
-      if (this.weight + cargoWeight(item.cargo) > CAPACITY) return { ok: false, message: `背包已满 (${this.weight}/${CAPACITY})，可使用急救包腾出空间或先回营` };
+      if (this.weight + cargoWeight(item.cargo) > this.capacity) return { ok: false, message: `背包已满 (${this.weight}/${this.capacity})，可使用急救包腾出空间或先回营` };
       for (const key of ['materials', 'energy', 'medkits'] as const) this.inventory[key] += item.cargo[key];
       item.opened = true;
       this.openedThisTrip.add(item.id);
@@ -188,6 +196,8 @@ export class ExpeditionWorld extends CombatWorld {
     for (const key of ['materials', 'energy', 'medkits'] as const) this.campaign.depot[key] += this.inventory[key];
     this.campaign.depot.materials += engineerBonus;
     if (rescued.some(s => s.id === 'electrician')) { this.campaign.depot.energy += 3; this.summary.specialistBonus = 3; }
+    this.campaign.reserves ??= { rifle: 0, archer: 0, vanguard: 0 };
+    for (const s of rescued) if (!SURVIVOR_PROFILES[s.id].hero) this.campaign.reserves[s.id === 'ranger' ? 'archer' : s.id === 'brawler' ? 'vanguard' : 'rifle']++;
     this.campaign.survivors = [...new Set([...this.campaign.survivors, ...rescued.map(s => s.id)])];
     this.campaign.weapons = [...new Set([...this.campaign.weapons, ...this.ownedWeapons])];
     this.campaign.lastSummary = structuredClone(this.summary);
@@ -233,7 +243,7 @@ export class ExpeditionWorld extends CombatWorld {
     if (this.remaining <= 1e-6) this.finish('sunset');
   }
   override snapshot() {
-    return { ...super.snapshot(), expedition: { remaining: this.remaining, capacity: CAPACITY, weight: this.weight, inventory: { ...this.inventory },
+    return { ...super.snapshot(), expedition: { remaining: this.remaining, capacity: this.capacity, weight: this.weight, inventory: { ...this.inventory },
       caches: structuredClone(this.caches), survivors: structuredClone(this.survivors), camp: { ...CAMP }, objective: structuredClone(this.objective()),
       summary: structuredClone(this.summary), campaign: cloneCampaign(this.campaign), prompt: this.prompt(), currentRoom: this.currentRoom, exploredRooms: [...this.exploredRooms], layout: structuredClone(this.layout), eventTriggered: this.eventTriggered,
       district: this.district, districtName: DISTRICTS[this.district], unlockedDistricts: districtCount(nextStage(this.campaign.clearedStage)), depletedCaches: this.caches.filter(c => c.depleted).length,

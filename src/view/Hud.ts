@@ -3,7 +3,7 @@ import { nextStage, STAGES } from '../config/progression.ts';
 import { BALANCE as B } from '../config/balance.ts';
 import { BUILDINGS, WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
 import type { CombatWorld } from '../core/world.ts';
-import { CAMP, CAPACITY, ExpeditionWorld, SURVIVOR_PROFILES } from '../core/expedition.ts';
+import { CAMP, ExpeditionWorld, SURVIVOR_PROFILES } from '../core/expedition.ts';
 import { WEAPONS } from '../config/weapons.ts';
 import { DISTRICTS, districtCount } from '../core/exploration-state.ts';
 
@@ -111,7 +111,7 @@ export class Hud {
     this.phase.setText(expedition ? `阶段${nextStage(expedition.campaign.clearedStage)} · ${STAGES[nextStage(expedition.campaign.clearedStage)].name} / ${expedition.layout.theme}` : '战斗训练 / 北境旧城');
     this.controls.setText('WASD 移动  SHIFT 冲刺  滚轮缩放  左键攻击  1手枪 2步枪 3斧 4弓  E互动  H治疗  TAB背包  F1指南');
     this.mission.setText(expedition ? `${DISTRICTS[expedition.district]} · ${Math.ceil(expedition.remaining)}s / ${expedition.objective().text}` : '');
-    this.cargo.setText(expedition ? `建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　负重 ${expedition.weight}/${CAPACITY}　提灯 ${expedition.lanternLevel}级 / ${expedition.lightRadius}　随队 ${expedition.followers.length}` : '');
+    this.cargo.setText(expedition ? `建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　负重 ${expedition.weight}/${expedition.capacity}　提灯 ${expedition.lanternLevel}级 / ${expedition.lightRadius}　随队 ${expedition.followers.length}` : '');
     this.stats.setText(`击杀 ${String(world.kills).padStart(2, '0')} / 存活 ${Math.floor(world.elapsed / 60)}:${String(Math.floor(world.elapsed % 60)).padStart(2, '0')} / 感染者 ${world.zombies.length}${expedition ? ` / 开放街区 ${districtCount(nextStage(expedition.campaign.clearedStage))}/6 · 旧箱耗尽${expedition.caches.filter(c => c.depleted).length}` : ''}`);
     const reloadProgress = Math.max(0, Math.min(1, 1 - p.reload / world.reloadDuration));
     this.reload.setText(p.reload > 0 ? `正在换弹  ${(100 * reloadProgress).toFixed(0)}%` : '');
@@ -141,7 +141,7 @@ export class Hud {
       this.overlayButton.setText(world.status === 'defeat' ? '查看本局成绩  →' : '继续战斗  →');
       if (bag && expedition) {
         this.overlayTitle.setText('行军背包');
-        this.overlayBody.setText(`负重 ${expedition.weight} / ${CAPACITY} · 物资返营后入库\n建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　急救包 ${expedition.inventory.medkits}\n营地库存：建材 ${expedition.campaign.depot.materials} / 电力 ${expedition.campaign.depot.energy} / 急救包 ${expedition.campaign.depot.medkits}\n装备：${world.ownedWeapons.map(id => WEAPONS[id].name).join(' / ')}\n随队：${expedition.followers.map(s => SURVIVOR_PROFILES[s.id].name).join('、') || '暂无'}\n按 H 使用急救包（关闭背包后）\n时间已暂停 · Tab / B / Esc 关闭`);
+        this.overlayBody.setText(`负重 ${expedition.weight} / ${expedition.capacity} · 物资返营后入库\n建材 ${expedition.inventory.materials}　电力 ${expedition.inventory.energy}　急救包 ${expedition.inventory.medkits}\n营地库存：建材 ${expedition.campaign.depot.materials} / 电力 ${expedition.campaign.depot.energy} / 急救包 ${expedition.campaign.depot.medkits}\n装备：${world.ownedWeapons.map(id => WEAPONS[id].name).join(' / ')}\n随队：${expedition.followers.map(s => SURVIVOR_PROFILES[s.id].name).join('、') || '暂无'}\n按 H 使用急救包（关闭背包后）\n时间已暂停 · Tab / B / Esc 关闭`);
         this.overlayButton.setText('返回街区  →');
       }
       if (expedition?.summary) {

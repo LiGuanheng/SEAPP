@@ -1,3 +1,4 @@
+import { LIGHTHOUSE } from './base.ts';
 import type { StageId } from './progression.ts';
 import { DIFFICULTIES, type Difficulty } from './difficulty.ts';
 export const NIGHT_SECONDS = 120, LAMP_HEALTH = 380;
@@ -46,8 +47,8 @@ const STAGE_WAVES: Record<StageId, readonly Wave[]> = {
 const DEVELOPED_WAVES = Object.fromEntries(Object.entries(STAGE_WAVES).map(([stage, waves]) => [stage, waves.map((w, i) => ({ ...w, tank: Number(stage) < 2 || i < 2 ? 0 : Number(stage) >= 4 ? 2 : 1 }))])) as unknown as Record<StageId, readonly Wave[]>;
 export const wavesForStage = (stage: StageId): readonly Wave[] => DEVELOPED_WAVES[stage];
 export const WAVES = STAGE_WAVES[1];
-export const GATES = [{ x: 768, y: 112 }, { x: 1536, y: 512 }, { x: 768, y: 992 }, { x: 128, y: 512 }];
-export const gatesForStage = (stage: StageId) => stage === 1 ? GATES : stage === 2 ? [{ x: 768, y: 80 }, { x: 1696, y: 512 }, { x: 768, y: 1120 }, { x: 96, y: 512 }] : [{ x: 768, y: 48 }, { x: 1920, y: 512 }, { x: 768, y: 1248 }, { x: 64, y: 512 }];
+export const gatesForStage = (stage: StageId) => { const x = [790, 860, 920, 960, 976][stage - 1], y = [520, 580, 620, 640, 656][stage - 1]; return [{ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y - y }, { x: LIGHTHOUSE.x + x, y: LIGHTHOUSE.y }, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + y }, { x: LIGHTHOUSE.x - x, y: LIGHTHOUSE.y }]; };
+export const GATES = gatesForStage(1);
 export function levelStats(kind: InfectedKind, level = 1, stage: StageId = 1, difficulty: Difficulty = 'normal') {
   const c = INFECTED[kind], tier = Math.max(0, Math.min(4, level - 1));
   return { health: Math.round(c.health * (1 + tier * 0.10) * (1 + (stage - 1) * 0.18) * DIFFICULTIES[difficulty].health), damage: Math.round(c.damage * (1 + tier * 0.06) * (1 + (stage - 1) * 0.12)), speed: c.speed * (1 + tier * 0.035) * (1 + (stage - 1) * 0.05) };

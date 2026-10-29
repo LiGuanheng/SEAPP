@@ -21,14 +21,14 @@ test('完整评分分解、击杀与Boss上限、效率边界及非法输入', (
 test('五次首胜才完成战役，第三夜仍继续，重复结算不刷分，最终结果冻结', () => {
   const run = new RankedRun('run', 'hard');
   for (const [i, stage] of stages.entries()) {
-    run.update(true, i * 50000, 3, 'base'); run.advancePhase('base', 30);
+    run.update(true, i * 50000, 3, 'base');
     run.update(true, i * 50000 + 10000, 3, 'night'); run.advancePhase('night', 120);
     run.finishNight({ ...stage, outcome: 'victory' }, (i + 1) * 50000);
     if (i === 2) assert.equal(run.result, null);
     const length = run.stages.length; run.finishNight({ ...stage, outcome: 'victory' }, (i + 1) * 50000); assert.equal(run.stages.length, length);
   }
-  assert.equal(run.result?.durationMs, 750000); assert.equal(run.result?.totalDurationMs, 250000); assert.equal(run.result?.difficulty, 'hard'); assert.equal(run.result?.maxSpeed, 3);
-  assert.deepEqual(run.result?.phaseTimesMs, { day: 0, base: 150000, night: 600000 });
+  assert.equal(run.result?.durationMs, 650000); assert.equal(run.result?.totalDurationMs, 250000); assert.equal(run.result?.difficulty, 'hard'); assert.equal(run.result?.maxSpeed, 3);
+  assert.deepEqual(run.result?.phaseTimesMs, { day: 0, base: 50000, night: 600000 });
   const final = structuredClone(run.result); run.update(true, 999999); run.advancePhase('day', 90); run.finishNight({ ...stages[4], outcome: 'victory' }, 999999); assert.deepEqual(run.result, final);
 });
 test('死亡立即结算，当前击杀保留、未通过关卡不领胜利奖励，后续不能复活刷分', () => {

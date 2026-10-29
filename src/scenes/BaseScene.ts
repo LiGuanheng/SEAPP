@@ -104,6 +104,9 @@ export class BaseScene extends Phaser.Scene {
       if (e.code === 'KeyC') { this.home(); return; }
       if (e.code === 'KeyT') { this.cycleSpeed(); return; }
       const buildIndex = e.code === 'Digit0' ? 9 : /^Digit[1-9]$/.test(e.code) ? Number(e.code.slice(-1)) - 1 : -1;
+      if (e.code === 'KeyJ') this.setKind('pounder');
+      if (e.code === 'KeyK') this.setKind('inferno');
+      if (e.code === 'KeyH') this.setKind('eagle');
       if (buildIndex >= 0) this.setKind(BUILDING_KEYS[buildIndex]);
       if (e.code === 'KeyR' && this.kind === 'barricade') this.rotation = this.rotation === 0 ? 1 : 0;
       if (e.code === 'Space') { this.selected = new Set(this.world.livingSoldiers.map(s => s.id)); this.kind = null; this.wallStroke = null; this.selectedBuilding = null; this.support = false; }
@@ -236,7 +239,7 @@ export class BaseScene extends Phaser.Scene {
   }
   private toggleSupport(): void { if (this.paused || !(this.world instanceof NightWorld) || !this.world.commanding) return; this.audio?.unlock(); this.support = !this.support; this.drag = null; }
   private startNight(): void { if (rankedRun.result) return; updateRun(false); this.persist(); this.scene.restart({ campaign: this.world.campaign, battle: true }); }
-  private finish(): void { if (this.paused || this.world.plan.status !== 'preparing' || this.world instanceof NightWorld) return; advanceRun('base', this.world.remaining); this.world.finish(); this.kind = null; this.drag = null; this.wallStroke = null; this.held.clear(); this.persist(); this.savedReady = true; if (!this.practice) this.startNight(); }
+  private finish(): void { if (this.paused || this.world.plan.status !== 'preparing' || this.world instanceof NightWorld) return; this.world.finish(); this.kind = null; this.drag = null; this.wallStroke = null; this.held.clear(); this.persist(); this.savedReady = true; if (!this.practice) this.startNight(); }
   private resume(): void {
     updateRun(false);
     if (rankedRun.result) { onlinePanel.open('result'); return; }

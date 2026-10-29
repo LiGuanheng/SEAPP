@@ -38,7 +38,7 @@ try {
     }
     await command(['node_modules/typescript/bin/tsc', '--noEmit']);
     await command(['node_modules/vite/bin/vite.js', 'build', '--base=./'], { VITE_API_BASE_URL: 'http://127.0.0.1:3000' });
-    const specs = process.argv.includes('--all') ? [] : process.argv.includes('--flow') ? ['run-flow', 'leaderboard', 'night', 'polish', 'city-and-refits'].map(name => `tests/browser/${name}.spec.ts`) : ['tests/browser/leaderboard.spec.ts'];
+    const specs = process.argv.includes('--all') ? [] : process.argv.includes('--regression') ? ['base','city-and-refits','progression','run-flow','growth-v016'].map(name=>`tests/browser/${name}.spec.ts`) : process.argv.includes('--v016') ? ['growth-v016','leaderboard','combat','expedition','story-and-fog'].map(name=>`tests/browser/${name}.spec.ts`) : process.argv.includes('--flow') ? ['run-flow', 'leaderboard', 'night', 'polish', 'city-and-refits'].map(name => `tests/browser/${name}.spec.ts`) : ['tests/browser/leaderboard.spec.ts'];
     await command(['node_modules/@playwright/test/cli.js', 'test', ...specs], { E2E_REAL_API: '1', E2E_PRODUCTION: '1' });
   }
 } finally {

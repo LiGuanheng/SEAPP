@@ -25,6 +25,7 @@ export class NightView {
   private lightMask: HTMLCanvasElement;
   private blasts: { x: number; y: number; age: number; scale: number }[] = [];
   private swings: { x: number; y: number; angle: number; age: number }[] = [];
+  private beams: { x: number; y: number; tx: number; ty: number; heat: number; life: number }[] = [];
   private pulses: { x: number; y: number; age: number; kind: 'flame' | 'shock' }[] = [];
   constructor(private scene: Phaser.Scene, private root: Phaser.GameObjects.Container) {
     this.fogKey = `night-fog-${scene.sys.settings.key}`;
@@ -44,7 +45,8 @@ export class NightView {
   }
   handle(events: readonly NightEvent[]): void {
     for (const e of events) {
-      if (e.type === 'flame' || e.type === 'shock') { this.pulses.push({ x: e.x, y: e.y, age: 0, kind: e.type }); if (this.pulses.length > 24) this.pulses.shift(); }
+      if (e.type === 'beam') { this.beams.push({ x: e.x, y: e.y, tx: e.tx!, ty: e.ty!, heat: e.heat ?? 0, life: 0.09 }); if (this.beams.length > 32) this.beams.shift(); }
+      else if (e.type === 'flame' || e.type === 'shock') { this.pulses.push({ x: e.x, y: e.y, age: 0, kind: e.type }); if (this.pulses.length > 24) this.pulses.shift(); }
       else if (e.type === 'boss-defeated') { for (let i = 0; i < 16; i++) this.addParticle(e.x, e.y - 28, 0xe8c68b, 5, 0.65, Math.cos(i) * 90, Math.sin(i) * 90); }
       else if (e.type === 'swing') { this.swings.push({ ...e, angle: e.angle ?? 0, age: 0 }); if (this.swings.length > 12) this.swings.shift(); }
       else if (e.type === 'fire') {
@@ -139,6 +141,7 @@ export class NightView {
       for (let r = 22; r < h.radius; r += 22) g.strokeCircle(h.x, h.y, r);
       for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + (h.kind === 'storm' ? this.age * 2 : 0); g.lineBetween(h.x, h.y, h.x + Math.cos(a) * h.radius, h.y + Math.sin(a) * h.radius); }
     }
+    for (const b of this.beams) { if (!paused) b.life -= dt; g.lineStyle(2 + b.heat, 0xf7b069, 0.65).lineBetween(b.x, b.y - 35, b.tx, b.ty); g.lineStyle(1, 0xffebba).lineBetween(b.x, b.y - 35, b.tx, b.ty); } this.beams = this.beams.filter(b => b.life > 0);
     for (const s of world.livingSoldiers) { const f = world.fighters.get(s.id)!, max = world.maxSoldierHealth(s), y = s.role === 'guardian' || s.role === 'gunner' || s.role === 'sentinel' || s.role === 'striker' ? s.y - 77 : s.y - 63; if (f.health < max) g.fillStyle(0x34473c).fillRect(s.x - 16, y, 32, 3).fillStyle(f.hurt > 0 ? 0xe5a38b : 0xb4d29f).fillRect(s.x - 16, y, 32 * f.health / max, 3); }
     for (const b of world.plan.buildings) if (b.health < buildingStats(b).health) { const r = buildingRect(b); g.fillStyle(0x31423e).fillRect(b.x, b.y - 20, r.width, 4).fillStyle(0xd8b478).fillRect(b.x, b.y - 20, r.width * b.health / buildingStats(b).health, 4); }
     const bulletIds = new Set(world.bullets.map(b => b.id));

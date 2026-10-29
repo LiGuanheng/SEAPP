@@ -1,3 +1,5 @@
+import { heroPower } from '../config/growth.ts';
+import { isHero } from '../config/survivors.ts';
 import { BASE_HEIGHT, BASE_OBSTACLES, BASE_WIDTH, BUILDINGS, FIELD_SYSTEMS, GRID, LIGHTHOUSE, LIGHTHOUSE_FOOT, TOWER_ATTACKS, buildingRect, buildingStats, type BaseBuilding, type Soldier } from '../config/base.ts';
 import { BOSS_SKILLS, INFECTED, LAMP_HEALTH, NIGHT_LIMITS, NIGHT_SECONDS, gatesForStage, wavesForStage, levelStats, type InfectedKind } from '../config/night.ts';
 import { ASSAULT_TUNING, assaultPlan, type AssaultOrder, type Difficulty } from './assault.ts';
@@ -14,7 +16,7 @@ export interface Windup { kind: 'slam' | 'web' | 'storm' | 'poison' | 'detonate'
 export interface NightEnemy extends Vec { id: number; kind: InfectedKind; health: number; aim: number; moving: boolean; cooldown: number; hurt: number; maxHealth?: number; level?: number; skillCooldown?: number; summonCooldown?: number; windup?: Windup; slowed?: number; gate?: number; stalled?: number }
 export interface Hazard extends Vec { id: number; kind: 'web' | 'storm' | 'poison'; radius: number; remaining: number; tick: number; damage: number }
 export interface NightBullet extends Vec { id: number; vx: number; vy: number; damage: number; life: number; splash?: number; projectile?: 'bullet' | 'arrow' | 'shell' | 'flak' }
-export type NightEvent = { type: 'fire' | 'flame' | 'shock' | 'swing' | 'hit' | 'kill' | 'attack' | 'unit-death' | 'structure-death' | 'lamp-hit' | 'explosion' | 'heal' | 'wave' | 'victory' | 'defeat' | 'boss' | 'boss-defeated' | 'cast' | 'summon'; x: number; y: number; angle?: number; kind?: InfectedKind; id?: number; projectile?: 'bullet' | 'arrow' | 'shell' | 'flak' };
+export type NightEvent = { type: 'fire' | 'flame' | 'shock' | 'swing' | 'hit' | 'kill' | 'attack' | 'unit-death' | 'structure-death' | 'lamp-hit' | 'explosion' | 'heal' | 'wave' | 'victory' | 'defeat' | 'boss' | 'boss-defeated' | 'cast' | 'summon' | 'beam'; tx?: number; ty?: number; heat?: number; x: number; y: number; angle?: number; kind?: InfectedKind; id?: number; projectile?: 'bullet' | 'arrow' | 'shell' | 'flak' };
 export interface NightResult { stage?: StageId; outcome: 'victory' | 'defeat'; duration: number; kills: number; lampHealth: number; soldiers: number; buildings: number; strikes: number; bossKills?: number }
 interface Fighter { health: number; cooldown: number; hurt: number }
 const edgePoint = (p: Vec, r: Rect): Vec => ({ x: Math.max(r.x, Math.min(p.x, r.x + r.width)), y: Math.max(r.y, Math.min(p.y, r.y + r.height)) });
@@ -25,7 +27,7 @@ export class NightWorld extends BaseWorld {
   elapsed = 0; kills = 0; lampHealth = LAMP_HEALTH; lampHurt = 0; wave = 0;
   enemies: NightEnemy[] = []; bullets: NightBullet[] = []; events: NightEvent[] = [];
   readonly fighters = new Map<number, Fighter>();
-  readonly turrets = new Map<number, { cooldown: number; aim: number; recoil?: number }>();
+  readonly turrets = new Map<number, { cooldown: number; aim: number; recoil?: number; targetId?: number; heat?: number }>();
   readonly strikes: { x: number; y: number; delay: number }[] = [];
   charges: number; supportCooldown = 0; strikesUsed = 0;
   bossKills = 0;
@@ -65,7 +67,7 @@ export class NightWorld extends BaseWorld {
   override get remaining(): number { return Math.max(0, NIGHT_SECONDS - this.elapsed); }
   override turretAim(id: number): number { return this.turrets.get(id)?.aim ?? -Math.PI / 2; }
   override turretRecoil(id: number): number { return this.turrets.get(id)?.recoil ?? 0; }
-  maxSoldierHealth(s: Soldier): number { return s.role === 'sentinel' ? 260 : s.role === 'guardian' ? 120 : s.role === 'gunner' ? 140 : s.role === 'striker' ? 110 : 90; }
+  maxSoldierHealth(s: Soldier): number { return Math.round((s.role === 'sentinel' ? 260 : s.role === 'guardian' ? 120 : s.role === 'gunner' ? 140 : s.role === 'striker' ? 110 : 90) * (isHero(s.role) ? heroPower(this.stage) : 1)); }
   private makeEnemyNavigation(): Navigation {
     const nav = new Navigation(BASE_WIDTH, BASE_HEIGHT, GRID, this.obstacles, 11); nav.rebuild({ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 }); return nav;
   }
@@ -84,7 +86,7 @@ export class NightWorld extends BaseWorld {
     const aim = Math.atan2(target.y - 16 - from.y, target.x - from.x);
     const muzzle = { x: from.x + Math.cos(aim) * 19, y: from.y + Math.sin(aim) * 19 };
     if (firstWall(from, muzzle, BASE_OBSTACLES) !== null) return;
-    this.bullets.push({ ...muzzle, id: this.nextBulletId++, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, damage, life: projectile === 'shell' ? 2 : 0.8, splash, projectile });
+    this.bullets.push({ ...muzzle, id: this.nextBulletId++, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, damage, life: projectile === 'shell' ? 2 : 1.2, splash, projectile });
     this.shotsFired[projectile]++;
     this.events.push({ type: 'fire', ...muzzle, angle: aim, projectile });
   }
@@ -225,21 +227,35 @@ export class NightWorld extends BaseWorld {
     for (const s of this.livingSoldiers) {
       const state = this.fighters.get(s.id)!; state.cooldown = Math.max(0, state.cooldown - dt); state.hurt = Math.max(0, state.hurt - dt);
       const melee = s.role === 'vanguard' || s.role === 'sentinel', archer = s.role === 'archer', gunner = s.role === 'gunner', guardian = s.role === 'guardian', striker = s.role === 'striker';
+      const power = isHero(s.role) ? heroPower(this.stage) : 1;
       const origin = { x: s.x, y: s.y - 16 }, air = striker ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].flying && distance(origin, e) <= 420 && firstWall(origin, e, BASE_OBSTACLES) === null) : undefined;
       const target = air ?? this.target(origin, melee ? 80 : striker ? 320 : archer ? 310 : gunner ? 290 : 260, melee || gunner);
       if (target) { s.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (state.cooldown === 0) {
-        if (melee) { this.events.push({ type: 'swing', ...origin, angle: s.aim }); for (const e of this.enemies) if (!INFECTED[e.kind].flying && distance(e, s) < 80 && firstWall(s, e, obstacles) === null) this.damageEnemy(e, s.role === 'sentinel' ? 56 : 42); }
-        else this.fire(origin, target, gunner ? 55 : guardian ? 10 : striker ? 38 : archer ? 36 : 18, gunner ? 380 : archer ? 650 : 850, gunner ? 52 : air ? 38 : 0, gunner ? 'shell' : air ? 'flak' : archer ? 'arrow' : 'bullet'); state.cooldown = gunner ? 1.2 : guardian ? 0.9 : s.role === 'sentinel' ? 0.95 : melee ? 0.7 : striker ? 0.6 : archer ? 0.85 : 0.5;
+        if (melee) { this.events.push({ type: 'swing', ...origin, angle: s.aim }); for (const e of this.enemies) if (!INFECTED[e.kind].flying && distance(e, s) < 80 && firstWall(s, e, obstacles) === null) this.damageEnemy(e, (s.role === 'sentinel' ? 56 : 42) * power); }
+        else this.fire(origin, target, (gunner ? 55 : guardian ? 10 : striker ? 38 : archer ? 36 : 18) * power, gunner ? 380 : archer ? 650 : 850, gunner ? 52 : air ? 38 : 0, gunner ? 'shell' : air ? 'flak' : archer ? 'arrow' : 'bullet'); state.cooldown = gunner ? 1.2 : guardian ? 0.9 : s.role === 'sentinel' ? 0.95 : melee ? 0.7 : striker ? 0.6 : archer ? 0.85 : 0.5;
       } }
     }
-    for (const b of this.plan.buildings) if (b.kind === 'turret' || b.kind === 'cannon' || b.kind === 'arrowtower' || b.kind === 'sniper' || b.kind === 'antiair') {
+    for (const b of this.plan.buildings) if (b.kind === 'turret' || b.kind === 'cannon' || b.kind === 'arrowtower' || b.kind === 'sniper' || b.kind === 'antiair' || b.kind === 'eagle') {
       const config = b.upgrade === 'flak' ? { damage: 28, interval: 0.65, speed: 1000, splash: 56, projectile: 'flak' as const } : b.upgrade === 'howitzer' ? { damage: 110, interval: 3.2, speed: 340, splash: 100, projectile: 'shell' as const } : TOWER_ATTACKS[b.kind];
       const turret = this.turrets.get(b.id)!, origin = { x: b.x + 32, y: b.y + 12 };
       const priority = b.kind === 'sniper' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].boss && distance(e, origin) <= BUILDINGS[b.kind].range && firstWall(origin, { x: e.x, y: e.y - 16 }, BASE_OBSTACLES) === null) : undefined;
-      const target = b.upgrade === 'flak' || b.kind === 'antiair' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].flying && distance(e, origin) <= buildingStats(b).range && firstWall(origin, e, BASE_OBSTACLES) === null) : priority ?? this.target(origin, buildingStats(b).range, b.kind === 'cannon');
+      const target = b.upgrade === 'flak' || b.kind === 'antiair' ? this.enemies.find(e => e.health > 0 && INFECTED[e.kind].flying && distance(e, origin) <= buildingStats(b).range && firstWall(origin, e, BASE_OBSTACLES) === null) : priority ?? this.target(origin, buildingStats(b).range, b.kind === 'cannon' || b.kind === 'eagle');
       turret.cooldown = Math.max(0, turret.cooldown - dt);
       turret.recoil = Math.max(0, (turret.recoil ?? 0) - dt * 8);
       if (target) { turret.aim = Math.atan2(target.y - 16 - origin.y, target.x - origin.x); if (turret.cooldown === 0) { this.fire(origin, target, config.damage, config.speed, config.splash, config.projectile); turret.cooldown = config.interval; turret.recoil = 1; } }
+    }
+    for (const b of this.plan.buildings) if (b.kind === 'inferno' || b.kind === 'pounder') {
+      const state = this.turrets.get(b.id)!, origin = { x: b.x + 32, y: b.y + 12 };
+      if (b.kind === 'inferno') {
+        const previous = this.enemies.find(e => e.id === state.targetId && e.health > 0 && distance(e, origin) <= BUILDINGS.inferno.range && firstWall(origin, e, BASE_OBSTACLES) === null);
+        const target = previous ?? this.target(origin, BUILDINGS.inferno.range);
+        state.heat = target && previous ? Math.min(4, (state.heat ?? 0) + dt) : 0; state.targetId = target?.id;
+        if (target) { this.damageEnemy(target, (55 + 65 * (state.heat ?? 0)) * dt); this.events.push({ type: 'beam', ...origin, tx: target.x, ty: target.y - 16, heat: state.heat }); state.aim = Math.atan2(target.y - origin.y, target.x - origin.x); }
+      } else {
+        state.cooldown = Math.max(0, state.cooldown - dt);
+        const victims = this.enemies.filter(e => e.health > 0 && !INFECTED[e.kind].flying && distance(e, origin) <= BUILDINGS.pounder.range && firstWall(origin, e, BASE_OBSTACLES) === null);
+        if (victims.length && state.cooldown === 0) { for (const e of victims) { this.damageEnemy(e, 100); e.slowed = 0.8; } state.cooldown = 1.4; this.events.push({ type: 'shock', ...origin }); }
+      }
     }
     for (const b of this.plan.buildings) if (b.kind === 'flame' || b.kind === 'grid' || b.kind === 'repair') {
       const state = this.turrets.get(b.id)!; state.cooldown = Math.max(0, state.cooldown - dt);
@@ -326,7 +342,7 @@ export class NightWorld extends BaseWorld {
     if (this.heroHealTimer <= 0) {
       this.heroHealTimer = 6;
       for (const hero of this.livingSoldiers.filter(s => s.role === 'guardian')) for (const s of this.livingSoldiers) if (distance(hero, s) <= 180) {
-        const f = this.fighters.get(s.id)!; if (f.health < this.maxSoldierHealth(s)) { f.health = Math.min(this.maxSoldierHealth(s), f.health + 10); this.events.push({ type: 'heal', ...s }); }
+        const f = this.fighters.get(s.id)!; if (f.health < this.maxSoldierHealth(s)) { f.health = Math.min(this.maxSoldierHealth(s), f.health + Math.round(10 * heroPower(this.stage))); this.events.push({ type: 'heal', ...s }); }
       }
     }
     this.healTimer -= dt;

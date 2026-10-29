@@ -102,7 +102,7 @@ export class NightHud {
     if (paused || this.ready) {
       this.title.setText(!this.ready ? '指挥暂停' : w.status === 'victory' ? '天亮了，最后一盏灯仍在。' : '灯塔熄灭，防线失守。');
       const firstClear = w.stage > (w.checkpoint.clearedStage ?? 0), reward = STAGES[w.stage].reward;
-      this.body.setText(this.ready ? `阶段 ${w.stage}/${STAGE_COUNT} · ${STAGES[w.stage].name} · 守夜 ${Math.floor(w.elapsed)}秒\n击杀 ${w.kills} · Boss 击败 ${w.bossKills}/${w.bossCount} · 灯塔 ${w.lampHealth}/${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? firstClear ? `首次守住：建材+${reward.materials} / 电力+${reward.energy}\n${STAGES[w.stage].unlock}` : '本阶段已通关，重复守夜不重复发放补给。' : '本局结束，击杀与已守住的阶段计入挑战成绩。'}\n${w.status === 'victory' && w.stage < STAGE_COUNT ? 'Enter 直接进入下一阶段 · 布防 30 秒后自动开战\n守夜前阵地免费修复，街区探索可以跳过。' : '查看总分与排行榜，可选择开始全新战役。'}` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
+      this.body.setText(this.ready ? `阶段 ${w.stage}/${STAGE_COUNT} · ${STAGES[w.stage].name} · 守夜 ${Math.floor(w.elapsed)}秒\n击杀 ${w.kills} · Boss 击败 ${w.bossKills}/${w.bossCount} · 灯塔 ${w.lampHealth}/${LAMP_HEALTH}\n生还守卫 ${w.livingSoldiers.length} 人 · 留存设施 ${w.plan.buildings.length} 座\n${w.status === 'victory' ? firstClear ? `首次守住：建材+${reward.materials} / 电力+${reward.energy}\n${STAGES[w.stage].unlock}` : '本阶段已通关，重复守夜不重复发放补给。' : '本局结束，击杀与已守住的阶段计入挑战成绩。'}\n${w.status === 'victory' && w.stage < STAGE_COUNT ? 'Enter 直接进入下一阶段 · 布防不限时，点击完成后开战\n守夜前阵地免费修复，街区探索可以跳过。' : '查看总分与排行榜，可选择开始全新战役。'}` : '部队、尸潮、技能和计时均已暂停。\n按 P / Esc 或点击继续。');
       if (this.saveWarning) this.body.setText(this.body.text + '\n' + this.saveWarning);
       this.primary.setText(this.ready ? w.status === 'victory' && w.stage < STAGE_COUNT ? '下一阶段：布置防御 [Enter]' : '查看本局成绩 [Enter]' : '继续指挥 [P]');
     }

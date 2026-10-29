@@ -9,7 +9,7 @@ test('入夜演出不随三倍速加速，暂停失焦冻结、跳过和减少�
   await page.clock.install(); await page.goto('/?mode=night&test=1'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready);
   await key(page, 'KeyT'); await key(page, 'KeyT'); await page.clock.runFor(400);
   expect((await state(page)).speed).toBe(3); expect((await presentation(page)).progress).toBeLessThan(0.35);
-  const centered = await state(page); expect((768 - centered.camera.x) * centered.camera.zoom).toBeCloseTo(640, 0); expect((480 - centered.camera.y) * centered.camera.zoom).toBeCloseTo(345, 0);
+  const centered = await state(page); expect((1024 - centered.camera.x) * centered.camera.zoom).toBeCloseTo(640, 0); expect((672 - centered.camera.y) * centered.camera.zoom).toBeCloseTo(345, 0);
   await key(page, 'KeyP'); const paused = await state(page), frame = await presentation(page);
   await page.clock.runFor(1600); expect(await state(page)).toEqual(paused); expect(await presentation(page)).toEqual(frame);
   await key(page, 'KeyP'); await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await page.clock.runFor(100);

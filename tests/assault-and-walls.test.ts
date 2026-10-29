@@ -21,7 +21,7 @@ test('快速笔划补齐水平/竖直/斜线网格，四方向连通且无重复
 
 test('连续铺墙逐格扣真实库存，回划不重复扣费，预算不足不透支且可保存', () => {
   const c = newCampaign(); c.depot.materials = 7; c.survivors = ['engineer']; const b = new BaseWorld(c);
-  const line = wallLine({ x: 352, y: 320 }, { x: 672, y: 320 });
+  const line = wallLine({ x: 608, y: 512 }, { x: 928, y: 512 });
   assert.equal(b.buildWalls(line).built, 7); assert.equal(b.campaign.depot.materials, 0); assert.equal(b.plan.buildings.length, 7);
   const before = b.snapshot(); assert.equal(b.buildWalls([...line].reverse()).built, 0); assert.deepEqual(b.snapshot(), before);
   assert.ok(validBasePlan(b.plan)); assert.deepEqual(decodeCampaign(JSON.stringify(b.campaign)).base, b.plan);
@@ -29,21 +29,21 @@ test('连续铺墙逐格扣真实库存，回划不重复扣费，预算不足�
 
 test('连续墙跳过十字通路/建筑，最后会困兵的格子仍被拒绝', () => {
   const c = newCampaign(); c.depot.materials = 100; const b = new BaseWorld(c);
-  const r = b.buildWalls(wallLine({ x: 352, y: 416 }, { x: 352, y: 640 })); assert.equal(r.built, 5);
+  const r = b.buildWalls(wallLine({ x: 608, y: 608 }, { x: 608, y: 832 })); assert.equal(r.built, 5);
   assert.ok(b.plan.buildings.every(p => p.y < 480 || p.y >= 576));
-  const trapped = new BaseWorld(c); Object.assign(trapped.plan.soldiers[0], { x: 496, y: 336 });
-  trapped.build('barricade', { x: 448, y: 288 }); trapped.build('barricade', { x: 448, y: 352 }); trapped.build('barricade', { x: 416, y: 320 }, 1);
-  const before = trapped.snapshot(); assert.equal(trapped.buildWalls([{ x: 512, y: 320 }]).ok, false); assert.deepEqual(trapped.snapshot(), before);
+  const trapped = new BaseWorld(c); Object.assign(trapped.plan.soldiers[0], { x: 752, y: 528 });
+  trapped.build('barricade', { x: 704, y: 480 }); trapped.build('barricade', { x: 704, y: 544 }); trapped.build('barricade', { x: 672, y: 512 }, 1);
+  const before = trapped.snapshot(); assert.equal(trapped.buildWalls([{ x: 768, y: 512 }]).ok, false); assert.deepEqual(trapped.snapshot(), before);
 });
 
 test('夜战禁铺墙和出售，正常出售按实际支付回收且不可重复领取', () => {
   const c = newCampaign(); c.depot = { materials: 20, energy: 4, medkits: 0 }; c.survivors = ['engineer']; const b = new BaseWorld(c);
-  b.build('turret', { x: 960, y: 352 }); assert.equal(b.campaign.depot.materials, 15);
+  b.build('turret', { x: 1216, y: 544 }); assert.equal(b.campaign.depot.materials, 15);
   const w = new NightWorld(b.campaign), before = w.nightSnapshot();
-  assert.equal(w.buildWalls([{ x: 352, y: 320 }]).built, 0); assert.equal(w.demolish(1).ok, false); assert.deepEqual(w.nightSnapshot(), before);
+  assert.equal(w.buildWalls([{ x: 608, y: 512 }]).built, 0); assert.equal(w.demolish(1).ok, false); assert.deepEqual(w.nightSnapshot(), before);
   assert.equal(b.demolish(1).ok, true); assert.equal(b.campaign.depot.materials, 17); assert.equal(b.campaign.depot.energy, 2);
   assert.equal(b.demolish(1).ok, false); assert.equal(b.campaign.depot.materials, 17);
-  b.build('wall', { x: 352, y: 320 }); const id = b.plan.buildings[0].id;
+  b.build('wall', { x: 608, y: 512 }); const id = b.plan.buildings[0].id;
   assert.equal(b.campaign.depot.materials, 16); b.demolish(id); assert.equal(b.campaign.depot.materials, 17);
   assert.equal(b.demolish(id).ok, false); assert.equal(b.campaign.depot.materials, 17);
 });
@@ -62,7 +62,7 @@ test('五阶段兵力递增，首夜第二波有空军；同批集中在同一�
 
 test('密集刷新仍遵守96敌人上限，留待刷新队列不会无限挤入场', () => {
   const c = newCampaign(); c.clearedStage = 2; const w = new NightWorld(c); w.elapsed = 3;
-  for (let i = 0; i < NIGHT_LIMITS.enemies - 1; i++) w.enemies.push({ id: 10000 + i, kind: 'walker', x: 1900, y: 900 + i, health: 10000, aim: 0, moving: false, cooldown: 999, hurt: 0 });
+  for (let i = 0; i < NIGHT_LIMITS.enemies - 1; i++) w.enemies.push({ id: 10000 + i, kind: 'walker', x: 2156, y: 1092 + i, health: 10000, aim: 0, moving: false, cooldown: 999, hurt: 0 });
   w.step(); assert.equal(w.enemies.length, NIGHT_LIMITS.enemies);
   for (let i = 0; i < 120; i++) { w.step(); assert.equal(w.enemies.length, NIGHT_LIMITS.enemies); }
 });

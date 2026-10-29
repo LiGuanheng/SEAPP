@@ -54,9 +54,9 @@ test('48 容量可带回超过旧 24 的物资，容量满仍拒绝整箱且不�
 
 test('超过四十座设施可真实扣费、保存、读档和夜战结算，非法占地仍拒绝', () => {
   const c = newCampaign(); c.depot.materials = 100; const b = new BaseWorld(c);
-  for (let i = 0; i < 60; i++) assert.ok(b.build('wall', { x: 352 + i % 10 * 32, y: 256 + Math.floor(i / 10) * 32 }).ok);
+  for (let i = 0; i < 60; i++) assert.ok(b.build('wall', { x: 608 + i % 10 * 32, y: 448 + Math.floor(i / 10) * 32 }).ok);
   assert.equal(b.plan.buildings.length, 60); assert.equal(b.campaign.depot.materials, 40); assert.ok(validBasePlan(b.plan));
-  assert.equal(b.build('wall', { x: 352, y: 256 }).ok, false); assert.equal(b.build('wall', { x: 736, y: 352 }).ok, false);
+  assert.equal(b.build('wall', { x: 352, y: 256 }).ok, false); assert.equal(b.build('wall', { x: 1024, y: 544 }).ok, false);
   const n = new NightWorld(decodeCampaign(JSON.stringify(b.campaign))); n.elapsed = 119.99; n.step();
   assert.equal(n.status, 'victory'); assert.equal(n.summary().buildings, 60); assert.equal(decodeCampaign(JSON.stringify(n.resultCampaign())).lastNight?.buildings, 60);
 });

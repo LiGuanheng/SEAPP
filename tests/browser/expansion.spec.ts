@@ -57,9 +57,9 @@ test('五类防御和六人兵种阵地，2/3 倍速推进真实夜战，暂停�
   test.setTimeout(120000); const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => localStorage.setItem('last-light.campaign.v2', JSON.stringify({ version: 2, expeditions: 4, depot: { materials: 60, energy: 12, medkits: 0 }, survivors: ['engineer', 'medic', 'captain', 'ranger', 'brawler'], weapons: ['pistol', 'rifle', 'axe', 'bow'], lastSummary: null, base: null })));
   await ready(page, 'base'); expect((await state(page)).plan.soldiers).toHaveLength(6);
-  for (const [code, x, y] of [['Digit2', 832, 352], ['Digit3', 960, 352], ['Digit4', 608, 640], ['Digit4', 864, 640], ['Digit1', 960, 640], ['Digit5', 1056, 640]] as const) { await key(page, code); await click(page, x + 4, y + 4, true); await key(page, 'Escape'); }
+  for (const [code, x, y] of [['Digit2', 1088, 544], ['Digit3', 1216, 544], ['Digit4', 864, 832], ['Digit4', 1120, 832], ['Digit1', 1216, 832], ['Digit5', 1312, 832]] as const) { await key(page, code); await click(page, x + 4, y + 4, true); await key(page, 'Escape'); }
   expect(new Set((await state(page)).plan.buildings.map((b: any) => b.kind)).size).toBe(5);
-  await key(page, 'KeyT'); const two = await state(page); await page.clock.runFor(1000); expect((await state(page)).plan.elapsed - two.plan.elapsed).toBeCloseTo(2, 0);
+  await key(page, 'KeyT'); const two = await state(page); await page.clock.runFor(1000); expect((await state(page)).plan.elapsed - two.plan.elapsed).toBeCloseTo(2, 0); expect((await state(page)).ranking.phaseTimesMs.base - two.ranking.phaseTimesMs.base).toBeGreaterThan(900); expect((await state(page)).ranking.phaseTimesMs.base - two.ranking.phaseTimesMs.base).toBeLessThan(1100);
   await key(page, 'KeyT'); expect((await state(page)).speed).toBe(3); await page.screenshot({ path: 'artifacts/expansion-defenses.png' });
   await key(page, 'Enter'); await key(page, 'KeyN'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await page.clock.runFor(100); expect((await state(page)).speed).toBe(1);
   await key(page, 'KeyT'); await key(page, 'KeyT'); const before = await state(page); await page.clock.runFor(2000); expect((await state(page)).elapsed - before.elapsed).toBeCloseTo(6, 0);
