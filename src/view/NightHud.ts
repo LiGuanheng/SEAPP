@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE } from './DisplayQuality.ts';
 import { buildingStats, type BuildingKind } from '../config/base.ts';
 import { BOSS_ABILITIES, INFECTED, LAMP_HEALTH, NIGHT_SECONDS, type BossKind } from '../config/night.ts';
 import { STAGES, STAGE_COUNT } from '../config/progression.ts';
@@ -65,7 +66,7 @@ export class NightHud {
     this.overlay.add([this.title, this.body, primary, this.primary, this.exit]);
   }
   setModes(support: boolean, muted: boolean): void { this.support = support; this.muted = muted; }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || x >= 1080 && y < 290 || y < 94 || y >= 596 || this.bossRows > 0 && x >= 320 && x <= 960 && y < 105 + this.bossRows * 29; }
+  blocks(x: number, y: number): boolean { x /= RENDER_SCALE; y /= RENDER_SCALE; return this.overlay.visible || x < 0 || x > 1280 || x >= 1080 && y < 290 || y < 94 || y >= 596 || this.bossRows > 0 && x >= 320 && x <= 960 && y < 105 + this.bossRows * 29; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(base: BaseWorld, ids: Set<number>, buildingId: number | null, _buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const w = base as NightWorld, g = this.graphics.clear();
@@ -84,7 +85,7 @@ export class NightHud {
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
     this.status.setText(`阶段${w.stage}/${STAGE_COUNT} · 天亮 ${Math.ceil(w.remaining)}s · ${w.wave}/${w.waves.length}波 · 击杀${w.kills}`);
     const next = w.waves[w.wave];
-    this.forecast.setText(`${ASSAULT_NAMES[Math.max(0, w.wave - 1)]} · ${w.pressure.filter(n => n >= 3).length}向受压${w.pressure.filter(n => n >= 14).length >= 3 ? ' · 多线告急' : ''} · ${DIFFICULTIES[w.difficulty].name} · ${next ? `下一轮 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s` : '末段高潮，坚守至黎明'}`);
+    this.forecast.setText(`${ASSAULT_NAMES[Math.max(0, w.wave - 1)]} · ${w.pressure.filter(n => n >= 3).length}向受压${w.pressure.filter(n => n >= 14).length >= 3 ? ' · 多线告急' : ''} · ${DIFFICULTIES[w.difficulty].name}${w.difficulty === 'hard' && w.elapsed >= 90 ? ' · 红潮狂暴！' : ''} · ${next ? `下一轮 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s` : '坚守至黎明'}`);
     const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 5); this.bossRows = bosses.length;
     this.bosses.forEach((label, i) => {
       const e = bosses[i]; label.setVisible(!!e && !paused && w.commanding); if (!e) return;

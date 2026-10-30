@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE } from '../view/DisplayQuality.ts';
 import { GAME_VERSION } from '../core/scoring.ts';
 import { DIFFICULTIES, difficultyFrom, type Difficulty } from '../config/difficulty.ts';
 import { STAGES, STAGE_COUNT } from '../config/progression.ts';
@@ -27,6 +28,12 @@ export class MainMenuScene extends Phaser.Scene {
     const select = document.createElement('select'); select.setAttribute('aria-label', '游戏难度');
     for (const [id, preset] of Object.entries(DIFFICULTIES)) { const o = document.createElement('option'); o.value = id; o.textContent = preset.name; select.append(o); }
     select.value = difficulty; selectLabel.append(select);
+    const qualityLabel = document.createElement('label'); qualityLabel.className = 'menu-difficulty'; qualityLabel.textContent = '画面清晰度';
+    const quality = document.createElement('select'); quality.setAttribute('aria-label', '画面清晰度');
+    for (const [value, title] of [['ultra', '超清 · 4K'], ['high', '高清 · 1440p'], ['standard', '标准 · 720p']]) { const option = document.createElement('option'); option.value = value; option.textContent = title; quality.append(option); }
+    const currentQuality = RENDER_SCALE === 3 ? 'ultra' : RENDER_SCALE === 2 ? 'high' : 'standard';
+    quality.value = currentQuality; qualityLabel.append(quality); qualityLabel.title = '切换后刷新页面，已保存营地保留';
+    quality.addEventListener('change', () => { try { localStorage.setItem('last-light.display-quality', quality.value); } catch { quality.value = currentQuality; return; } const url = new URL(location.href); url.searchParams.set('difficulty', select.value); location.assign(url); });
     const detail = document.createElement('p'); detail.className = 'menu-difficulty-detail';
     const describe = () => { const d = DIFFICULTIES[difficultyFrom(select.value)]; detail.textContent = `${d.description} 敌人生命 ×${d.health.toFixed(2)} / 数量 ×${d.count.toFixed(2)}`; }; describe(); select.addEventListener('change', describe);
     const actions = document.createElement('div'); actions.className = 'menu-actions';
@@ -43,7 +50,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.scene.start(checkpoint.phase === 'day' ? 'Combat' : 'Base', { campaign: checkpoint.campaign, seed: checkpoint.seed, fresh: checkpoint.phase === 'base', battle: checkpoint.phase === 'night' });
     }));
     const save = document.createElement('p'); save.className = 'menu-save-note'; save.textContent = canContinue() ? `继续游戏将从阶段 ${next?.stage ?? '已保存营地'} 的起点恢复，保留之前已完成阶段。` : '五个阶段，五次黎明。准备好后，提灯出发。';
-    intro.append(kicker, title, lead, selectLabel, detail, actions, save);
+    intro.append(kicker, title, lead, selectLabel, detail, qualityLabel, actions, save);
     const art = document.createElement('div'); art.className = 'menu-art'; art.setAttribute('aria-hidden', 'true');
     const beam = document.createElement('div'); beam.className = 'menu-beam';
     const lamp = document.createElement('img'); lamp.src = import.meta.env.BASE_URL + 'assets/weapons/lighthouse.svg'; lamp.alt = ''; lamp.className = 'menu-lighthouse';

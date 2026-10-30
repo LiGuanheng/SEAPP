@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-30",
+  "fixture": true,
+  "source": "scripts/validate-hard.mjs",
+  "plannedWaves": [
+    {
+      "stage": 1,
+      "normal": 120,
+      "hard": 185
+    },
+    {
+      "stage": 2,
+      "normal": 226,
+      "hard": 341
+    },
+    {
+      "stage": 3,
+      "normal": 348,
+      "hard": 539
+    },
+    {
+      "stage": 4,
+      "normal": 431,
+      "hard": 667
+    },
+    {
+      "stage": 5,
+      "normal": 493,
+      "hard": 764
+    }
+  ],
+  "balanced": {
+    "layout": "balanced",
+    "stage": 5,
+    "outcome": "victory",
+    "duration": 120,
+    "kills": 766,
+    "lampHealth": 380,
+    "soldiers": 5,
+    "buildings": 48,
+    "strikes": 2,
+    "bossKills": 6,
+    "peakEnemies": 96,
+    "skills": 16,
+    "remainingDepot": {
+      "materials": 14,
+      "energy": 12,
+      "medkits": 0
+    }
+  },
+  "cluster": {
+    "layout": "cluster",
+    "stage": 5,
+    "outcome": "defeat",
+    "duration": 71.68333333333055,
+    "kills": 538,
+    "lampHealth": 0,
+    "soldiers": 0,
+    "buildings": 66,
+    "strikes": 2,
+    "bossKills": 4,
+    "peakEnemies": 96,
+    "skills": 9,
+    "remainingDepot": {
+      "materials": 14,
+      "energy": 12,
+      "medkits": 0
+    }
+  }
+}

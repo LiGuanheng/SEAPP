@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE } from './DisplayQuality.ts';
 import { nextStage, STAGES } from '../config/progression.ts';
 import { BALANCE as B } from '../config/balance.ts';
 import { BUILDINGS, WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
@@ -80,14 +81,14 @@ export class Hud {
   flashHurt(): void { this.hurt = 0.24; }
   setMuted(value: boolean): void { this.sound.setText(value ? '静音 [M]' : '声音 [M]'); }
   notify(message: string): void { this.toast.setText(message).setVisible(true); this.toastTime = 4.5; }
-  blocksInput(x: number, y: number): boolean { return this.isOverlay || y < 93 || x > 980 && y < 132 || x > 1090 && y < 235; }
+  blocksInput(x: number, y: number): boolean { x /= RENDER_SCALE; y /= RENDER_SCALE; return this.isOverlay || y < 93 || x > 980 && y < 132 || x > 1090 && y < 235; }
   update(world: CombatWorld, paused: boolean, dt: number, bag = false): void {
     const p = world.player, g = this.graphics;
     const expedition = world instanceof ExpeditionWorld ? world : null;
     this.navigation.clear(); this.bearing.setVisible(!!expedition && !paused && world.status === 'playing');
     if (expedition && !paused && world.status === 'playing') {
       const target = expedition.objective().point, camera = this.scene.cameras.main;
-      const x = (target.x - camera.worldView.x) * camera.zoom, y = (target.y - camera.worldView.y) * camera.zoom;
+      const x = (target.x - camera.worldView.x) * camera.zoom / RENDER_SCALE, y = (target.y - camera.worldView.y) * camera.zoom / RENDER_SCALE;
       // 沿目标方向投射到安全显示区域，避免被顶栏、背包提示和小地图遮挡。
       const dx = x - 640, dy = y - 350;
       const scale = Math.min(1, 400 / Math.max(1, Math.abs(dx)), 214 / Math.max(1, Math.abs(dy)));

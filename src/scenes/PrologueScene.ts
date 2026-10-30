@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE, sharpText, uiCamera } from '../view/DisplayQuality.ts';
 import { STORY_CHAPTERS, STORY_SECONDS, rememberStory } from '../config/story.ts';
 import { MapView } from '../view/MapView.ts';
 import { onlinePanel, bindOnlinePanel } from '../view/LeaderboardPanel.ts';
@@ -18,6 +19,7 @@ export class PrologueScene extends Phaser.Scene {
   private returnToMenu = false;
   constructor() { super('Prologue'); }
   create(data: { returnToMenu?: boolean } = {}): void {
+    sharpText(this);
     this.returnToMenu = !!data.returnToMenu;
     this.age = 0; this.paused = false; this.leaving = false; this.actors = [];
     new MapView(this);
@@ -26,7 +28,7 @@ export class PrologueScene extends Phaser.Scene {
     this.add.sprite(1400, 660, 'queen', 1).setScale(1.7).setAlpha(0.5).setDepth(660);
     this.add.sprite(560, 590, 'knight', 1).setScale(1.4).setAlpha(0.4).setDepth(590);
     this.fog = this.add.graphics().setDepth(90000);
-    this.cameras.main.setBounds(0, 0, 2048, 1408).setZoom(0.9).centerOn(1000, 650);
+    this.cameras.main.setBounds(0, 0, 2048, 1408).setZoom(0.9 * RENDER_SCALE).centerOn(1000, 650);
     const root = this.add.container(0, 0).setDepth(100000);
     this.frame = this.add.graphics(); root.add(this.frame);
     const text = (x: number, y: number, value: string, size: number, color: string) => { const t = this.add.text(x, y, value, { fontFamily: 'Consolas, Microsoft YaHei, sans-serif', fontSize: `${size}px`, color, lineSpacing: 12 }); root.add(t); return t; };
@@ -37,7 +39,7 @@ export class PrologueScene extends Phaser.Scene {
     const skip = this.add.rectangle(1090, 660, 280, 42, 0x2e4642).setStrokeStyle(1, 0x9ba487).setInteractive({ useHandCursor: true }); root.add(skip);
     text(1090, 660, '开始行动 [Enter / Space]', 14, '#ecd59f').setOrigin(0.5);
     skip.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.finish(); });
-    this.cameras.main.ignore(root); const ui = this.cameras.add(0, 0, 1280, 720); ui.ignore(this.children.list.filter(o => o !== root));
+    this.cameras.main.ignore(root); const ui = uiCamera(this, 'PrologueUI'); ui.ignore(this.children.list.filter(o => o !== root));
     const key = (e: KeyboardEvent) => { if (onlinePanel.visible) return; if (['Space', 'Enter', 'Escape'].includes(e.code)) { e.preventDefault(); this.finish(); } else if (e.code === 'KeyP') this.paused = !this.paused; };
     const blur = () => { this.paused = true; };
     const hidden = () => { if (document.hidden) blur(); };

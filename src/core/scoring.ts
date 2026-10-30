@@ -2,8 +2,8 @@ import { STAGE_COUNT, validStage, type StageId } from '../config/progression.ts'
 import type { Difficulty } from '../config/difficulty.ts';
 
 /** 前后端共用：五阶段首次胜利与探索计分，排行榜使用全部阶段的游戏时间。 */
-export const SCORE_VERSION = 5;
-export const GAME_VERSION = '0.16.0';
+export const SCORE_VERSION = 6;
+export const GAME_VERSION = '0.17.0';
 export type RankDifficulty = Difficulty;
 export type BoardType = 'speed' | 'score';
 export type ScoreScope = 'clear' | 'challenge';

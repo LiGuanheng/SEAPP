@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE } from './DisplayQuality.ts';
 import { BUILDINGS, BUILDING_KEYS, saleRefund, buildingStats, refitFor, REFITS, type BuildingKind } from '../config/base.ts';
 import type { BaseWorld } from '../core/base-world.ts';
 import { STAGES, STAGE_COUNT } from '../config/progression.ts';
@@ -79,7 +80,7 @@ export class BaseHud {
     back.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); explore(); });
     this.overlay.add([this.title, this.body, bg, this.buttonLabel, back]);
   }
-  blocks(x: number, y: number): boolean { return this.overlay.visible || x < 0 || x > 1280 || x >= 1080 && y < 290 || y < 94 || y >= 596; }
+  blocks(x: number, y: number): boolean { x /= RENDER_SCALE; y /= RENDER_SCALE; return this.overlay.visible || x < 0 || x > 1280 || x >= 1080 && y < 290 || y < 94 || y >= 596; }
   notify(message: string): void { this.toast.setText(message); this.toastTime = 4.5; }
   update(world: BaseWorld, ids: Set<number>, selectedBuilding: number | null, buildKind: BuildingKind | null, paused: boolean, dt: number): void {
     const c = world.campaign, b = world.plan.buildings.find(b => b.id === selectedBuilding);

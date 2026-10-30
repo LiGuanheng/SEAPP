@@ -19,6 +19,7 @@ import { TacticalRadar } from '../view/TacticalRadar.ts';
 import { INFECTED } from '../config/night.ts';
 import { SceneTransition, effects, toggleEffects } from '../view/SceneTransition.ts';
 import { wallLine } from '../core/wall-stroke.ts';
+import { RENDER_SCALE, sharpText, uiCamera } from '../view/DisplayQuality.ts';
 
 const contains = (r: Rect, p: Vec): boolean => p.x >= r.x && p.y >= r.y && p.x <= r.x + r.width && p.y <= r.y + r.height;
 const CAMERA_FOCUS = { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y - 32 };
@@ -53,6 +54,7 @@ export class BaseScene extends Phaser.Scene {
   private cameraLocked = true;
   constructor() { super('Base'); }
   create(data: { campaign?: Campaign; fresh?: boolean; battle?: boolean } = {}): void {
+    sharpText(this);
     let campaign = data.campaign ?? newCampaign(), warning = '';
     if (!data.campaign) try { const loaded = loadGameCampaign(localStorage); campaign = loaded.campaign; warning = loaded.warning; } catch { warning = '存储不可用，基地仍可操作。'; }
     this.world = data.battle ? new NightWorld(campaign, difficulty) : new BaseWorld(campaign); if (data.fresh && !data.battle) this.world.resume();
@@ -64,7 +66,7 @@ export class BaseScene extends Phaser.Scene {
     this.paused = false; this.drag = null; this.wallStroke = null; this.accumulator = 0; this.savedReady = false; this.pointerActive = false;
     const camera = this.cameras.main;
     // 使用整个画面宽度，以灯塔图像中心定位；小地图作为浮层，不挤占战场中心。
-    camera.removeBounds().setViewport(0, 94, 1280, 502).setZoom(0.9).centerOn(CAMERA_FOCUS.x, CAMERA_FOCUS.y).setRoundPixels(true);
+    camera.removeBounds().setViewport(0, 94 * RENDER_SCALE, 1280 * RENDER_SCALE, 502 * RENDER_SCALE).setZoom(0.9 * RENDER_SCALE).centerOn(CAMERA_FOCUS.x, CAMERA_FOCUS.y).setRoundPixels(true);
     this.view = new BaseView(this);
     this.nightView = this.world instanceof NightWorld ? new NightView(this, this.view.root) : null;
     this.hud = data.battle ? new NightHud(this, () => this.action(this.world.hold([...this.selected])), () => this.toggleSupport(), () => this.audio?.toggle(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore()) :
@@ -80,7 +82,7 @@ export class BaseScene extends Phaser.Scene {
     this.transition = new SceneTransition(this, this.hud.root, this.view.root);
     this.transition.play(data.battle ? '夜幕压境' : `阶段 ${this.world.stage}/${STAGE_COUNT} · ${STAGES[this.world.stage].name}`, STAGES[this.world.stage].description, data.battle ? 'night' : 'camp', LIGHTHOUSE, this.audio);
     camera.ignore(this.hud.root);
-    const ui = this.cameras.add(0, 0, 1280, 720).setName('BaseUI'); ui.ignore(this.view.root);
+    const ui = uiCamera(this, 'BaseUI'); ui.ignore(this.view.root);
     if (warning) this.hud.notify(warning);
     this.input.mouse?.disableContextMenu();
     const keyDown = (e: KeyboardEvent) => {
@@ -140,7 +142,7 @@ export class BaseScene extends Phaser.Scene {
       this.wallStroke = null;
       if (!this.drag) return;
       if (this.paused || !this.world.commanding || this.hud.blocks(p.x, p.y)) { this.drag = null; return; }
-      const drag = this.drag, point = this.point(p), marquee = distance(drag.screen, p) > 7;
+      const drag = this.drag, point = this.point(p), marquee = distance(drag.screen, p) > 7 * RENDER_SCALE;
       const rectangle = this.rectangle(drag.world, point);
       if (!drag.additive) this.selected.clear();
       this.selectedBuilding = null;
@@ -156,7 +158,7 @@ export class BaseScene extends Phaser.Scene {
       if (this.paused || !this.world.commanding || this.hud.blocks(p.x, p.y)) return;
       this.transition.skip();
       const center = { x: camera.midPoint.x, y: camera.midPoint.y };
-      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.5, 1.3)).centerOn(center.x, center.y);
+      camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.5 * RENDER_SCALE, 1.3 * RENDER_SCALE)).centerOn(center.x, center.y);
       this.drag = null; this.wallStroke = null;
     };
     const move = () => { this.pointerActive = true; this.paintWall(); };
@@ -176,7 +178,8 @@ export class BaseScene extends Phaser.Scene {
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', hidden); this.game.canvas.removeEventListener('pointerleave', leave); delete window.__baseLight; delete window.__nightLight; this.audio?.destroy();
     });
     if (params.get('test') === '1') {
-      const cameraSnapshot = () => ({ x: camera.worldView.x - camera.x / camera.zoom, y: camera.worldView.y - camera.y / camera.zoom, zoom: camera.zoom });
+      // worldView按世界整数取整；诊断与鼠标一样读取相机逆矩阵，避免缩放中产生假偏移。
+      const cameraSnapshot = () => ({ ...camera.getWorldPoint(0, 0), zoom: camera.zoom / RENDER_SCALE, renderScale: RENDER_SCALE });
       if (this.world instanceof NightWorld) window.__nightLight = Object.freeze({ presentation: () => this.transition.snapshot(), snapshot: () => ({ ...(this.world as NightWorld).nightSnapshot(), ranking: rankingSnapshot(), cameraLocked: this.cameraLocked, selected: [...this.selected], paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, support: this.support, muted: this.audio?.muted ?? true, view: { ...this.view.counts(), ...this.nightView!.counts() }, camera: cameraSnapshot() }) });
       else window.__baseLight = Object.freeze({ snapshot: () => ({ ...this.world.snapshot(), ranking: rankingSnapshot(), cameraLocked: this.cameraLocked, selected: [...this.selected], selectedBuilding: this.selectedBuilding, placement: this.kind, rotation: this.rotation, paused: this.paused, guide: this.guide.visible, speed: this.speed, musicMuted: this.audio?.musicMuted ?? false, ready: true, view: this.view.counts(), camera: cameraSnapshot() }) });
     }
@@ -283,7 +286,7 @@ export class BaseScene extends Phaser.Scene {
       const camera = this.cameras.main;
       const x = Number(this.held.has('KeyD') || this.held.has('ArrowRight')) - Number(this.held.has('KeyA') || this.held.has('ArrowLeft'));
       const y = Number(this.held.has('KeyS') || this.held.has('ArrowDown')) - Number(this.held.has('KeyW') || this.held.has('ArrowUp'));
-      if (x || y) { this.cameraLocked = false; camera.centerOn(Phaser.Math.Clamp(camera.midPoint.x + x * dt * 600 / camera.zoom, 0, BASE_WIDTH), Phaser.Math.Clamp(camera.midPoint.y + y * dt * 600 / camera.zoom, 0, BASE_HEIGHT)); }
+      if (x || y) { this.cameraLocked = false; camera.centerOn(Phaser.Math.Clamp(camera.midPoint.x + x * dt * 600 * RENDER_SCALE / camera.zoom, 0, BASE_WIDTH), Phaser.Math.Clamp(camera.midPoint.y + y * dt * 600 * RENDER_SCALE / camera.zoom, 0, BASE_HEIGHT)); }
       else if (this.cameraLocked && !this.transition.active) camera.centerOn(CAMERA_FOCUS.x, CAMERA_FOCUS.y);
     }
     if ((this.world instanceof NightWorld ? !this.world.commanding : this.world.plan.status === 'ready') && !this.savedReady) {
@@ -292,7 +295,7 @@ export class BaseScene extends Phaser.Scene {
       else if (!this.practice) { this.startNight(); return; }
     }
     const living = new Set(this.world.livingSoldiers.map(s => s.id)); this.selected = new Set([...this.selected].filter(id => living.has(id)));
-    const marquee = this.drag && distance(this.drag.screen, this.input.activePointer) > 7 ? this.rectangle(this.drag.world, this.point()) : null;
+    const marquee = this.drag && distance(this.drag.screen, this.input.activePointer) > 7 * RENDER_SCALE ? this.rectangle(this.drag.world, this.point()) : null;
     this.view.update(this.world, this.selected, this.selectedBuilding, this.placement(), marquee, this.paused);
     if (this.world instanceof NightWorld) { this.nightView!.update(this.world, this.paused ? 0 : dt, this.paused, this.support && this.pointerActive ? this.point() : null); this.audio?.crowd(this.world.commanding ? this.world.enemies.length : 0); }
     if (this.hud instanceof NightHud) this.hud.cinematic = this.transition.ending;

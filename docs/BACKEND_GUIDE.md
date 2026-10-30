@@ -1,6 +1,6 @@
 # 《最后一盏灯》后端、源码学习与答辩指南
 
-版本：v0.16.0、评分版本5；手动布防、地图居中、阶段成长见 [v0.16说明](23-v0.16-growth.md)。持续探索、四英雄与新单位见 [v0.15说明](22-v0.15-world.md)，五阶段、三档难度和计时见 [v0.14说明](21-v0.14-game.md)。后端增加005版本迁移。游戏先发布到GitHub Pages，API/数据库按用户选择稍后配置。验收见 [BACKEND_VALIDATION.md](BACKEND_VALIDATION.md)，后端部署见 [BACKEND_DEPLOYMENT.md](BACKEND_DEPLOYMENT.md)，六天安排见 [BACKEND_STUDY_PLAN.md](BACKEND_STUDY_PLAN.md)。
+版本：v0.17.0、评分版本6；困难模式与高清见 [v0.17说明](24-v0.17-challenge-hd.md)。手动布防、地图居中、阶段成长见 [v0.16说明](23-v0.16-growth.md)。持续探索、四英雄与新单位见 [v0.15说明](22-v0.15-world.md)，五阶段、三档难度和计时见 [v0.14说明](21-v0.14-game.md)。后端增加006版本迁移。游戏先发布到GitHub Pages，API/数据库按用户选择稍后配置。验收见 [BACKEND_VALIDATION.md](BACKEND_VALIDATION.md)，后端部署见 [BACKEND_DEPLOYMENT.md](BACKEND_DEPLOYMENT.md)，六天安排见 [BACKEND_STUDY_PLAN.md](BACKEND_STUDY_PLAN.md)。
 
 ## 1. 先认识这个游戏与本轮边界
 
@@ -147,7 +147,7 @@ P/Esc、背包、F1 指南、排行榜、失焦和隐藏页面都会停止活动
 
 死亡立即冻结成绩，进入新排名战役新建UUID和空时钟。时长上限24小时；异常数据拒绝提交。主动结算、失败和练习会话也生成成绩，并按范围隔离。
 
-### 评分公式（版本5，含实际布防时间）
+### 评分公式（版本6，沿用实际布防时间；困难规则独立分榜）
 
 完整通关取五个阶段首胜；失败和主动结束也可取部分阶段与当前未通过阶段的击杀，探索成绩单独累计。设`K`为该阶段总击杀（含Boss），`B`为Boss击杀，`H`为灯塔耐久，`S`为生还守卫：
 
@@ -185,7 +185,7 @@ API要求三段时间之和精确等于游戏总时长，完整通关必须记�
 
 | 接口 | 参数 | 成功结果 |
 | --- | --- | --- |
-| GET `/api/health` | 无 | 200 `{status:"ok",database:"ready",scoreVersion:5}`；真实查询成绩表，不只检查进程 |
+| GET `/api/health` | 无 | 200 `{status:"ok",database:"ready",scoreVersion:6}`；真实查询成绩表，不只检查进程 |
 | GET `/api/leaderboard` | `board=speed/score`、`difficulty=easy/normal/hard`、`scope=clear/challenge`、`limit=1..20` | 200 `{board,difficulty,scope,scoreVersion,entries:[...]}`；speed仅支持clear |
 | POST `/api/scores` | 下方 JSON | 201 或幂等重放 200，`{entry,duplicate}` |
 
@@ -207,8 +207,8 @@ API要求三段时间之和精确等于游戏总时长，完整通关必须记�
   "phaseTimesMs": {"day":150000,"base":150000,"night":600000},
   "score": 26520,
   "maxSpeed": 3,
-  "scoreVersion": 5,
-  "gameVersion": "0.16.0",
+  "scoreVersion": 6,
+  "gameVersion": "0.17.0",
   "stages": [
     {"stage":1,"kills":50,"bossKills":1,"lampHealth":300,"soldiers":3},
     {"stage":2,"kills":100,"bossKills":1,"lampHealth":300,"soldiers":3},

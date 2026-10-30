@@ -1,8 +1,10 @@
 {
-  "gameVersion": "0.16.0",
-  "scoreVersion": 5,
+  "gameVersion": "0.17.0",
+  "scoreVersion": 6,
   "campaignStages": 5,
   "persistentExploration": true,
   "heroes": 4,
-  "manualPreparation": true
+  "manualPreparation": true,
+  "hdRendering": true,
+  "hardModeSkills": true
 }

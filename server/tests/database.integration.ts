@@ -14,7 +14,7 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
   const pool = createPool({ DATABASE_URL: raw, DATABASE_SSL: process.env.DATABASE_SSL === 'verify-full' ? 'verify-full' : 'disable' });
   t.after(() => pool.end()); await migrate(pool); const store = createStore(pool);
   await t.test('迁移可重复执行且保留版本校验和', async () => {
-    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 5);
+    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 6);
   });
   await t.test('空榜、真实写入读取、同昵称允许多次战役', async () => {
     await pool.query('TRUNCATE scores'); assert.deepEqual(await store.leaderboard('speed', 'normal', 20), []);
@@ -30,6 +30,13 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
     const s=payload({durationMs:1150000,phaseTimesMs:{day:100000,base:450000,night:600000},stages:payload().stages.map(s=>({...s,soldiers:12}))});
     const saved=await store.submit(s);assert.equal(saved.created,true);assert.equal(saved.entry.durationMs,1150000);
     const row=(await pool.query('SELECT phase_times_ms FROM scores WHERE id=$1',[s.runId])).rows[0];assert.equal(row.phase_times_ms.base,450000);
+  });
+  await t.test('困难平衡更新保留v0.16成绩且与新版分榜隔离', async () => {
+    const old = payload();
+    await pool.query('INSERT INTO scores (id,nickname,difficulty,duration_ms,total_duration_ms,phase_times_ms,score,max_speed,score_version,game_version,stages,scope) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,5,$9,$10,$11)',
+      [old.runId, old.nickname, old.difficulty, old.durationMs, old.totalDurationMs, JSON.stringify(old.phaseTimesMs), old.score, old.maxSpeed, '0.16.0', JSON.stringify(old.stages), old.scope]);
+    assert.equal((await pool.query('SELECT score_version FROM scores WHERE id=$1', [old.runId])).rows[0].score_version, 5);
+    assert.ok((await store.leaderboard('speed', old.difficulty, 20)).every(row => row.id !== old.runId));
   });
   await t.test('失败/主动结束归挑战榜，完整通关榜独立，真实名次与幂等返回一致', async () => {
     await pool.query('TRUNCATE scores');

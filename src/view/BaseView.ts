@@ -24,7 +24,7 @@ export class BaseView {
       x * GRID >= BUILD_AREA.x && x * GRID < BUILD_AREA.x + BUILD_AREA.width && y * GRID >= BUILD_AREA.y && y * GRID < BUILD_AREA.y + BUILD_AREA.height ? ((x * 13 + y * 7) % 17 === 0 ? 777 : 704) : 889));
     const map = scene.make.tilemap({ data, tileWidth: 16, tileHeight: 16 });
     const tiles = map.addTilesetImage('city', 'city', 16, 16, 0, 0)!;
-    add(map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(0x849086).setDepth(-100));
+    add(map.createLayer(0, tiles, 0, 0)!.setScale(2).setTint(0xa6b5a9).setDepth(-100));
     const ground = add(scene.add.graphics().setDepth(-80));
     // 与旧城一致的青灰底色、锈色接缝；装饰不进入碰撞或寻路。
     for (let y = 96; y < BASE_HEIGHT - 80; y += 96) for (let x = 96; x < BASE_WIDTH - 80; x += 96) {
@@ -32,6 +32,12 @@ export class BaseView {
       ground.lineStyle(1, 0x192d30, 0.3).lineBetween(x, y + 32, x + 32, y + 32);
     }
     for (const route of RESERVED_ROUTES) ground.fillStyle(0x192f32, 0.35).fillRect(route.x, route.y, route.width, route.height);
+    // 路肩、分段标线和塔基同心铺装，增加层次且不新增碰撞体。
+    for (let x = 32; x < BASE_WIDTH; x += 64) ground.fillStyle(0xc2b181, 0.34).fillRect(x, LIGHTHOUSE.y + 14, 22, 2);
+    for (let y = 32; y < BASE_HEIGHT; y += 64) ground.fillStyle(0xc2b181, 0.34).fillRect(LIGHTHOUSE.x - 1, y, 2, 22);
+    ground.lineStyle(2, 0x92a69a, 0.28).lineBetween(0, LIGHTHOUSE.y - 34, BASE_WIDTH, LIGHTHOUSE.y - 34).lineBetween(0, LIGHTHOUSE.y + 65, BASE_WIDTH, LIGHTHOUSE.y + 65);
+    ground.lineStyle(2, 0x92a69a, 0.28).lineBetween(LIGHTHOUSE.x - 50, 0, LIGHTHOUSE.x - 50, BASE_HEIGHT).lineBetween(LIGHTHOUSE.x + 50, 0, LIGHTHOUSE.x + 50, BASE_HEIGHT);
+    ground.fillStyle(0x253b40, 0.8).fillCircle(LIGHTHOUSE.x, LIGHTHOUSE.y + 12, 91).lineStyle(3, 0x87998a, 0.7).strokeCircle(LIGHTHOUSE.x, LIGHTHOUSE.y + 12, 89).lineStyle(1, 0xc5b58a, 0.5).strokeCircle(LIGHTHOUSE.x, LIGHTHOUSE.y + 12, 78);
     ground.lineStyle(2, 0xb7ad77, 0.6);
     const right = BUILD_AREA.x + BUILD_AREA.width, bottom = BUILD_AREA.y + BUILD_AREA.height;
     for (let x = BUILD_AREA.x; x < right; x += 28) ground.lineBetween(x, BUILD_AREA.y, x + 13, BUILD_AREA.y).lineBetween(x, bottom, x + 13, bottom);

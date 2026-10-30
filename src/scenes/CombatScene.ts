@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE, sharpText, uiCamera } from '../view/DisplayQuality.ts';
 import { BALANCE } from '../config/balance.ts';
 import { WORLD_HEIGHT, WORLD_WIDTH } from '../config/map.ts';
 import { CombatWorld } from '../core/world.ts';
@@ -40,6 +41,7 @@ export class CombatScene extends Phaser.Scene {
   private rankingShown = false;
   constructor() { super('Combat'); }
   create(data: { campaign?: Campaign; seed?: number } = {}): void {
+    sharpText(this);
     const training = new URLSearchParams(location.search).get('mode') === 'combat';
     let warning = '';
     let campaign = data.campaign ? cloneCampaign(data.campaign) : newCampaign();
@@ -64,11 +66,11 @@ export class CombatScene extends Phaser.Scene {
     this.musicLabel.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, e: Phaser.Types.Input.EventData) => { e.stopPropagation(); this.audio.toggleMusic(); }); this.hud.root.add(this.musicLabel);
     if (warning) this.hud.notify(warning);
     this.crosshair = this.add.graphics().setDepth(99999);
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT).centerOn(this.world.player.x, this.world.player.y - 60).setRoundPixels(true);
+    this.cameras.main.setZoom(RENDER_SCALE).setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT).centerOn(this.world.player.x, this.world.player.y - 60).setRoundPixels(true);
     if (!training) this.transition.play('提灯出发', '深入黑雾寻找补给 · 入夜前回到灯塔', 'departure', { x: this.world.player.x, y: this.world.player.y - 55 }, this.audio);
     // 固定 HUD 使用独立相机，让嵌套浮层的显示坐标与命中坐标一致。
     this.cameras.main.ignore(this.hud.root);
-    const ui = this.cameras.add(0, 0, 1280, 720).setName('CombatUI');
+    const ui = uiCamera(this, 'CombatUI');
     ui.ignore(this.children.list.filter(object => object !== this.hud.root));
     const added = (object: Phaser.GameObjects.GameObject) => ui.ignore(object);
     this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, added);
@@ -117,7 +119,7 @@ export class CombatScene extends Phaser.Scene {
     const wheel = (p: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
       if (this.paused || this.world.status !== 'playing' || this.hud.blocksInput(p.x, p.y)) return;
       this.transition.skip();
-      const camera = this.cameras.main; camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.65, 1.5)).centerOn(this.world.player.x, this.world.player.y - 55);
+      const camera = this.cameras.main; camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.65 * RENDER_SCALE, 1.5 * RENDER_SCALE)).centerOn(this.world.player.x, this.world.player.y - 55);
     };
     this.input.keyboard!.on('keydown', keyDown); this.input.keyboard!.on('keyup', keyUp);
     this.input.on('pointerdown', down); this.input.on('pointerup', up); this.input.on('pointermove', move);
@@ -142,7 +144,7 @@ export class CombatScene extends Phaser.Scene {
       this.audio.destroy();
     });
     if (new URLSearchParams(location.search).get('test') === '1') {
-      window.__lastLight = Object.freeze({ presentation: () => this.transition.snapshot(), snapshot: () => ({ ...this.world.snapshot(), ranking: rankingSnapshot(), paused: this.paused, guide: this.guide.visible, muted: this.audio.muted, musicMuted: this.audio.musicMuted, view: this.actors.counts(), objects: this.children.length, camera: { x: this.cameras.main.worldView.x, y: this.cameras.main.worldView.y, zoom: this.cameras.main.zoom }, ready: true }) });
+      window.__lastLight = Object.freeze({ presentation: () => this.transition.snapshot(), snapshot: () => ({ ...this.world.snapshot(), ranking: rankingSnapshot(), paused: this.paused, guide: this.guide.visible, muted: this.audio.muted, musicMuted: this.audio.musicMuted, view: this.actors.counts(), objects: this.children.length, camera: { x: this.cameras.main.worldView.x, y: this.cameras.main.worldView.y, zoom: this.cameras.main.zoom / RENDER_SCALE, renderScale: RENDER_SCALE }, ready: true }) });
     }
     this.actors.update(this.world, 0, false); this.expeditionView?.update(this.world as ExpeditionWorld, false); this.hud.update(this.world, false, 0);
     if (this.world instanceof ExpeditionWorld) this.fog?.update(this.world);

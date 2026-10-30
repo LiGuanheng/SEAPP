@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RENDER_SCALE } from './DisplayQuality.ts';
 import type { Vec } from '../core/types.ts';
 import type { SoundBus } from './SoundBus.ts';
 
@@ -73,7 +74,7 @@ export class SceneTransition {
     f.fillStyle(0x050d15, envelope * 0.62).fillRect(0, 94, 1280, 13).fillRect(0, 583, 1280, 13);
     const c = this.scene.cameras.main;
     if (!effects.reduced && ['night', 'departure', 'camp'].includes(kind)) {
-      c.setZoom(this.zoom + Math.sin(t * Math.PI) * (kind === 'night' ? -0.13 : 0.07));
+      c.setZoom(this.zoom + Math.sin(t * Math.PI) * (kind === 'night' ? -0.13 : 0.07) * RENDER_SCALE);
       if (this.focusOffset) c.centerOn(x, y - this.focusOffset);
       else c.centerOn(Phaser.Math.Linear(this.origin.x, x, ease) + (kind === 'night' ? Math.sin(t * Math.PI * 2) * 95 : 0), Phaser.Math.Linear(this.origin.y, y, ease) - Math.sin(t * Math.PI) * 48);
     }

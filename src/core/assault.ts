@@ -18,8 +18,8 @@ export function assaultPlan(stage: StageId, seed: number, difficulty: Difficulty
   const tuning = ASSAULT_TUNING[stage], orders: AssaultOrder[] = [];
   const rotation = (seed >>> 0) % 4, harder = DIFFICULTIES[difficulty].count;
   let budget = tuning.threatBudget * harder;
-  wavesForStage(stage).forEach((w, wave) => {
-    const countDirections = Math.min(tuning.directions, wave === 0 ? 1 : wave === 1 ? 2 : wave === 2 ? 3 : 4);
+  wavesForStage(stage, difficulty).forEach((w, wave) => {
+    const countDirections = Math.min(difficulty === 'hard' ? Math.min(4, tuning.directions + 1) : tuning.directions, wave === 0 ? 1 : wave === 1 ? 2 : wave === 2 ? 3 : 4);
     const gates = Array.from({ length: countDirections }, (_, i) => (rotation + wave + (i === 1 ? 2 : i === 2 ? 1 : i)) % 4);
     let unit = 0;
     // Each packet keeps a front together instead of rotating direction for every individual.

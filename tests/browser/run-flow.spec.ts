@@ -51,7 +51,7 @@ test('灯塔视觉中心在整个战场正中，缩放/回中保持居中；黑�
   await page.screenshot({ path: 'artifacts/v014-centered-battlefield.png' });
 });
 
-test('首夜胜利可跳过街区，直接扩建布防；30秒倒计时自动开启第二夜', async ({ page }) => {
+test('首夜胜利可跳过街区，直接扩建布防；手动完成后开启第二夜', async ({ page }) => {
   test.setTimeout(150000); await prepared(page, 'night'); await key(page, 'KeyT'); await key(page, 'KeyT');
   const initial = await state(page); expect(initial.lightRadius).toBe(480);
   for (let i = 0; i < 28 && (await state(page)).status === 'playing'; i++) await page.clock.runFor(1600);

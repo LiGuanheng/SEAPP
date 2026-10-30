@@ -90,7 +90,7 @@ test('镜头缩放/移动后仍正确落地，HUD 固定，旋转、拆除、驻
   await page.screenshot({ path: 'artifacts/phase3-zoom.png' });
 });
 
-test('30 秒自动完成，继续调整不重置预算，可返回探索；正常入口无诊断接口', async ({ page }) => {
+test('布防不限时，手动完成后可继续调整、返回探索；正常入口无诊断接口', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await prepared(page); await page.clock.runFor(30000);
   const s = await state(page); expect(s.plan.status).toBe('preparing'); expect(s.remaining).toBe(0); expect(s.plan.elapsed).toBeGreaterThan(29);

@@ -18,7 +18,7 @@ async function walk(page: Page, x: number, y: number) {
   throw Error('无法到达探索目标');
 }
 
-test('一轮探索、30 秒自动入夜、真实指挥/炮火/暂停/音效开关、120 秒守夜胜利并保存', async ({ page }) => {
+test('一轮探索、手动完成布防入夜、真实指挥/炮火/暂停/音效开关、120 秒守夜胜利并保存', async ({ page }) => {
   test.setTimeout(180000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.clock.install(); await page.goto('/?play=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); await page.clock.runFor(100);

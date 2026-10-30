@@ -1,5 +1,5 @@
 {
-  "verifiedOn": "2026-10-29",
+  "verifiedOn": "2026-10-30",
   "assets": [
     {
       "file": "characters/survivor.png",
@@ -32,6 +32,16 @@
       "sha256": "2c187c6ddd7c8539b3219ca5ce5d8f1cf41497fa510c65af71e305b01e4e6712"
     },
     {
+      "file": "enemies/blighter.svg",
+      "bytes": 2566,
+      "sha256": "e0e8f1848c34559445d494b8eb67fd7192c9b81435b6873ad1b49bda371a1066"
+    },
+    {
+      "file": "enemies/bomber.svg",
+      "bytes": 2596,
+      "sha256": "da4bc66487631007a595c764edd2230017d8f5dc9be959c4da6dd8b03f6d4c31"
+    },
+    {
       "file": "enemies/crow.svg",
       "bytes": 2267,
       "sha256": "7910b3103eb6dfcde450d29bd8c6917250ec4f06df22b201ea424b5b0d7e58bf"
@@ -52,9 +62,34 @@
       "sha256": "617409adcde198a3188142cdae78ec0a9b2673a5f20a1ca9627e7683f8b9ff14"
     },
     {
+      "file": "enemies/tank.svg",
+      "bytes": 3207,
+      "sha256": "fa48912be52b72166fc40ab760b5eb914ac9e102a46126ad69d565c4d87096ff"
+    },
+    {
       "file": "enemies/undead.svg",
       "bytes": 2089,
       "sha256": "6b8892c5cd99aa0f9d58bc6656facab7634491c941a028806c96b10c2e5ea72c"
+    },
+    {
+      "file": "heroes/guardian.svg",
+      "bytes": 3279,
+      "sha256": "923ba5ff71d3f57965416db60e7da398d65aa24a22b5fe84148ca6422ae00a0d"
+    },
+    {
+      "file": "heroes/gunner.svg",
+      "bytes": 3489,
+      "sha256": "c60c2e3879d0e50f6795716bbc5b9af103a3fec2b40a0d7f442108faab983e96"
+    },
+    {
+      "file": "heroes/sentinel.svg",
+      "bytes": 3441,
+      "sha256": "ede940befd09631ed054d08007393a3c45b54b7e88c3d8f74b92c08a7d0d766f"
+    },
+    {
+      "file": "heroes/striker.svg",
+      "bytes": 3126,
+      "sha256": "76353005a213a1ba99377cea1f47eba496ab0f7c59463e294ad89d053cdb02b7"
     },
     {
       "file": "licenses/curt-characters.txt",
@@ -78,8 +113,13 @@
     },
     {
       "file": "licenses/project-art.txt",
-      "bytes": 1264,
-      "sha256": "80a2a9a488124ae9d58b834f1ac2d9a22a701116b6c79d59afb9e7ed97a11a60"
+      "bytes": 1391,
+      "sha256": "63264478d0cfbb3aa3262cb4b9348eedf90efa09e49af5b1ef92a5d0daff8e10"
+    },
+    {
+      "file": "weapons/antiair.svg",
+      "bytes": 1186,
+      "sha256": "6321e8d434eaa9c1e77a70f77eaf93f2a4fd9148c4d5b9ae12096aaded57dab8"
     },
     {
       "file": "weapons/arrow.svg",
@@ -137,9 +177,29 @@
       "sha256": "9defc96aa8f673f64b08521c53fb4a43235be3a80e2723854614aff63649e2c1"
     },
     {
+      "file": "weapons/eagle.svg",
+      "bytes": 900,
+      "sha256": "9feeab25d00f479214a208d64099b0a41b88a5a86a54c314cf00903176aac0f2"
+    },
+    {
+      "file": "weapons/flame.svg",
+      "bytes": 639,
+      "sha256": "fed7b1ef3b2c2ce393b0dbfedd0415a5398f32e1b07af4633e216d2ef3c7ca68"
+    },
+    {
+      "file": "weapons/grid.svg",
+      "bytes": 698,
+      "sha256": "82bb0b5e29d4006a7551dc8cfb50bd8fc69cb9bc97cc69f7a6a49a9ff0952f02"
+    },
+    {
       "file": "weapons/helmet.svg",
       "bytes": 367,
       "sha256": "40ac0ced58d23e2cdcbb64ada3c89c9c4ce1c60b50c6281d6249a69ba04c28bb"
+    },
+    {
+      "file": "weapons/inferno.svg",
+      "bytes": 811,
+      "sha256": "6f22ebf1c269b604b29da2dd8d1e79458289608a010612ca55f49361f01a2f96"
     },
     {
       "file": "weapons/lantern.svg",
@@ -148,8 +208,8 @@
     },
     {
       "file": "weapons/lighthouse.svg",
-      "bytes": 818,
-      "sha256": "9e3d32a273257e56589c844078304ebfa81fcadf8faf46f0248fcbd723fe54ce"
+      "bytes": 1615,
+      "sha256": "3eea558c8c6e0b602cde00587e4ab51a2d1cbd9f68e0b0839aecfa4c91af2abe"
     },
     {
       "file": "weapons/muzzle.svg",
@@ -162,9 +222,24 @@
       "sha256": "b2e31076d2aa3d1719a2cc19e62799f7613b7c929696f7adae10ea47d430b410"
     },
     {
+      "file": "weapons/pounder.svg",
+      "bytes": 910,
+      "sha256": "cc5c58082516765d50a385a3d8ba4323c249342506bc772644c0eb77f8b4a271"
+    },
+    {
+      "file": "weapons/repair.svg",
+      "bytes": 556,
+      "sha256": "93f6c293f0cb6106a5eab7a06854fb513c5783ac386a4ff3ea1d49652eb3a59d"
+    },
+    {
       "file": "weapons/rifle.svg",
       "bytes": 373,
       "sha256": "02e878cc5f04621657005b0b8684de45aaba2c2aa4b7320a026799e086c6434a"
+    },
+    {
+      "file": "weapons/sniper.svg",
+      "bytes": 742,
+      "sha256": "a8bfb64f9eeb35e013f27b92e9e995857f9bce81238f3f362f594b9302f17957"
     },
     {
       "file": "weapons/supply.svg",
@@ -173,88 +248,13 @@
     },
     {
       "file": "weapons/turret.svg",
-      "bytes": 597,
-      "sha256": "182d872198d1fa56eed2ac98bdf8f48658cab5159dd92696376611aeb1aaa76c"
+      "bytes": 985,
+      "sha256": "21410a1346c41d6633ceeffc3096b3633b803c8d2fcf9121f8d010cea44e260e"
     },
     {
       "file": "weapons/wall.svg",
       "bytes": 452,
       "sha256": "7aca5ae892cfad713c3000dba0bfc315a0addfe4b7fadd8868099372f447ee27"
-    },
-    {
-      "file": "weapons/grid.svg",
-      "bytes": 698,
-      "sha256": "82bb0b5e29d4006a7551dc8cfb50bd8fc69cb9bc97cc69f7a6a49a9ff0952f02"
-    },
-    {
-      "file": "weapons/repair.svg",
-      "bytes": 556,
-      "sha256": "93f6c293f0cb6106a5eab7a06854fb513c5783ac386a4ff3ea1d49652eb3a59d"
-    },
-    {
-      "file": "weapons/flame.svg",
-      "bytes": 639,
-      "sha256": "fed7b1ef3b2c2ce393b0dbfedd0415a5398f32e1b07af4633e216d2ef3c7ca68"
-    },
-    {
-      "file": "weapons/sniper.svg",
-      "bytes": 590,
-      "sha256": "14dfd44dc71ba3b9d638c9fb93020baccd8476acd23bf72985d7a9ca6b9ffd35"
-    },
-    {
-      "file": "enemies/blighter.svg",
-      "bytes": 2566,
-      "sha256": "e0e8f1848c34559445d494b8eb67fd7192c9b81435b6873ad1b49bda371a1066"
-    },
-    {
-      "file": "enemies/bomber.svg",
-      "bytes": 2596,
-      "sha256": "da4bc66487631007a595c764edd2230017d8f5dc9be959c4da6dd8b03f6d4c31"
-    },
-    {
-      "file": "heroes/guardian.svg",
-      "bytes": 3279,
-      "sha256": "923ba5ff71d3f57965416db60e7da398d65aa24a22b5fe84148ca6422ae00a0d"
-    },
-    {
-      "file": "heroes/gunner.svg",
-      "bytes": 3489,
-      "sha256": "c60c2e3879d0e50f6795716bbc5b9af103a3fec2b40a0d7f442108faab983e96"
-    },
-    {
-      "file": "heroes/sentinel.svg",
-      "bytes": 3441,
-      "sha256": "ede940befd09631ed054d08007393a3c45b54b7e88c3d8f74b92c08a7d0d766f"
-    },
-    {
-      "file": "heroes/striker.svg",
-      "bytes": 3126,
-      "sha256": "76353005a213a1ba99377cea1f47eba496ab0f7c59463e294ad89d053cdb02b7"
-    },
-    {
-      "file": "weapons/antiair.svg",
-      "bytes": 1186,
-      "sha256": "6321e8d434eaa9c1e77a70f77eaf93f2a4fd9148c4d5b9ae12096aaded57dab8"
-    },
-    {
-      "file": "enemies/tank.svg",
-      "bytes": 3207,
-      "sha256": "fa48912be52b72166fc40ab760b5eb914ac9e102a46126ad69d565c4d87096ff"
-    },
-    {
-      "file": "weapons/pounder.svg",
-      "bytes": 746,
-      "sha256": "71447757892d82cdac574271c7d2e46c63b95dc71df4998c732cc00e4fbdaa95"
-    },
-    {
-      "file": "weapons/inferno.svg",
-      "bytes": 607,
-      "sha256": "c26d6740350cdd34b8328b146d7193a92cc75c26cac4adf73ffcbdceb753e8e0"
-    },
-    {
-      "file": "weapons/eagle.svg",
-      "bytes": 715,
-      "sha256": "c9b6116d2fb123636dacbd68080cc85ba9be4d20d6c57f1250c12f94bd6c005b"
     }
   ]
 }

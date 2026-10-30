@@ -126,10 +126,12 @@ export class NightView {
       if (!visible) v.sprite.setDepth(7100 + e.y / BASE_HEIGHT).setTintFill(0x596360).setAlpha(world.status === 'victory' ? 0.2 * (1 - dawn) : 0.48);
       const max = e.maxHealth ?? INFECTED[e.kind].health, boss = INFECTED[e.kind].boss, width = boss ? 70 : e.kind === 'tank' ? 56 : 32, y = e.y - (e.kind === 'tank' ? 118 : boss ? 108 : 60);
       if (visible && boss) g.lineStyle(2, 0xd6a776, 0.7).strokeEllipse(e.x, e.y + 2, 72, 26);
+      if (visible && world.difficulty === 'hard' && e.kind === 'tank') g.lineStyle(1, 0x9dc7c5, 0.22).strokeCircle(e.x, e.y, 145);
+      if (visible && world.tankCovered(e)) g.lineStyle(2, 0xa5d7db, 0.8).strokeEllipse(e.x, e.y - 24, 28, 40);
       if (visible && (e.slowed ?? 0) > 0) g.lineStyle(2, 0x80c9d0, 0.8).strokeEllipse(e.x, e.y + 3, 32, 12);
       if (visible && (e.health < max || e.kind === 'brute' || e.kind === 'tank' || boss)) g.fillStyle(0x2c3833).fillRect(e.x - width / 2, y, width, 4).fillStyle(boss ? 0xd28188 : e.kind === 'tank' ? 0xabc1a1 : 0xb7957d).fillRect(e.x - width / 2, y, width * e.health / max, 4);
       if (e.windup && world.canSee(e.windup.point)) {
-        const w = e.windup, p = w.point, t = Math.max(0, w.remaining / w.duration), color = w.kind === 'slam' || w.kind === 'detonate' ? 0xf1a16f : w.kind === 'poison' ? 0xb1d077 : w.kind === 'web' ? 0xd5b6d4 : 0xb18feb;
+        const w = e.windup, p = w.point, t = Math.max(0, w.remaining / w.duration), color = w.kind === 'slam' || w.kind === 'detonate' || w.kind === 'breach' ? 0xf1a16f : w.kind === 'poison' ? 0xb1d077 : w.kind === 'web' ? 0xd5b6d4 : 0xb18feb;
         g.fillStyle(color, 0.09).fillCircle(p.x, p.y, w.radius).lineStyle(2, color, 0.9).strokeCircle(p.x, p.y, w.radius);
         g.lineStyle(2, color).lineBetween(p.x - 9, p.y - 9, p.x + 9, p.y + 9).lineBetween(p.x + 9, p.y - 9, p.x - 9, p.y + 9);
         g.lineStyle(4, color).beginPath().arc(p.x, p.y, w.radius - 5, -Math.PI / 2, -Math.PI / 2 + (1 - t) * Math.PI * 2).strokePath();
@@ -144,6 +146,7 @@ export class NightView {
     for (const b of this.beams) { if (!paused) b.life -= dt; g.lineStyle(2 + b.heat, 0xf7b069, 0.65).lineBetween(b.x, b.y - 35, b.tx, b.ty); g.lineStyle(1, 0xffebba).lineBetween(b.x, b.y - 35, b.tx, b.ty); } this.beams = this.beams.filter(b => b.life > 0);
     for (const s of world.livingSoldiers) { const f = world.fighters.get(s.id)!, max = world.maxSoldierHealth(s), y = s.role === 'guardian' || s.role === 'gunner' || s.role === 'sentinel' || s.role === 'striker' ? s.y - 77 : s.y - 63; if (f.health < max) g.fillStyle(0x34473c).fillRect(s.x - 16, y, 32, 3).fillStyle(f.hurt > 0 ? 0xe5a38b : 0xb4d29f).fillRect(s.x - 16, y, 32 * f.health / max, 3); }
     for (const b of world.plan.buildings) if (b.health < buildingStats(b).health) { const r = buildingRect(b); g.fillStyle(0x31423e).fillRect(b.x, b.y - 20, r.width, 4).fillStyle(0xd8b478).fillRect(b.x, b.y - 20, r.width * b.health / buildingStats(b).health, 4); }
+    for (const b of world.plan.buildings) if (world.buildingSuppressed(b)) g.lineStyle(2, 0xc0d483, 0.9).strokeRect(b.x + 2, b.y + 2, 60, 60).lineBetween(b.x + 20, b.y - 25, b.x + 44, b.y - 13).lineBetween(b.x + 44, b.y - 25, b.x + 20, b.y - 13);
     const bulletIds = new Set(world.bullets.map(b => b.id));
     for (const [id, image] of this.bullets) if (!bulletIds.has(id)) { image.destroy(); this.bullets.delete(id); }
     for (const b of world.bullets) { let image = this.bullets.get(b.id); if (!image) { image = this.scene.add.image(b.x, b.y, b.projectile === 'arrow' ? 'arrow' : 'bullet').setDepth(8150).setScale(b.projectile === 'shell' ? 2 : 1).setTint(b.projectile === 'shell' ? 0xffbf78 : 0xffffff); this.root.add(image); this.bullets.set(b.id, image); } image.setPosition(b.x, b.y).setRotation(Math.atan2(b.vy, b.vx)); }
