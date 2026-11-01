@@ -317,12 +317,17 @@ export class NightWorld extends BaseWorld {
       }
       const target = soldier ?? (building ? edgePoint(e, buildingRect(building)) : lampPoint);
       const inRange = distance(e, target) <= (type.flying ? 55 : soldier ? 27 : 24);
-      let direction = type.flying || soldier || building ? normalized(target.x - e.x, target.y - e.y) : this.enemyNavigation.direction(e, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
-      if (!type.flying && !soldier && !building && (Math.abs(direction.x) + Math.abs(direction.y) < 0.01 || (e.stalled ?? 0) > 0.7 || e.kind === 'brute' || e.kind === 'tank')) direction = this.siegeNavigation.direction(e, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 });
-      e.aim = Math.atan2(direction.y, direction.x); e.moving = !inRange;
+      const approach = { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + 80 };
+      let direction = type.flying || soldier || building ? normalized(target.x - e.x, target.y - e.y) : this.enemyNavigation.direction(e, approach);
+      if (!type.flying && !soldier && !building && (Math.abs(direction.x) + Math.abs(direction.y) < 0.01 || (e.stalled ?? 0) > 0.7 || e.kind === 'brute' || e.kind === 'tank')) direction = this.siegeNavigation.direction(e, approach);
+      e.moving = false;
+      if (inRange) e.aim = Math.atan2(target.y - e.y, target.x - e.x);
       if (!inRange) {
         const x = e.x, y = e.y;
         moveWithCollision(e, direction.x * stats.speed * dt, direction.y * stats.speed * dt, type.radius, type.flying ? [] : obstacles, BASE_WIDTH, BASE_HEIGHT);
+        const dx = e.x - x, dy = e.y - y;
+        e.moving = Math.hypot(dx, dy) > 1e-5;
+        if (e.moving) e.aim = Math.atan2(dy, dx);
         e.stalled = Math.hypot(e.x - x, e.y - y) < stats.speed * dt * 0.15 ? (e.stalled ?? 0) + dt : 0;
       }
       if (inRange && e.cooldown === 0) {

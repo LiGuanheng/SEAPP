@@ -151,8 +151,12 @@ export class CombatWorld {
     for (const zombie of this.zombies) {
       zombie.attackCooldown = Math.max(0, zombie.attackCooldown - dt); zombie.hurt = Math.max(0, zombie.hurt - dt);
       const direction = this.navigation.direction(zombie, p), close = distance(zombie, p) <= B.zombie.contactDistance;
-      zombie.moving = !close; zombie.aim = Math.atan2(direction.y, direction.x);
+      const previous = { x: zombie.x, y: zombie.y };
       moveWithCollision(zombie, ((!close ? direction.x * B.zombie.speed : 0) + zombie.knockX) * dt, ((!close ? direction.y * B.zombie.speed : 0) + zombie.knockY) * dt, B.zombie.radius, this.obstacles, this.width, this.height);
+      const dx = zombie.x - previous.x, dy = zombie.y - previous.y;
+      zombie.moving = !close && Math.hypot(dx, dy) > 1e-5;
+      if (zombie.moving && Math.hypot(zombie.knockX, zombie.knockY) < 1) zombie.aim = Math.atan2(dy, dx);
+      if (close) zombie.aim = Math.atan2(p.y - zombie.y, p.x - zombie.x);
       zombie.knockX *= Math.exp(-9 * dt); zombie.knockY *= Math.exp(-9 * dt);
       if (close && firstWall(zombie, p, this.obstacles) === null && zombie.attackCooldown <= 1e-9) {
         zombie.attackCooldown = B.zombie.attackInterval;

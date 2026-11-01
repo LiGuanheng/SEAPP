@@ -55,8 +55,12 @@ export function simulateCampaign(difficulty, seed = 0, layout = 'balanced', supp
 function runNight(campaign, difficulty, support = true) {
   const world = new NightWorld(campaign, difficulty);
   for (let i = 0; i < 7201 && world.commanding; i++) {
-    if (support && world.elapsed > 55 && world.charges && world.supportCooldown === 0) {
-      const target = world.enemies.find(e => ['tank', 'bomber', 'blighter', 'brute'].includes(e.kind) && world.canSee(e));
+    // 后两夜保留一发给末轮或核心告急，优先支援靠近灯塔的敌人；不增加支援总量。
+    const coreDistance = e => Math.hypot(e.x - LIGHTHOUSE.x, e.y - LIGHTHOUSE.y);
+    const threatened = world.lampHealth < 300 || world.enemies.some(e => coreDistance(e) < 140);
+    if (support && world.elapsed > 55 && world.charges && world.supportCooldown === 0 && (world.stage < 4 || world.charges === 2 || world.elapsed >= 88 || threatened)) {
+      const visible = world.enemies.filter(e => world.canSee(e));
+      const target = world.stage < 4 ? visible.find(e => ['tank', 'bomber', 'blighter', 'brute'].includes(e.kind)) : visible.sort((a, b) => coreDistance(a) - coreDistance(b))[0];
       if (target) world.callStrike(target);
     }
     world.step(); assert.ok(world.enemies.length <= NIGHT_LIMITS.enemies);

@@ -44,6 +44,7 @@ export class Navigation {
     }
     if (index === this.targetCell) return;
     this.targetCell = index; this.field.fill(-1);
+    if (!this.walkable[index]) return;
     const queue = new Int32Array(this.walkable.length); let read = 0, end = 1;
     queue[0] = index; this.field[index] = 0;
     while (read < end) {
@@ -54,8 +55,17 @@ export class Navigation {
   direction(from: Vec, target: Vec): Vec {
     if (firstWall(from, target, this.clearanceObstacles) === null) return normalized(target.x - from.x, target.y - from.y);
     const index = Math.floor(from.y / this.cell) * this.cols + Math.floor(from.x / this.cell);
-    let next = -1, best = Infinity;
-    for (const neighbor of this.neighbors(index)) if (this.field[neighbor] >= 0 && this.field[neighbor] < best) { best = this.field[neighbor]; next = neighbor; }
+    let next = -1, best = Infinity, travel = Infinity, tie = Infinity;
+    for (const neighbor of this.neighbors(index)) {
+      const score = this.field[neighbor];
+      if (score < 0) continue;
+      const x = (neighbor % this.cols + 0.5) * this.cell, y = (Math.floor(neighbor / this.cols) + 0.5) * this.cell;
+      const leg = Math.hypot(x - from.x, y - from.y), toTarget = Math.hypot(target.x - x, target.y - y);
+      // 等步数时优先较短的一步，再按接近目标程度打破平局，避免固定偏向左上斜线。
+      if (score < best || score === best && (leg < travel - 1e-6 || Math.abs(leg - travel) <= 1e-6 && toTarget < tie)) {
+        best = score; travel = leg; tie = toTarget; next = neighbor;
+      }
+    }
     if (next < 0) return { x: 0, y: 0 };
     return normalized((next % this.cols + 0.5) * this.cell - from.x, (Math.floor(next / this.cols) + 0.5) * this.cell - from.y);
   }
