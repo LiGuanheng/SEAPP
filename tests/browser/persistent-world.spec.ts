@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures.ts';
+import { wavesForStage } from '../../src/config/night.ts';
 import { newCampaign } from '../../src/core/campaign.ts';
 import { BaseWorld } from '../../src/core/base-world.ts';
 import { SURVIVOR_PROFILES, HERO_IDS } from '../../src/config/survivors.ts';
@@ -37,6 +38,11 @@ test('四英雄独立形象、防空塔实际施工、铁甲巨尸实际刷新�
   // 用公开施工操作补齐地面防线，让本例验证防空/重甲刷新，而非故意用纯防空塔守第五关。
   for (const [x, y] of [[1088,544],[864,544],[864,832],[1120,832],[1312,832],[1088,992]]) { await key(page, 'Digit2'); const v = await state(page); await click(page, (x + 4 - v.camera.x) * v.camera.zoom, (y + 4 - v.camera.y) * v.camera.zoom); await key(page, 'Escape'); }
   await key(page, 'Enter'); await key(page, 'KeyN'); await page.waitForFunction(() => (window as any).__nightLight?.snapshot().ready); await key(page, 'KeyT'); await key(page, 'KeyT');
-  let tank = false; for (let i = 0; i < 35 && (await state(page)).status === 'playing'; i++) { await page.clock.runFor(500); tank ||= (await state(page)).enemies.some((e: any) => e.kind === 'tank'); if (tank) break; }
+  // 重甲已移至后半夜，按配置中的首次重甲波次等待，避免沿用旧的52.5秒采样窗口。
+  const tankAt = wavesForStage(5, 'easy').find(w => w.tank > 0)!.at;
+  let tank = false;
+  for (let i = 0; i < 80 && (await state(page)).status === 'playing' && (await state(page)).elapsed < tankAt + 12; i++) {
+    await page.clock.runFor(500); tank ||= (await state(page)).enemies.some((e: any) => e.kind === 'tank'); if (tank) break;
+  }
   expect(tank).toBe(true); await page.screenshot({ path: 'artifacts/v015-tank-night.png' }); expect(errors).toEqual([]);
 });

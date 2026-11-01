@@ -75,6 +75,8 @@ test('浏览器fetch真实API写入PostgreSQL并刷新榜单（显式本地环�
 test('排名活动时钟在真实场景中排除暂停、指南、榜单等待，重载开始新战役', async ({ page }) => {
   await page.route('**/api/leaderboard?**', route => route.fulfill({ json: { entries: [], scoreVersion: 3 } }));
   await page.clock.install(); await page.goto('/?ranked=1&test=1'); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready);
+  // 固定自动推进的时钟，避免并行渲染期间键盘调用的墙钟耗时混入一秒采样。
+  await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 100);
   const snapshot = () => page.evaluate(() => (window as any).__lastLight.snapshot());
   if ((await snapshot()).paused) await page.keyboard.press('KeyP');
   await page.clock.runFor(2000); const active = (await snapshot()).ranking.elapsedMs; expect(active).toBeGreaterThanOrEqual(1900);
@@ -84,5 +86,5 @@ test('排名活动时钟在真实场景中排除暂停、指南、榜单等待�
   await page.keyboard.press('F1'); const guide = (await snapshot()).ranking.elapsedMs; await page.clock.runFor(4000); expect((await snapshot()).ranking.elapsedMs).toBe(guide); await page.keyboard.press('F1');
   await page.getByRole('button', { name: '排行榜', exact: true }).click(); const menu = (await snapshot()).ranking.elapsedMs; await page.clock.runFor(5000); expect((await snapshot()).ranking.elapsedMs).toBe(menu);
   await page.keyboard.press('Escape'); await page.clock.runFor(1000); expect((await snapshot()).ranking.elapsedMs - menu).toBeGreaterThanOrEqual(1000 - 2 * 1000 / 60); expect((await snapshot()).ranking.elapsedMs - menu).toBeLessThanOrEqual(1050);
-  await page.reload(); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); expect((await snapshot()).ranking.elapsedMs).toBeLessThan(1000);
+  await page.clock.resume(); await page.reload(); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); expect((await snapshot()).ranking.elapsedMs).toBeLessThan(1000);
 });
