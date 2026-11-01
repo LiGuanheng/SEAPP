@@ -1,0 +1,24 @@
+name: API Docker
+on:
+  push:
+    branches: [codex/story-lantern-and-fog, codex/verify-api-docker]
+    paths:
+      - server/**
+      - src/core/**
+      - src/config/**
+      - package.json
+      - .dockerignore
+      - .github/workflows/api-docker.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -f server/Dockerfile . -t seapp-api:verify
+      - name: Verify emitted ESM and shared scoring imports without database access
+        run: |
+          docker run --rm --entrypoint node seapp-api:verify --input-type=module -e "import assert from 'node:assert/strict'; import { calculateScore, SCORE_VERSION } from './dist/src/core/scoring.js'; import { STAGE_COUNT } from './dist/src/config/progression.js'; await import('./dist/server/src/scores.js'); await import('./dist/server/src/app.js'); assert.equal(typeof calculateScore, 'function'); assert.equal(STAGE_COUNT, 5); assert.ok(SCORE_VERSION); console.log('Runtime ESM imports verified');"
