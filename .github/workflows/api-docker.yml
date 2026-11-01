@@ -1,7 +1,7 @@
 name: API Docker
 on:
   push:
-    branches: [codex/story-lantern-and-fog, codex/verify-api-docker]
+    branches: [main]
     paths:
       - server/**
       - src/core/**

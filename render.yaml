@@ -1,6 +1,7 @@
 services:
   - type: web
     name: seapp-api
+    branch: main
     runtime: docker
     plan: free
     dockerfilePath: ./server/Dockerfile

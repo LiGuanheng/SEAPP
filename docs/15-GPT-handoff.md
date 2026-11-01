@@ -40,7 +40,7 @@
 | --- | --- |
 | 软件版本 | v0.9.0 |
 | 游戏实现基线 | `68085a6`，`feat: add lantern fog, prologue and scene transitions` |
-| 当前开发分支 | `codex/story-lantern-and-fog` |
+| 当前开发分支 | `main`（2026-11-01 从 `codex/story-lantern-and-fog` 改名） |
 | 仓库 | https://github.com/LiGuanheng/SEAPP |
 | 本地工作目录 | `D:\Projects\SEAPP` |
 | 上一版本 | `b943f3f`：四类 Boss、随从、渐强尸潮、扩大基地、微变街区 |

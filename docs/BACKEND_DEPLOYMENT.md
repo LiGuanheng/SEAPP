@@ -77,12 +77,12 @@ sudo docker compose version
 
 ### 3.2 拉取正确版本
 
-**远程默认分支目前是旧版。** 本轮全栈代码按用户后续授权上传至 `codex/story-lantern-and-fog`，克隆时明确选择该分支，并核对它包含 `server/` 与本轮文档；不要直接克隆旧默认分支用于部署。
+默认分支为 `main`（2026-11-01 从 `codex/story-lantern-and-fog` 改名，提交历史完整保留）。部署时选择 `main`，并核对它包含 `server/` 与本轮文档。已有 Render 服务也需要在 Settings → Build & Deploy → Branch 中绑定 `main`；仓库的 `render.yaml` 已声明该分支。
 
 ```bash
 mkdir -p ~/apps
 cd ~/apps
-git clone --branch codex/story-lantern-and-fog https://github.com/LiGuanheng/SEAPP.git
+git clone --branch main https://github.com/LiGuanheng/SEAPP.git
 cd SEAPP
 git log -1 --oneline
 test -f server/Dockerfile
@@ -191,7 +191,7 @@ docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}
 ```bash
 git status --short
 git rev-parse HEAD
-git pull --ff-only origin codex/story-lantern-and-fog
+git pull --ff-only origin main
 docker compose -f compose.yaml -f compose.prod.yaml build api
 docker compose -f compose.yaml -f compose.prod.yaml up -d --no-deps api
 curl -fsS https://api.example.com/api/health
