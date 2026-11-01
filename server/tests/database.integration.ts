@@ -14,7 +14,7 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
   const pool = createPool({ DATABASE_URL: raw, DATABASE_SSL: process.env.DATABASE_SSL === 'verify-full' ? 'verify-full' : 'disable' });
   t.after(() => pool.end()); await migrate(pool); const store = createStore(pool);
   await t.test('迁移可重复执行且保留版本校验和', async () => {
-    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 6);
+    await migrate(pool); assert.equal(Number((await pool.query('SELECT count(*) FROM schema_migrations')).rows[0].count), 7);
   });
   await t.test('空榜、真实写入读取、同昵称允许多次战役', async () => {
     await pool.query('TRUNCATE scores'); assert.deepEqual(await store.leaderboard('speed', 'normal', 20), []);
@@ -37,6 +37,13 @@ test('真实PostgreSQL集成（专用测试库）', async t => {
       [old.runId, old.nickname, old.difficulty, old.durationMs, old.totalDurationMs, JSON.stringify(old.phaseTimesMs), old.score, old.maxSpeed, '0.16.0', JSON.stringify(old.stages), old.scope]);
     assert.equal((await pool.query('SELECT score_version FROM scores WHERE id=$1', [old.runId])).rows[0].score_version, 5);
     assert.ok((await store.leaderboard('speed', old.difficulty, 20)).every(row => row.id !== old.runId));
+  });
+  await t.test('显示修复保留v0.17.0且同评分规则的补丁版共用榜单', async () => {
+    await pool.query('TRUNCATE scores'); const old = payload(), current = payload();
+    await pool.query('INSERT INTO scores (id,nickname,difficulty,duration_ms,total_duration_ms,phase_times_ms,score,max_speed,score_version,game_version,stages,scope) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,6,$9,$10,$11)',
+      [old.runId, old.nickname, old.difficulty, old.durationMs, old.totalDurationMs, JSON.stringify(old.phaseTimesMs), old.score, old.maxSpeed, '0.17.0', JSON.stringify(old.stages), old.scope]);
+    await store.submit(current); const ids = (await store.leaderboard('speed', old.difficulty, 20)).map(row => row.id);
+    assert.ok(ids.includes(old.runId) && ids.includes(current.runId));
   });
   await t.test('失败/主动结束归挑战榜，完整通关榜独立，真实名次与幂等返回一致', async () => {
     await pool.query('TRUNCATE scores');

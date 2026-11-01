@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
 
-/** 模型/布局保持1280×720；画布支持720p/1440p/4K，命中由真实相机换算。 */
-export const RENDER_SCALE = (() => {
-  try { const quality = localStorage.getItem('last-light.display-quality'); return quality === 'standard' ? 1 : quality === 'ultra' ? 3 : 2; } catch { return 2; }
-})();
+/** 固定1080p，逻辑布局1280×720；不再提供高负载档位。仅清理废弃偏好，不动营地。 */
+export const RENDER_SCALE = 1.5;
+try { localStorage.removeItem('last-light.display-quality'); } catch { /* 禁用存储不影响游玩。 */ }
 const prepared = new WeakSet<Phaser.GameObjects.GameObjectFactory>();
 const vectorTextures = new Set<string>();
 export function loadSharpSvg(scene: Phaser.Scene, key: string, url: string): void {
@@ -23,7 +22,7 @@ export function sharpText(scene: Phaser.Scene): void {
   scene.add.image = (...args) => logicalScale(image(...args));
   scene.add.sprite = (...args) => logicalScale(sprite(...args));
   scene.add.text = (x, y, value, style = {}) => {
-    const text = create(x, y, value, { ...style, resolution: RENDER_SCALE });
+    const text = create(x, y, value, { ...style, resolution: 2 });
     text.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
     return text;
   };

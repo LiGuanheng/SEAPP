@@ -1,10 +1,15 @@
 {
-  "gameVersion": "0.17.0",
+  "gameVersion": "0.17.1",
   "scoreVersion": 6,
   "campaignStages": 5,
   "persistentExploration": true,
   "heroes": 4,
   "manualPreparation": true,
   "hdRendering": true,
-  "hardModeSkills": true
+  "hardModeSkills": true,
+  "fixedResolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "qualitySelection": false
 }

@@ -79,9 +79,10 @@ test('排名活动时钟在真实场景中排除暂停、指南、榜单等待�
   if ((await snapshot()).paused) await page.keyboard.press('KeyP');
   await page.clock.runFor(2000); const active = (await snapshot()).ranking.elapsedMs; expect(active).toBeGreaterThanOrEqual(1900);
   await page.keyboard.press('KeyP'); const paused = (await snapshot()).ranking.elapsedMs; await page.clock.runFor(5000); expect((await snapshot()).ranking.elapsedMs).toBe(paused);
-  await page.keyboard.press('KeyP'); await page.clock.runFor(1000); expect((await snapshot()).ranking.elapsedMs).toBeGreaterThanOrEqual(paused + 990);
+  // 探索使用60Hz固定步长；启停边界允许最多两个模型步，暂停区间仍要求精确冻结。
+  await page.keyboard.press('KeyP'); await page.clock.runFor(1000); expect((await snapshot()).ranking.elapsedMs - paused).toBeGreaterThanOrEqual(1000 - 2 * 1000 / 60); expect((await snapshot()).ranking.elapsedMs - paused).toBeLessThanOrEqual(1050);
   await page.keyboard.press('F1'); const guide = (await snapshot()).ranking.elapsedMs; await page.clock.runFor(4000); expect((await snapshot()).ranking.elapsedMs).toBe(guide); await page.keyboard.press('F1');
   await page.getByRole('button', { name: '排行榜', exact: true }).click(); const menu = (await snapshot()).ranking.elapsedMs; await page.clock.runFor(5000); expect((await snapshot()).ranking.elapsedMs).toBe(menu);
-  await page.keyboard.press('Escape'); await page.clock.runFor(1000); expect((await snapshot()).ranking.elapsedMs).toBeGreaterThanOrEqual(menu + 990);
+  await page.keyboard.press('Escape'); await page.clock.runFor(1000); expect((await snapshot()).ranking.elapsedMs - menu).toBeGreaterThanOrEqual(1000 - 2 * 1000 / 60); expect((await snapshot()).ranking.elapsedMs - menu).toBeLessThanOrEqual(1050);
   await page.reload(); await page.waitForFunction(() => (window as any).__lastLight?.snapshot().ready); expect((await snapshot()).ranking.elapsedMs).toBeLessThan(1000);
 });

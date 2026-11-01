@@ -66,7 +66,8 @@ export class BaseScene extends Phaser.Scene {
     this.paused = false; this.drag = null; this.wallStroke = null; this.accumulator = 0; this.savedReady = false; this.pointerActive = false;
     const camera = this.cameras.main;
     // 使用整个画面宽度，以灯塔图像中心定位；小地图作为浮层，不挤占战场中心。
-    camera.removeBounds().setViewport(0, 94 * RENDER_SCALE, 1280 * RENDER_SCALE, 502 * RENDER_SCALE).setZoom(0.9 * RENDER_SCALE).centerOn(CAMERA_FOCUS.x, CAMERA_FOCUS.y).setRoundPixels(true);
+    // 1080p比例下视口中心含半像素，保留相机小数滚动可避免居中被反复向下取整。
+    camera.removeBounds().setViewport(0, 94 * RENDER_SCALE, 1280 * RENDER_SCALE, 502 * RENDER_SCALE).setZoom(0.9 * RENDER_SCALE).centerOn(CAMERA_FOCUS.x, CAMERA_FOCUS.y).setRoundPixels(false);
     this.view = new BaseView(this);
     this.nightView = this.world instanceof NightWorld ? new NightView(this, this.view.root) : null;
     this.hud = data.battle ? new NightHud(this, () => this.action(this.world.hold([...this.selected])), () => this.toggleSupport(), () => this.audio?.toggle(), () => this.setPaused(!this.paused), () => this.resume(), () => this.explore()) :

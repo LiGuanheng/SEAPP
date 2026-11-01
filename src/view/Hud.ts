@@ -38,7 +38,8 @@ export class Hud {
   private isOverlay = false;
   constructor(scene: Phaser.Scene, pause: () => void, resumeOrRetry: () => void, mute: () => void) {
     this.scene = scene;
-    this.root = scene.add.container(0, 0).setScrollFactor(0).setDepth(100000);
+    // 固定HUD由独立UI相机定位；scrollFactor=0会绕过该相机的偏移补偿，导致面板离屏。
+    this.root = scene.add.container(0, 0).setDepth(100000);
     this.graphics = scene.add.graphics(); this.root.add(this.graphics);
     const text = (x: number, y: number, value: string, size: number, color = '#c8d1c1') => {
       const label = scene.add.text(x, y, value, { fontFamily: font, fontSize: `${size}px`, color }); this.root.add(label); return label;

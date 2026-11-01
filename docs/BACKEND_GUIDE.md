@@ -1,6 +1,6 @@
 # 《最后一盏灯》后端、源码学习与答辩指南
 
-版本：v0.17.0、评分版本6；困难模式与高清见 [v0.17说明](24-v0.17-challenge-hd.md)。手动布防、地图居中、阶段成长见 [v0.16说明](23-v0.16-growth.md)。持续探索、四英雄与新单位见 [v0.15说明](22-v0.15-world.md)，五阶段、三档难度和计时见 [v0.14说明](21-v0.14-game.md)。后端增加006版本迁移。游戏先发布到GitHub Pages，API/数据库按用户选择稍后配置。验收见 [BACKEND_VALIDATION.md](BACKEND_VALIDATION.md)，后端部署见 [BACKEND_DEPLOYMENT.md](BACKEND_DEPLOYMENT.md)，六天安排见 [BACKEND_STUDY_PLAN.md](BACKEND_STUDY_PLAN.md)。
+版本：v0.17.1、评分版本6；固定1080p与HUD修复见 [修复说明](25-v0.17.1-display-fix.md)。困难模式与高清见 [v0.17说明](24-v0.17-challenge-hd.md)。手动布防、地图居中、阶段成长见 [v0.16说明](23-v0.16-growth.md)。持续探索、四英雄与新单位见 [v0.15说明](22-v0.15-world.md)，五阶段、三档难度和计时见 [v0.14说明](21-v0.14-game.md)。后端增加007补丁兼容迁移。游戏先发布到GitHub Pages，API/数据库按用户选择稍后配置。验收见 [BACKEND_VALIDATION.md](BACKEND_VALIDATION.md)，后端部署见 [BACKEND_DEPLOYMENT.md](BACKEND_DEPLOYMENT.md)，六天安排见 [BACKEND_STUDY_PLAN.md](BACKEND_STUDY_PLAN.md)。
 
 ## 1. 先认识这个游戏与本轮边界
 
@@ -208,7 +208,7 @@ API要求三段时间之和精确等于游戏总时长，完整通关必须记�
   "score": 26520,
   "maxSpeed": 3,
   "scoreVersion": 6,
-  "gameVersion": "0.17.0",
+  "gameVersion": "0.17.1",
   "stages": [
     {"stage":1,"kills":50,"bossKills":1,"lampHealth":300,"soldiers":3},
     {"stage":2,"kills":100,"bossKills":1,"lampHealth":300,"soldiers":3},
