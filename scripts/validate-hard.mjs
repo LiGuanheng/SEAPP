@@ -6,6 +6,7 @@ import { NightWorld } from '../src/core/night-world.ts';
 import { newCampaign } from '../src/core/campaign.ts';
 import { LIGHTHOUSE } from '../src/config/base.ts';
 import { assaultPlan } from '../src/core/assault.ts';
+import { simulateCampaign } from './validate-balance.mjs';
 
 export function hardFixture(layout = 'balanced') {
   const c = newCampaign(); c.clearedStage = 4; c.expeditions = 8;
@@ -60,5 +61,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const balanced = runHardReference('balanced'), cluster = runHardReference('cluster');
   console.log(JSON.stringify({ balanced, cluster }));
   assert.deepEqual(balanced.remainingDepot, cluster.remainingDepot);
-  assert.equal(balanced.outcome, 'victory'); assert.equal(cluster.outcome, 'defeat');
+  assert.equal(balanced.outcome, 'victory');
+  // 极限库存阵地不再作为难度标尺；使用每关一趟物资的对照验证策略仍有作用。
+  const finite = simulateCampaign('hard'), misplaced = simulateCampaign('hard', 0, 'cluster');
+  console.log(JSON.stringify({ finite, misplaced }));
+  assert.equal(finite.results.length, 5); assert.ok(finite.results.every(r => r.outcome === 'victory'));
+  assert.ok(misplaced.results.some(r => r.outcome === 'defeat'));
 }

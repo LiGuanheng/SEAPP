@@ -1,6 +1,6 @@
 import { LIGHTHOUSE } from './base.ts';
 import type { StageId } from './progression.ts';
-import { DIFFICULTIES, type Difficulty } from './difficulty.ts';
+import { nightDifficulty, type Difficulty } from './difficulty.ts';
 export const NIGHT_SECONDS = 120, LAMP_HEALTH = 380;
 export const NIGHT_LIMITS = { enemies: 96, bullets: 160, corpses: 40, particles: 200, zones: 8 };
 interface Creature { name: string; health: number; speed: number; damage: number; interval: number; scale?: number; tint?: number; texture?: string; boss?: boolean; flying?: boolean; radius?: number; armor?: number }
@@ -9,7 +9,7 @@ export const INFECTED = {
   walker: creature({ name: '游荡者', health: 60, speed: 40, damage: 9, interval: 1.2, tint: 0x9bb693 }),
   runner: creature({ name: '疾行者', health: 40, speed: 76, damage: 6, interval: 0.85, scale: 1, tint: 0xc28d87, texture: 'zombie-alt' }),
   brute: creature({ name: '重装感染者', health: 220, speed: 28, damage: 22, interval: 1.65, scale: 1.65, tint: 0xb09e76, radius: 16 }),
-  tank: creature({ name: '铁甲巨尸', health: 900, speed: 22, damage: 30, interval: 2.2, scale: 1.35, texture: 'tank', radius: 22, armor: 0.45 }),
+  tank: creature({ name: '铁甲巨尸', health: 760, speed: 22, damage: 26, interval: 2.2, scale: 1.35, texture: 'tank', radius: 22, armor: 0.40 }),
   spiderling: creature({ name: '蜘蛛幼体', health: 24, speed: 90, damage: 4, interval: 0.8, scale: 0.65, texture: 'spiderling', radius: 9 }),
   undead: creature({ name: '亡灵侍从', health: 74, speed: 44, damage: 10, interval: 1.1, scale: 0.85, texture: 'undead', armor: 0.1 }),
   crow: creature({ name: '腐鸦', health: 54, speed: 76, damage: 5, interval: 1.1, scale: 0.85, texture: 'crow', flying: true }),
@@ -44,12 +44,14 @@ const STAGE_WAVES: Record<StageId, readonly Wave[]> = {
   4: [wave(3, 24, 9, 3, 4, 4, 6), wave(21, 38, 12, 4, 9, 5, 8, ['queen']), wave(40, 42, 14, 5, 8, 7, 10, ['knight']), wave(61, 46, 16, 6, 10, 8, 12, ['blighter']), wave(81, 50, 18, 7, 12, 9, 14, ['axeman', 'bird'])],
   5: [wave(3, 28, 10, 4, 5, 5, 8, ['axeman']), wave(20, 42, 14, 5, 10, 7, 10, ['queen']), wave(39, 46, 16, 6, 11, 8, 12, ['knight']), wave(59, 50, 18, 7, 12, 9, 14, ['bird']), wave(79, 56, 20, 8, 14, 10, 16, ['blighter', 'bomber'])],
 };
-const DEVELOPED_WAVES = Object.fromEntries(Object.entries(STAGE_WAVES).map(([stage, waves]) => [stage, waves.map((w, i) => ({ ...w, tank: Number(stage) < 2 || i < 2 ? 0 : Number(stage) >= 4 ? 2 : 1 }))])) as unknown as Record<StageId, readonly Wave[]>;
-export const wavesForStage = (stage: StageId, difficulty: Difficulty = 'normal'): readonly Wave[] => difficulty === 'hard' ? DEVELOPED_WAVES[stage].map(w => ({ ...w, at: Math.max(3, Math.round(w.at * 0.94)) })) : DEVELOPED_WAVES[stage];
+// 第二阶段末轮先介绍一只重甲，第三阶段起才逐步组成重甲阵线。
+const DEVELOPED_WAVES = Object.fromEntries(Object.entries(STAGE_WAVES).map(([stage, waves]) => [stage, waves.map((w, i) => ({ ...w, tank: Number(stage) < 2 || i < (Number(stage) === 2 ? 4 : 3) ? 0 : Number(stage) >= 4 && i === 4 ? 2 : 1 }))])) as unknown as Record<StageId, readonly Wave[]>;
+export const wavesForStage = (stage: StageId, difficulty: Difficulty = 'normal'): readonly Wave[] => difficulty === 'hard' && stage >= 3 ? DEVELOPED_WAVES[stage].map(w => ({ ...w, at: Math.max(3, Math.round(w.at * 0.98)) })) : DEVELOPED_WAVES[stage];
 export const WAVES = STAGE_WAVES[1];
 export const gatesForStage = (stage: StageId) => { const x = [790, 860, 920, 960, 976][stage - 1], y = [520, 580, 620, 640, 656][stage - 1]; return [{ x: LIGHTHOUSE.x, y: LIGHTHOUSE.y - y }, { x: LIGHTHOUSE.x + x, y: LIGHTHOUSE.y }, { x: LIGHTHOUSE.x, y: LIGHTHOUSE.y + y }, { x: LIGHTHOUSE.x - x, y: LIGHTHOUSE.y }]; };
 export const GATES = gatesForStage(1);
 export function levelStats(kind: InfectedKind, level = 1, stage: StageId = 1, difficulty: Difficulty = 'normal') {
   const c = INFECTED[kind], tier = Math.max(0, Math.min(4, level - 1));
-  return { health: Math.round(c.health * (1 + tier * 0.10) * (1 + (stage - 1) * 0.18) * DIFFICULTIES[difficulty].health), damage: Math.round(c.damage * (1 + tier * 0.06) * (1 + (stage - 1) * 0.12) * DIFFICULTIES[difficulty].damage), speed: c.speed * (1 + tier * 0.035) * (1 + (stage - 1) * 0.05) * DIFFICULTIES[difficulty].speed };
+  const tuning = nightDifficulty(difficulty, stage);
+  return { health: Math.round(c.health * (1 + tier * 0.10) * (1 + (stage - 1) * 0.12) * tuning.health), damage: Math.round(c.damage * (1 + tier * 0.06) * (1 + (stage - 1) * 0.08) * tuning.damage), speed: c.speed * (1 + tier * 0.035) * (1 + (stage - 1) * 0.03) * tuning.speed };
 }

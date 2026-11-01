@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './fixtures.ts';
+import { campaignForStage } from '../../scripts/validate-balance.mjs';
 import { BaseWorld } from '../../src/core/base-world.ts';
 import { newCampaign, type Campaign } from '../../src/core/campaign.ts';
 import { RankedRun } from '../../src/core/ranking.ts';
@@ -103,23 +104,18 @@ test('街区死亡自动显示分数与榜单，Enter不能复活或回城', asy
   const dead = await state(page); await page.keyboard.press('Escape'); await key(page, 'Enter'); await page.clock.runFor(2000); expect(await state(page)).toEqual(dead); await page.screenshot({ path: 'artifacts/v014-city-death-result.png' });
 });
 
-test('继续合法第四阶段存档，守住第五夜才完成五阶段通关并展示总成绩', async ({ page }) => {
+test('普通模式继续第四阶段存档，有限布防守住第五夜并展示总成绩', async ({ page }) => {
   test.setTimeout(180000);
   // 构造公开存档格式的阶段起点；施工和此前成绩均经过真实模型校验，不写只读诊断接口。
-  const campaign = newCampaign(); campaign.clearedStage = 4; campaign.depot = { materials: 1500, energy: 700, medkits: 2 };
-  campaign.survivors = ['engineer', 'captain', 'ranger', 'brawler', 'guardian', 'gunner', 'medic']; campaign.weapons = ['pistol', 'rifle', 'axe', 'bow'];
-  const base = new BaseWorld(campaign);
-  for (let y = 192; y <= 1056 && base.plan.buildings.length < 64; y += 96) for (let x = 352; x <= 1344 && base.plan.buildings.length < 64; x += 96) {
-    base.build(['turret', 'turret', 'cannon', 'sniper', 'repair'][base.plan.buildings.length % 5] as 'turret', { x, y });
-  }
-  expect(base.plan.buildings.length).toBeGreaterThanOrEqual(40);
-  const run = new RankedRun('11111111-1111-4111-8111-111111111111', 'easy');
+  const base = new BaseWorld(campaignForStage(5)); base.resume();
+  expect(base.plan.buildings.length).toBe(24);
+  const run = new RankedRun('11111111-1111-4111-8111-111111111111', 'normal');
   for (const stage of [1, 2, 3, 4] as const) {
     run.update(true, (stage - 1) * 100000); run.advancePhase('day', 20); run.advancePhase('base', 30); run.advancePhase('night', 120);
     run.finishNight({ stage, outcome: 'victory', kills: 50, bossKills: 1, lampHealth: 300, soldiers: 8 }, stage * 100000);
   }
   expect(run.result).toBe(null);
-  const checkpoint = { version: 1, stage: 5, phase: 'base', difficulty: 'easy', practice: false, campaign: base.campaign, run: run.checkpoint(400000) };
+  const checkpoint = { version: 1, stage: 5, phase: 'base', difficulty: 'normal', practice: false, campaign: base.campaign, run: run.checkpoint(400000) };
   await page.addInitScript(value => { localStorage.setItem('last-light.stage-checkpoint.v1', JSON.stringify(value)); localStorage.setItem('last-light.campaign.v2', JSON.stringify(value.campaign)); }, checkpoint);
   await page.clock.install(); await page.goto('/?test=1&intro=0'); await expect(page.getByRole('main', { name: '主菜单' })).toBeVisible(); await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 100);
   await page.getByRole('button', { name: '继续游戏', exact: true }).click(); await page.clock.runFor(120); await page.waitForFunction(() => (window as any).__baseLight?.snapshot().ready);
@@ -131,6 +127,7 @@ test('继续合法第四阶段存档，守住第五夜才完成五阶段通关�
   await expect(page.getByRole('heading', { name: /灯火长明/ })).toBeVisible();
   const result = await page.evaluate(() => JSON.parse(localStorage.getItem('last-light.pending-score.v1')!).result);
   expect(result.completed).toBe(true); expect(result.outcome).toBe('victory'); expect(result.scope).toBe('clear'); expect(result.stages.map((s: any) => s.stage)).toEqual([1, 2, 3, 4, 5]);
+  expect(result.difficulty).toBe('normal');
   expect(result.phaseTimesMs.night).toBe(600000); expect(result.phaseTimesMs.base).toBeGreaterThan(130000); expect(result.durationMs).toBe(result.phaseTimesMs.day + result.phaseTimesMs.base + result.phaseTimesMs.night);
   await page.screenshot({ path: 'artifacts/v014-five-stage-victory.png' });
 });

@@ -85,7 +85,7 @@ export class NightHud {
     this.info.setText(`灯塔耐久 ${w.lampHealth} / ${LAMP_HEALTH}`);
     this.status.setText(`阶段${w.stage}/${STAGE_COUNT} · 天亮 ${Math.ceil(w.remaining)}s · ${w.wave}/${w.waves.length}波 · 击杀${w.kills}`);
     const next = w.waves[w.wave];
-    this.forecast.setText(`${ASSAULT_NAMES[Math.max(0, w.wave - 1)]} · ${w.pressure.filter(n => n >= 3).length}向受压${w.pressure.filter(n => n >= 14).length >= 3 ? ' · 多线告急' : ''} · ${DIFFICULTIES[w.difficulty].name}${w.difficulty === 'hard' && w.elapsed >= 90 ? ' · 红潮狂暴！' : ''} · ${next ? `下一轮 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s` : '坚守至黎明'}`);
+    this.forecast.setText(`${ASSAULT_NAMES[Math.max(0, w.wave - 1)]} · ${w.pressure.filter(n => n >= 3).length}向受压${w.pressure.filter(n => n >= 14).length >= 3 ? ' · 多线告急' : ''} · ${DIFFICULTIES[w.difficulty].name}${w.enraged ? ' · 红潮狂暴！' : ''} · ${next ? `下一轮 ${Math.ceil(Math.max(0, next.at - w.elapsed))}s` : '坚守至黎明'}`);
     const bosses = w.enemies.filter(e => INFECTED[e.kind].boss && e.health > 0).slice(0, 5); this.bossRows = bosses.length;
     this.bosses.forEach((label, i) => {
       const e = bosses[i]; label.setVisible(!!e && !paused && w.commanding); if (!e) return;

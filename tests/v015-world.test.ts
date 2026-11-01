@@ -77,7 +77,7 @@ test('铁甲巨尸真实高血量减伤、慢速并在第二关后进入波次�
   assert.ok(wavesForStage(2).some(w => w.tank > 0)); assert.ok(wavesForStage(1).every(w => w.tank === 0));
   const w = new NightWorld(base().campaign); for (const f of w.fighters.values()) f.health = 0;
   const e = { id: 9000, kind: 'tank' as const, x: 1256, y: 892, health: 900, aim: 0, moving: false, cooldown: 999, hurt: 0 }; w.enemies.push(e);
-  w.bullets.push({ id: 99, x: 1256, y: 876, vx: 1, vy: 0, damage: 100, life: 1 }); w.step(); assert.equal(e.health, 845);
+  w.bullets.push({ id: 99, x: 1256, y: 876, vx: 1, vy: 0, damage: 100, life: 1 }); w.step(); assert.equal(e.health, 840);
 });
 
 test('磐石英雄实际承伤能力与逐空英雄优先对空生效', () => {
